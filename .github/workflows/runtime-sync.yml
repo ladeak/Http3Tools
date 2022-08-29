@@ -16,7 +16,7 @@ jobs:
       with:
         repository: 'ladeak/Http3Repl'
         path: Http3Repl
-        ref: main
+        ref: master
     - name: Checkout runtime
       uses: actions/checkout@v3
       with:
@@ -38,6 +38,6 @@ jobs:
         commit-message: 'Sync Syste Net Http shared code from runtime'
         title: 'Sync shared code from runtime'
         body: 'This PR was automatically generated to sync shared code changes from runtime.'
-        base: main
+        base: master
         branch: github-action-sync-runtime
         branch-suffix: timestamp
