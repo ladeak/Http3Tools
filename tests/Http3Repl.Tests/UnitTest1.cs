@@ -9,7 +9,7 @@ namespace Http3Repl.Tests;
 [Collection(nameof(NonParallel))]
 public class UnitTest1
 {
-    [Fact]
+    [QuicSupported]
     public async Task Test1()
     {
         using var app = CreateHostApplication();
