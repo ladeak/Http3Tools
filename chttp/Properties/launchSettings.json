@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "chttp": {
+      "commandName": "Project",
+      "commandLineArgs": "--uri https://localhost:5001"
+    }
+  }
+}
