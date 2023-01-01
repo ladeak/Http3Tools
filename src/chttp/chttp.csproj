@@ -9,6 +9,8 @@
     <ToolCommandName>chttp</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <RootNamespace>CHttp</RootNamespace>
+    <PackageId>LaDeak.CHttp</PackageId>
+    <Description>A simple HTTP/3 client tool.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -118,39 +118,3 @@ timeoutOption,
 new InvertBinder(redirectOption));
 
 await rootCommand.InvokeAsync(args);
-
-public class Update
-{
-
-    public override string ToString()
-    {
-        return base.ToString();
-    }
-}
-
-
-public class Summary
-{
-
-    public override string ToString()
-    {
-        return base.ToString();
-    }
-}
-
-public class ConsoleWriter
-{
-    public virtual void WriteInfo(string info) => Console.WriteLine(info);
-
-    public virtual void WriteUpdate(Update update) => Console.WriteLine(update.ToString());
-
-    public virtual void WriteSummary(Summary summary) => Console.WriteLine(summary.ToString());
-}
-
-public class ResponseWriter : ConsoleWriter
-{
-    public override void WriteUpdate(Update update)
-    {
-        Console.WriteLine(update);
-    }
-}
