@@ -67,6 +67,7 @@ public static class CommandFactory
             name: "--no-certificate-validation",
             getDefaultValue: () => false,
             description: "Disables certificate validation");
+        validateCertificateOption.AddAlias("--no-cert-validation");
 
         var uriOption = new Option<string>(
             name: "--uri",

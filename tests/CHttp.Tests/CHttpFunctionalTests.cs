@@ -12,7 +12,7 @@ public class CHttpFunctionalTests
         await host.StartAsync();
         var writer = new ContentResponseWriter();
         
-        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --uri https://localhost:5001");
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5001");
 
         var result = writer.ToString();
         Assert.Equal("test", result);
