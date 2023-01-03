@@ -6,7 +6,7 @@ namespace CHttp.Tests;
 public class CHttpFunctionalTests
 {
     [Fact]
-    public async Task Test1()
+    public async Task TestVanilaHttp3Request()
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();

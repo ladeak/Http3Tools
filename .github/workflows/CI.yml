@@ -21,6 +21,8 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         include-prerelease: true
+    - name: Install Package libmsquic
+      run: apt-get install libmsquic
     - name: Build
       run: dotnet build Http3Repl.sln --configuration ${{ env.CONFIGURATION }} --no-self-contained
     - name: Test

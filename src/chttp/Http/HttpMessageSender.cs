@@ -13,12 +13,12 @@ public class HttpMessageSender
     public async Task SendRequestAsync(HttpRequestDetails requestData, HttpBehavior behavior)
     {
         var messageHandler = new SocketsHttpHandler();
-        //messageHandler.MaxConnectionsPerServer = 1;
+        messageHandler.MaxConnectionsPerServer = 1;
         messageHandler.AllowAutoRedirect = behavior.EnableRedirects;
-        //messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
-        //{
-        //    // TODO: sockets behavior
-        //};
+        messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
+        {
+            // TODO: sockets behavior
+        };
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
         
