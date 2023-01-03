@@ -1,5 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-public class ConsoleWriter : IWriter
+﻿public class ConsoleWriter : IWriter
 {
     public virtual void WriteInfo(string info) => Console.WriteLine(info);
 

@@ -13,10 +13,15 @@ public class HttpMessageSender
     public async Task SendRequestAsync(HttpRequestDetails requestData, HttpBehavior behavior)
     {
         var messageHandler = new SocketsHttpHandler();
-        messageHandler.MaxConnectionsPerServer = 1;
+        //messageHandler.MaxConnectionsPerServer = 1;
         messageHandler.AllowAutoRedirect = behavior.EnableRedirects;
-        // TODO: sockets behavior
-
+        //messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
+        //{
+        //    // TODO: sockets behavior
+        //};
+        if (!behavior.EnableCertificateValidation)
+            messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
+        
         var client = new HttpClient(messageHandler);
         var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
         request.Version = requestData.Version;
@@ -42,13 +47,17 @@ public class HttpMessageSender
             while (count > 0)
             {
                 count = await reader.ReadAsync(buffer);
-                _writer.Write(buffer.AsSpan(count));
+                _writer.Write(buffer.AsSpan(0, count));
             }
             ArrayPool<char>.Shared.Return(buffer);
         }
         catch (OperationCanceledException)
         {
             // Timeout
+        }
+        catch (Exception ex)
+        {
+
         }
     }
 

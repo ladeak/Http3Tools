@@ -2,7 +2,7 @@
   "profiles": {
     "chttp": {
       "commandName": "Project",
-      "commandLineArgs": "--uri https://localhost:5001"
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001"
     }
   }
 }

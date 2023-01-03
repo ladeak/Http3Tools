@@ -1,5 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-public interface IWriter
+﻿public interface IWriter
 {
     void WriteInfo(string info);
 
