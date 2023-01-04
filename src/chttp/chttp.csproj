@@ -10,9 +10,8 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <RootNamespace>CHttp</RootNamespace>
     <PackageId>LaDeak.CHttp</PackageId>
+    <Authors>LaDeak</Authors>
     <Description>A simple HTTP/3 client tool.</Description>
-    <PublishSingleFile>true</PublishSingleFile>
-    <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>
