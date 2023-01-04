@@ -42,7 +42,7 @@ jobs:
         mv src/chttp/bin/Release/net7.0/linux-arm64/publish/chttp src/chttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64
         mv src/chttp/bin/Release/net7.0/linux-arm64/publish/chttp.pdb src/chttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64.pdb
         dotnet publish src/chttp/chttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true
-        mv src/chttp/bin/Release/net7.0/linux-arm/publish/chttp.exe src/chttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm
+        mv src/chttp/bin/Release/net7.0/linux-arm/publish/chttp src/chttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm
         mv src/chttp/bin/Release/net7.0/linux-arm/publish/chttp.pdb src/chttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm.pdb
     - name: Release
       uses: softprops/action-gh-release@v1
