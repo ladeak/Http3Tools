@@ -4,11 +4,19 @@ Tools to send HTTP requests. The tool is based on .NET7, for HTTP/3 uses msquic.
 
 ## Getting Started
 
+### Install as a .NET Tool
+
 To install as a dotnet tool:
 
 ```
 dotnet tool install -g LaDeak.CHttp --prerelease
 ```
+
+### Install Executable
+
+Download latest executables from this GitHub repository's Releases page.
+
+### Run the Tool
 
 Run command as:
 
@@ -16,8 +24,23 @@ Run command as:
 chttp --method GET --uri https://localhost:5001
 ```
 
+or 
+
+```
+chttp.exe --method GET --uri https://localhost:5001
+```
+
 ## Options
 
+For available commands and options run the tool with the `--help` switch:
+
+```
+chttp --help
+```
+
+Currently supported commands and options:
+
+```
 Description:
   Send HTTP request
 
@@ -38,3 +61,4 @@ Options:
 Commands:
   forms  Forms request
   json   Json request
+```
