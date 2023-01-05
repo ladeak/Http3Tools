@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\chttp\CHttp.csproj" />
+    <ProjectReference Include="..\..\src\CHttp\CHttp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
