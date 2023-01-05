@@ -1,6 +1,6 @@
 ﻿public interface IWriter
 {
-    void WriteInfo(string info);
+    void Write(string info);
 
     void Write(ReadOnlySpan<char> info);
 

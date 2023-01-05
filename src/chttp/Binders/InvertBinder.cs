@@ -3,7 +3,7 @@ using System.CommandLine.Binding;
 
 namespace CHttp.Binders;
 
-public class InvertBinder : BinderBase<bool>
+internal sealed class InvertBinder : Binder<bool>
 {
     private readonly Option<bool> _option;
 

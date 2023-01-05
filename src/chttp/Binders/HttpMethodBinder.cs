@@ -3,11 +3,11 @@ using System.CommandLine.Binding;
 
 namespace CHttp.Binders;
 
-public class MethodBinder : BinderBase<HttpMethod>
+internal sealed class HttpMethodBinder : Binder<HttpMethod>
 {
     private readonly Option<string?> _option;
 
-    public MethodBinder(Option<string?> option)
+    public HttpMethodBinder(Option<string> option)
     {
         _option = option;
     }

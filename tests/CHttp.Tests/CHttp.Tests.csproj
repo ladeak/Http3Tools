@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\chttp\chttp.csproj" />
+    <ProjectReference Include="..\..\src\chttp\CHttp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

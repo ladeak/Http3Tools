@@ -17,7 +17,7 @@ internal class ContentResponseWriter : IWriter
             _sb.Append(c);
     }
 
-    public void WriteInfo(string info)
+    public void Write(string info)
     { 
     }
 

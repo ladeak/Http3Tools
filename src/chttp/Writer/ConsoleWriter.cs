@@ -1,6 +1,6 @@
 ﻿public class ConsoleWriter : IWriter
 {
-    public virtual void WriteInfo(string info) => Console.WriteLine(info);
+    public virtual void Write(string info) => Console.WriteLine(info);
 
     public virtual void WriteUpdate(Update update) => Console.WriteLine(update.ToString());
 

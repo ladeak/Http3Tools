@@ -3,7 +3,7 @@ using System.CommandLine.Binding;
 
 namespace CHttp.Binders;
 
-public class KeyValueBinder : BinderBase<IEnumerable<KeyValueDescriptor>>
+internal sealed class KeyValueBinder : Binder<IEnumerable<KeyValueDescriptor>>
 {
     private readonly Option<IEnumerable<string>> _headers;
 

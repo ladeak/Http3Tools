@@ -9,9 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Http3Repl.Tests", "tests\Ht
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestWebApplication", "tests\TestWebApplication\TestWebApplication.csproj", "{BC1422AE-8253-4CC7-A027-1756A80E6147}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "chttp", "src\chttp\chttp.csproj", "{5A545922-2FCD-46D0-9BB1-83EFE33F9900}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp", "src\chttp\CHttp.csproj", "{5A545922-2FCD-46D0-9BB1-83EFE33F9900}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Tests", "tests\CHttp.Tests\CHttp.Tests.csproj", "{D5C74B2D-AD90-4A4B-80D7-584450753A5F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Tests", "tests\CHttp.Tests\CHttp.Tests.csproj", "{D5C74B2D-AD90-4A4B-80D7-584450753A5F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

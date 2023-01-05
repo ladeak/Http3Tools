@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using CHttp.Binders;
+using CHttp.Data;
 
 namespace CHttp;
 
@@ -20,7 +21,7 @@ public static class CommandFactory
         versionOptions.IsRequired = false;
         versionOptions.FromAmong(VersionBinder.Version10, VersionBinder.Version11, VersionBinder.Version20, VersionBinder.Version30);
 
-        var methodOptions = new Option<string?>(
+        var methodOptions = new Option<string>(
             name: "--method",
             getDefaultValue: () => HttpMethod.Get.ToString(),
             description: "HTTP Method");
@@ -75,6 +76,14 @@ public static class CommandFactory
         uriOption.AddAlias("-u");
         uriOption.IsRequired = true;
 
+        var logOption = new Option<LogLevel>(
+            name: "--log",
+            getDefaultValue: () => LogLevel.Info,
+            description: "Level of logging details.");
+        versionOptions.AddAlias("-l");
+        versionOptions.IsRequired = false;
+        versionOptions.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Info), nameof(LogLevel.Verbose));
+
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
@@ -83,54 +92,63 @@ public static class CommandFactory
         rootCommand.AddGlobalOption(timeoutOption);
         rootCommand.AddGlobalOption(redirectOption);
         rootCommand.AddGlobalOption(validateCertificateOption);
+        rootCommand.AddGlobalOption(logOption);
 
         var formsCommand = new Command("forms", "Forms request");
         formsCommand.AddOption(formsOptions);
         rootCommand.Add(formsCommand);
-        formsCommand.SetHandler(async (version, method, headers, uri, timeout, forms, redirects, certificateValidation) =>
+        formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
         {
             var client = new HttpMessageSender(new ResponseWriter());
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
-            await client.SendRequestAsync(new HttpRequestDetails(method, uri, version, headers, timeout) { Content = formContent }, new HttpBehavior(redirects, certificateValidation));
+            requestDetails = requestDetails with { Content = formContent };
+            await client.SendRequestAsync(requestDetails, httpBehavior);
         },
-        new VersionBinder(versionOptions),
-        new MethodBinder(methodOptions),
-        new KeyValueBinder(headerOptions),
-        new UriBinder(uriOption),
-        timeoutOption,
-        new KeyValueBinder(formsOptions),
-        new InvertBinder(redirectOption),
-        new InvertBinder(validateCertificateOption));
+        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
+          new UriBinder(uriOption),
+          new VersionBinder(versionOptions),
+          new KeyValueBinder(headerOptions),
+          timeoutOption),
+        new HttpBehaviorBinder(
+          new InvertBinder(redirectOption),
+          new InvertBinder(validateCertificateOption),
+        logOption),
+        new KeyValueBinder(formsOptions));
 
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
         rootCommand.Add(jsonCommand);
-        jsonCommand.SetHandler(async (version, method, headers, uri, timeout, body, redirects, certificateValidation) =>
+        jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
         {
             var client = new HttpMessageSender(new ResponseWriter());
-            await client.SendRequestAsync(new HttpRequestDetails(method, uri, version, headers, timeout) { Content = new StringContent(body) }, new HttpBehavior(redirects, certificateValidation));
+            requestDetails = requestDetails with { Content = new StringContent(body) };
+            await client.SendRequestAsync(requestDetails, httpBehavior);
         },
-        new VersionBinder(versionOptions),
-        new MethodBinder(methodOptions),
-        new KeyValueBinder(headerOptions),
-        new UriBinder(uriOption),
-        timeoutOption,
-        bodyOptions,
-        new InvertBinder(redirectOption),
-        new InvertBinder(validateCertificateOption));
+        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
+          new UriBinder(uriOption),
+          new VersionBinder(versionOptions),
+          new KeyValueBinder(headerOptions),
+          timeoutOption),
+        new HttpBehaviorBinder(
+          new InvertBinder(redirectOption),
+          new InvertBinder(validateCertificateOption),
+        logOption),
+        bodyOptions);
 
-        rootCommand.SetHandler(async (version, method, headers, uri, timeout, redirects, certificateValidation) =>
+        rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
         {
             var client = new HttpMessageSender(writer ?? new ResponseWriter());
-            await client.SendRequestAsync(new HttpRequestDetails(method, uri, version, headers, timeout), new HttpBehavior(redirects, certificateValidation));
+            await client.SendRequestAsync(requestDetails, httpBehavior);
         },
-        new VersionBinder(versionOptions),
-        new MethodBinder(methodOptions),
-        new KeyValueBinder(headerOptions),
-        new UriBinder(uriOption),
-        timeoutOption,
-        new InvertBinder(redirectOption),
-        new InvertBinder(validateCertificateOption));
+        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
+          new UriBinder(uriOption),
+          new VersionBinder(versionOptions),
+          new KeyValueBinder(headerOptions),
+          timeoutOption),
+        new HttpBehaviorBinder(
+          new InvertBinder(redirectOption),
+          new InvertBinder(validateCertificateOption),
+        logOption));
 
         return rootCommand;
     }

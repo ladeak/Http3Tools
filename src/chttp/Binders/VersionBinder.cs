@@ -4,7 +4,7 @@ using System.Net;
 
 namespace CHttp.Binders;
 
-public class VersionBinder : BinderBase<Version>
+internal class VersionBinder : Binder<Version>
 {
     private readonly Option<string?> _option;
 

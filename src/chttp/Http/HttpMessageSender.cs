@@ -1,7 +1,7 @@
 ﻿using System.Buffers;
 using System.Text;
 
-public class HttpMessageSender
+internal sealed class HttpMessageSender
 {
     private readonly IWriter _writer;
 
@@ -51,13 +51,21 @@ public class HttpMessageSender
             }
             ArrayPool<char>.Shared.Return(buffer);
         }
+        catch (HttpRequestException requestException)
+        {
+            _writer.Write($"Request Error {requestException.Message}");
+        }
+        catch (HttpProtocolException protocolException)
+        {
+            _writer.Write($"Protocol Error {protocolException.ErrorCode}");
+        }
         catch (OperationCanceledException)
         {
-            // Timeout
+            _writer.Write($"Request Timed Out");
         }
         catch (Exception ex)
         {
-
+            _writer.Write($"Generic Error {ex}");
         }
     }
 

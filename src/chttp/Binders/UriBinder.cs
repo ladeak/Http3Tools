@@ -3,7 +3,7 @@ using System.CommandLine.Binding;
 
 namespace CHttp.Binders;
 
-public class UriBinder : BinderBase<Uri>
+internal sealed class UriBinder : Binder<Uri>
 {
     private readonly Option<string> _option;
 
