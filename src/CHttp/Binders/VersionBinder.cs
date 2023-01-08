@@ -6,14 +6,14 @@ namespace CHttp.Binders;
 
 internal class VersionBinder : Binder<Version>
 {
-    private readonly Option<string?> _option;
+    private readonly Option<string> _option;
 
     internal const string Version10 = "1.0";
     internal const string Version11 = "1.1";
     internal const string Version20 = "2";
     internal const string Version30 = "3";
 
-    public VersionBinder(Option<string?> option)
+    public VersionBinder(Option<string> option)
     {
         _option = option;
     }

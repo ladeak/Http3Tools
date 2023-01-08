@@ -1,4 +1,6 @@
 ﻿using System.Buffers;
+using System.Buffers.Text;
+using System.IO.Pipelines;
 using System.Text;
 
 internal sealed class HttpMessageSender
@@ -21,7 +23,7 @@ internal sealed class HttpMessageSender
         };
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
-        
+
         var client = new HttpClient(messageHandler);
         var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
         request.Version = requestData.Version;
@@ -29,44 +31,46 @@ internal sealed class HttpMessageSender
         request.Content = requestData.Content;
         client.Timeout = TimeSpan.FromSeconds(requestData.Timeout);
         SetHeaders(requestData, request);
-        await SendRequest(client, request);
+        await SendRequest(client, request, behavior);
     }
 
-    private async Task SendRequest(HttpClient client, HttpRequestMessage request)
+    private async Task SendRequest(HttpClient client, HttpRequestMessage request, HttpBehavior behavior)
     {
+        var summary = new Summary();
         try
         {
-            var summary = new Summary();
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var charSet = response.Content.Headers.ContentType?.CharSet;
             var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
-            var contentStream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(contentStream, encoding);
-            var buffer = ArrayPool<char>.Shared.Rent(8192);
-            int count = int.MaxValue;
-            while (count > 0)
-            {
-                count = await reader.ReadAsync(buffer);
-                _writer.Write(buffer.AsSpan(0, count));
-            }
-            ArrayPool<char>.Shared.Return(buffer);
+            await _writer.InitializeResponse(response.Content.Headers.ContentLength ?? 0, response.StatusCode.ToString(), response.Headers, encoding, behavior.LogLevel);
+            await Read(response, encoding);
+
         }
         catch (HttpRequestException requestException)
         {
-            _writer.Write($"Request Error {requestException.Message}");
+            summary.Error = $"Request Error {requestException.Message}";
         }
         catch (HttpProtocolException protocolException)
         {
-            _writer.Write($"Protocol Error {protocolException.ErrorCode}");
+            summary.Error = $"Protocol Error {protocolException.ErrorCode}";
         }
         catch (OperationCanceledException)
         {
-            _writer.Write($"Request Timed Out");
+            summary.Error = "Request Timed Out";
         }
         catch (Exception ex)
         {
-            _writer.Write($"Generic Error {ex}");
+            summary.Error = $"Generic Error {ex}";
         }
+        _writer.WriteSummary(summary);
+    }
+
+    private async Task Read(HttpResponseMessage response, Encoding encoding)
+    {
+        var contentStream = await response.Content.ReadAsStreamAsync();
+        var transcodingStream = Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8);
+        await transcodingStream.CopyToAsync(_writer.Pipe);
+        await _writer.Pipe.CompleteAsync();
     }
 
     private void SetHeaders(HttpRequestDetails requestData, HttpRequestMessage request)

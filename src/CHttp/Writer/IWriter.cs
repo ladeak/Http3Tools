@@ -1,8 +1,13 @@
-﻿public interface IWriter
-{
-    void Write(string info);
+﻿using System.IO.Pipelines;
+using System.Net.Http.Headers;
+using System.Text;
+using CHttp.Data;
 
-    void Write(ReadOnlySpan<char> info);
+internal interface IWriter
+{
+    PipeWriter Pipe { get; }
+
+    Task InitializeResponse(long totalSize, string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel);
 
     void WriteSummary(Summary summary);
 

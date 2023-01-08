@@ -4,7 +4,7 @@ using CHttp.Data;
 
 namespace CHttp;
 
-public static class CommandFactory
+internal static class CommandFactory
 {
     public static Command CreateRootCommand(IWriter? writer = null)
     {
@@ -13,7 +13,7 @@ public static class CommandFactory
         // TLS
         // proxy
 
-        var versionOptions = new Option<string?>(
+        var versionOptions = new Option<string>(
             name: "--http-version",
             getDefaultValue: () => VersionBinder.Version30,
             description: "The version of the HTTP request: 1.0, 1.1, 2, 3");
@@ -80,9 +80,9 @@ public static class CommandFactory
             name: "--log",
             getDefaultValue: () => LogLevel.Info,
             description: "Level of logging details.");
-        versionOptions.AddAlias("-l");
-        versionOptions.IsRequired = false;
-        versionOptions.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Info), nameof(LogLevel.Verbose));
+        logOption.AddAlias("-l");
+        logOption.IsRequired = false;
+        logOption.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Info), nameof(LogLevel.Verbose));
 
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
@@ -94,12 +94,23 @@ public static class CommandFactory
         rootCommand.AddGlobalOption(validateCertificateOption);
         rootCommand.AddGlobalOption(logOption);
 
+        CreateFormsCommand(versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+
+        CreateJsonCommand(versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+
+        CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+
+        return rootCommand;
+    }
+
+    private static void CreateFormsCommand(Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<IEnumerable<string>> formsOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    {
         var formsCommand = new Command("forms", "Forms request");
         formsCommand.AddOption(formsOptions);
         rootCommand.Add(formsCommand);
         formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
         {
-            var client = new HttpMessageSender(new ResponseWriter());
+            var client = new HttpMessageSender(new StatefulBufferedConsoleWriter());
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
             await client.SendRequestAsync(requestDetails, httpBehavior);
@@ -114,13 +125,34 @@ public static class CommandFactory
           new InvertBinder(validateCertificateOption),
         logOption),
         new KeyValueBinder(formsOptions));
+    }
 
+    private static void CreateDefaultCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    {
+        rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
+        {
+            var client = new HttpMessageSender(writer ?? new StatefulBufferedConsoleWriter());
+            await client.SendRequestAsync(requestDetails, httpBehavior);
+        },
+        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
+          new UriBinder(uriOption),
+          new VersionBinder(versionOptions),
+          new KeyValueBinder(headerOptions),
+          timeoutOption),
+        new HttpBehaviorBinder(
+          new InvertBinder(redirectOption),
+          new InvertBinder(validateCertificateOption),
+        logOption));
+    }
+
+    private static void CreateJsonCommand(Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    {
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
         rootCommand.Add(jsonCommand);
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
         {
-            var client = new HttpMessageSender(new ResponseWriter());
+            var client = new HttpMessageSender(new StatefulBufferedConsoleWriter());
             requestDetails = requestDetails with { Content = new StringContent(body) };
             await client.SendRequestAsync(requestDetails, httpBehavior);
         },
@@ -134,22 +166,5 @@ public static class CommandFactory
           new InvertBinder(validateCertificateOption),
         logOption),
         bodyOptions);
-
-        rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
-        {
-            var client = new HttpMessageSender(writer ?? new ResponseWriter());
-            await client.SendRequestAsync(requestDetails, httpBehavior);
-        },
-        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
-          new UriBinder(uriOption),
-          new VersionBinder(versionOptions),
-          new KeyValueBinder(headerOptions),
-          timeoutOption),
-        new HttpBehaviorBinder(
-          new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption),
-        logOption));
-
-        return rootCommand;
     }
 }
