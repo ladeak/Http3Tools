@@ -1,6 +1,4 @@
-﻿using System.Buffers;
-using System.Buffers.Text;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Text;
 
 internal sealed class HttpMessageSender
@@ -42,7 +40,7 @@ internal sealed class HttpMessageSender
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var charSet = response.Content.Headers.ContentType?.CharSet;
             var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
-            await _writer.InitializeResponse(response.Content.Headers.ContentLength ?? 0, response.StatusCode.ToString(), response.Headers, encoding, behavior.LogLevel);
+            await _writer.InitializeResponse(response.StatusCode.ToString(), response.Headers, encoding, behavior.LogLevel);
             await Read(response, encoding);
 
         }

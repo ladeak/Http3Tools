@@ -10,10 +10,10 @@ internal class TestContentResponseWriter : BufferedWriter
     public Task ReadCompleted => _pipeReader;
     private StringBuilder _sb = new StringBuilder();
 
-    public override async Task InitializeResponse(long totalSize, string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel)
+    public override async Task InitializeResponse(string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel)
     {
-        await CancelReader();
-        await base.InitializeResponse(totalSize, responseStatus, headers, encoding, logLevel);
+        await CompleteAsync(CancellationToken.None);
+        _ = RunAsync();
     }
 
     protected override void ProcessLine(ReadOnlySequence<byte> line)

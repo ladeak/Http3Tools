@@ -3,6 +3,14 @@
     "chttp": {
       "commandName": "Project",
       "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001"
+    },
+    "chttp long": {
+      "commandName": "Project",
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/long"
+    },
+    "chttp stream": {
+      "commandName": "Project",
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/stream"
     }
   }
 }

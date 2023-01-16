@@ -94,26 +94,28 @@ internal static class CommandFactory
         rootCommand.AddGlobalOption(validateCertificateOption);
         rootCommand.AddGlobalOption(logOption);
 
-        CreateFormsCommand(versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+        CreateFormsCommand(writer, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
 
-        CreateJsonCommand(versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+        CreateJsonCommand(writer, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
 
         return rootCommand;
     }
 
-    private static void CreateFormsCommand(Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<IEnumerable<string>> formsOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    private static void CreateFormsCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<IEnumerable<string>> formsOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
     {
         var formsCommand = new Command("forms", "Forms request");
         formsCommand.AddOption(formsOptions);
         rootCommand.Add(formsCommand);
         formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
         {
+            writer ??= new StatefulBufferedConsoleWriter();
             var client = new HttpMessageSender(new StatefulBufferedConsoleWriter());
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
             await client.SendRequestAsync(requestDetails, httpBehavior);
+            await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
@@ -131,8 +133,10 @@ internal static class CommandFactory
     {
         rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
         {
-            var client = new HttpMessageSender(writer ?? new StatefulBufferedConsoleWriter());
+            writer ??= new StatefulBufferedConsoleWriter();
+            var client = new HttpMessageSender(writer);
             await client.SendRequestAsync(requestDetails, httpBehavior);
+            await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
@@ -145,16 +149,19 @@ internal static class CommandFactory
         logOption));
     }
 
-    private static void CreateJsonCommand(Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    private static void CreateJsonCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
     {
+        writer ??= new StatefulBufferedConsoleWriter();
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
         rootCommand.Add(jsonCommand);
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
         {
-            var client = new HttpMessageSender(new StatefulBufferedConsoleWriter());
+            writer ??= new StatefulBufferedConsoleWriter();
+            var client = new HttpMessageSender(writer);
             requestDetails = requestDetails with { Content = new StringContent(body) };
             await client.SendRequestAsync(requestDetails, httpBehavior);
+            await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
