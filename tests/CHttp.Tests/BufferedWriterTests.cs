@@ -84,6 +84,6 @@ public class BufferedWriterTests
 
         public new bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line) => base.TryReadLine(ref buffer, out line);
 
-        protected override void ProcessLine(ReadOnlySequence<byte> line) => throw new NotImplementedException();
+        protected override Task ProcessLine(ReadOnlySequence<byte> line) => throw new NotImplementedException();
     }
 }

@@ -16,7 +16,7 @@ internal class TestContentResponseWriter : BufferedWriter
         _ = RunAsync();
     }
 
-    protected override void ProcessLine(ReadOnlySequence<byte> line)
+    protected override Task ProcessLine(ReadOnlySequence<byte> line)
     {
         var buffer = ArrayPool<char>.Shared.Rent((int)line.Length);
         int count = Encoding.UTF8.GetChars(line, buffer);
