@@ -6,7 +6,7 @@
     },
     "chttp long": {
       "commandName": "Project",
-      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/long"
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/long --log Normal"
     },
     "chttp stream": {
       "commandName": "Project",

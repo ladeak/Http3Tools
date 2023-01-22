@@ -45,7 +45,7 @@ internal abstract class BufferedWriter : IWriter
 
                 while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
-                    ProcessLine(line);
+                    await ProcessLine(line);
                 }
 
                 // Tell the PipeReader how much of the buffer has been consumed.
@@ -63,7 +63,7 @@ internal abstract class BufferedWriter : IWriter
         }
     }
 
-    protected abstract void ProcessLine(ReadOnlySequence<byte> line);
+    protected abstract Task ProcessLine(ReadOnlySequence<byte> line);
 
     internal bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
     {
@@ -146,7 +146,7 @@ internal abstract class BufferedWriter : IWriter
         return (length, 0);
     }
 
-    public async Task CompleteAsync(CancellationToken token)
+    public virtual async Task CompleteAsync(CancellationToken token)
     {
         _cts.Cancel();
         await _pipeReader.WaitAsync(token);

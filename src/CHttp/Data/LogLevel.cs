@@ -3,6 +3,6 @@
 internal enum LogLevel
 {
     Verbose,
-    Info,
+    Normal,
     Quiet,
 }

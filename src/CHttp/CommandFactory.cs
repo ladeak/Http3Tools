@@ -78,11 +78,11 @@ internal static class CommandFactory
 
         var logOption = new Option<LogLevel>(
             name: "--log",
-            getDefaultValue: () => LogLevel.Info,
+            getDefaultValue: () => LogLevel.Normal,
             description: "Level of logging details.");
         logOption.AddAlias("-l");
         logOption.IsRequired = false;
-        logOption.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Info), nameof(LogLevel.Verbose));
+        logOption.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Normal), nameof(LogLevel.Verbose));
 
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
