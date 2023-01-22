@@ -29,7 +29,7 @@ internal sealed class StatefulBufferedConsoleWriter : BufferedWriter
         int count = Encoding.UTF8.GetChars(line, buffer);
 
         var currentPosition = Console.GetCursorPosition();
-        Console.SetCursorPosition(_initialPosition.Left, _initialPosition.Top);
+        //Console.SetCursorPosition(_initialPosition.Left, _initialPosition.Top);
         int lineLength = Console.WindowWidth;
 
         // TODO write + update

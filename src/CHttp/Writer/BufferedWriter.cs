@@ -20,9 +20,9 @@ internal abstract class BufferedWriter : IWriter
         _pipeReader = Task.CompletedTask;
     }
 
-    protected Task RunAsync()
+    protected Task RunAsync(PipeOptions? options = null)
     {
-        _pipe = new Pipe();
+        _pipe = new Pipe(options ?? PipeOptions.Default);
         _cts = new CancellationTokenSource();
         _pipeReader = Task.Run(() => ReadPipeAsync(_cts.Token));
         return _pipeReader;
@@ -65,7 +65,7 @@ internal abstract class BufferedWriter : IWriter
 
     protected abstract void ProcessLine(ReadOnlySequence<byte> line);
 
-    protected bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
+    internal bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
     {
         SequencePosition? position = GetNextUtf8Position(buffer);
 
@@ -89,7 +89,7 @@ internal abstract class BufferedWriter : IWriter
     {
         if (source.IsSingleSegment)
         {
-            int length = GetUtf8Length(source.FirstSpan);
+            (int length, _) = GetUtf8Length(source.FirstSpan, 0);
             if (length == 0)
                 return null;
             return source.GetPosition(length, source.Start);
@@ -104,12 +104,13 @@ internal abstract class BufferedWriter : IWriter
     {
         SequencePosition position = source.Start;
         SequencePosition result = position;
+        int remainder = 0;
         while (source.TryGet(ref position, out ReadOnlyMemory<byte> memory))
         {
-            var length = GetUtf8Length(memory.Span);
+            (var length, remainder) = GetUtf8Length(memory.Span, remainder);
             if (length != 0)
             {
-                return source.GetPosition(length, result);
+                position = source.GetPosition(length, result);
             }
             else if (position.GetObject() == null)
             {
@@ -119,36 +120,30 @@ internal abstract class BufferedWriter : IWriter
             result = position;
         }
 
-        return null;
+        return result;
     }
 
-    protected int GetUtf8Length(ReadOnlySpan<byte> source)
+    protected (int BytesCount, int Remainder) GetUtf8Length(ReadOnlySpan<byte> source, int previousRemaining)
     {
         int length = 0;
+        int currentCharBytes = previousRemaining;
         while (source.Length > 0)
         {
             if ((source[0] & 0b1000_0000) == 0)
-            {
-                source = source.Slice(1);
-                length += 1;
-            }
+                currentCharBytes = 1;
             else if ((source[0] & 0b1111_0000) == 0b1111_0000)
-            {
-                source = source.Slice(4);
-                length += 4;
-            }
+                currentCharBytes = 4;
             else if ((source[0] & 0b1110_0000) == 0b1110_0000)
-            {
-                source = source.Slice(3);
-                length += 3;
-            }
+                currentCharBytes = 3;
             else if ((source[0] & 0b1100_0000) == 0b1100_0000)
-            {
-                source = source.Slice(2);
-                length += 2;
-            }
+                currentCharBytes = 2;
+
+            if (currentCharBytes > source.Length)
+                return (length, currentCharBytes - source.Length);
+            source = source.Slice(currentCharBytes);
+            length += currentCharBytes;
         }
-        return length;
+        return (length, 0);
     }
 
     public async Task CompleteAsync(CancellationToken token)
