@@ -22,6 +22,7 @@ internal class TestContentResponseWriter : BufferedWriter
         int count = Encoding.UTF8.GetChars(line, buffer);
         _sb.Append(buffer.AsSpan(0, count));
         ArrayPool<char>.Shared.Return(buffer);
+        return Task.CompletedTask;
     }
 
     public override string ToString() => _sb.ToString();

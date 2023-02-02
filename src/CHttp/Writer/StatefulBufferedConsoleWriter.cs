@@ -3,19 +3,22 @@ using System.Net.Http.Headers;
 using System.Text;
 using CHttp.Data;
 
+namespace CHttp.Writer;
+
 internal sealed class StatefulBufferedConsoleWriter : BufferedWriter
 {
     private LogLevel _logLevel;
     private Task _progress;
     private CancellationTokenSource _cts;
     private ProgressBar _progressBar;
+    private long _responseSize;
 
     public StatefulBufferedConsoleWriter()
     {
         _logLevel = LogLevel.Normal;
         _progress = Task.CompletedTask;
         _cts = new CancellationTokenSource();
-        _progressBar = new ProgressBar();
+        _progressBar = new ProgressBar(new CHttpConsole(), new Awaiter());
     }
 
     public override async Task InitializeResponse(string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel)
@@ -24,6 +27,7 @@ internal sealed class StatefulBufferedConsoleWriter : BufferedWriter
         _logLevel = logLevel;
         _cts.Cancel();
         _cts = new CancellationTokenSource();
+        _responseSize = 0;
         if (_logLevel == LogLevel.Normal)
             _progress = _progressBar.Run(_cts.Token);
         else
@@ -33,7 +37,7 @@ internal sealed class StatefulBufferedConsoleWriter : BufferedWriter
 
     protected override async Task ProcessLine(ReadOnlySequence<byte> line)
     {
-        _progressBar.Add(line.Length);
+        _progressBar.Set(_responseSize += line.Length);
         if (_logLevel == LogLevel.Verbose)
         {
             var buffer = ArrayPool<char>.Shared.Rent((int)line.Length);
