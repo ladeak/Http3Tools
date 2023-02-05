@@ -10,7 +10,7 @@ public class CHttpFunctionalTests
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
-        var writer = new TestContentResponseWriter();
+        var writer = new TestContentResponseWriter(new BufferedProcessor());
         
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5001");
 

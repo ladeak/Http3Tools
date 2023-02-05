@@ -1,4 +1,4 @@
-﻿namespace CHttp.Writer;
+﻿namespace CHttp.Writers;
 
 internal interface IAwaiter
 {
@@ -13,10 +13,10 @@ internal sealed class Awaiter : IAwaiter
 
 internal sealed class ProgressBar
 {
-    private const long TerraByte = GigaByte * 1000;
-    private const long GigaByte = MegaByte * 1000;
-    private const long MegaByte = KiloByte * 1000;
-    private const long KiloByte = 1000;
+    private const long TerraByte = GigaByte * 1024;
+    private const long GigaByte = MegaByte * 1024;
+    private const long MegaByte = KiloByte * 1024;
+    private const long KiloByte = 1024;
     private const int Alignment = 4;
     private const int Length = 8;
     private readonly char[] Complete = "100%".PadRight(Length).ToArray();

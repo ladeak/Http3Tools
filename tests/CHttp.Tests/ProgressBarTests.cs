@@ -1,4 +1,4 @@
-﻿using CHttp.Writer;
+﻿using CHttp.Writers;
 
 namespace CHttp.Tests;
 
@@ -91,7 +91,7 @@ public class ProgressBarTests
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
         var sutTask = sut.Run(loopHandle.Token);
-        for (int i = 1; i < 11; i++)
+        for (int i = 1; i < 12; i++)
         {
             await loopHandle.WaitLoopAsync();
             sut.Set(i * 100);
@@ -111,7 +111,8 @@ public class ProgressBarTests
 :::::::  700 B
          800 B
 :        900 B
-::         1 KB
+::      1000 B
+:::        1 KB
 100%       1 KB
 
 ", testConsole.Text);
@@ -127,7 +128,7 @@ public class ProgressBarTests
         for (int i = 1; i < 6; i++)
         {
             await loopHandle.WaitLoopAsync();
-            sut.Set((long)Math.Pow(1000, i));
+            sut.Set((long)Math.Pow(1024, i));
             await loopHandle.LoopAsync();
         }
         await loopHandle.WaitLoopAsync();
@@ -139,8 +140,8 @@ public class ProgressBarTests
 ::         1 MB
 :::        1 GB
 ::::       1 TB
-:::::   1000 TB
-100%    1000 TB
+:::::   1024 TB
+100%    1024 TB
 
 ", testConsole.Text);
     }

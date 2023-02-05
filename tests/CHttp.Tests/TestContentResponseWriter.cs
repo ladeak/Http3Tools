@@ -1,22 +1,32 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
-using CHttp.Data;
 
 namespace CHttp.Tests;
 
-internal class TestContentResponseWriter : BufferedWriter
+internal class TestContentResponseWriter : IWriter
 {
     public Task ReadCompleted => _pipeReader;
-    private StringBuilder _sb = new StringBuilder();
 
-    public override async Task InitializeResponse(string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel)
+    public PipeWriter Pipe => _bufferedProcessor.Pipe;
+
+    private readonly StringBuilder _sb = new StringBuilder();
+    private readonly IBufferedProcessor _bufferedProcessor;
+    private Task? _pipeReader;
+
+    public TestContentResponseWriter(IBufferedProcessor bufferedProcessor)
     {
-        await CompleteAsync(CancellationToken.None);
-        _ = RunAsync();
+        _bufferedProcessor = bufferedProcessor ?? throw new ArgumentNullException(nameof(bufferedProcessor));
     }
 
-    protected override Task ProcessLine(ReadOnlySequence<byte> line)
+    public Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding)
+    {
+        _pipeReader = _bufferedProcessor.RunAsync(ProcessLine);
+        return Task.CompletedTask;
+    }
+
+    public Task ProcessLine(ReadOnlySequence<byte> line)
     {
         var buffer = ArrayPool<char>.Shared.Rent((int)line.Length);
         int count = Encoding.UTF8.GetChars(line, buffer);
@@ -27,8 +37,15 @@ internal class TestContentResponseWriter : BufferedWriter
 
     public override string ToString() => _sb.ToString();
 
-    public override void WriteUpdate(Update update) => Console.WriteLine(update.ToString());
+    public void WriteSummary(Summary summary) => _sb.Append(summary.ToString());
 
-    public override void WriteSummary(Summary summary) => Console.WriteLine(summary.ToString());
+    public Task CompleteAsync(CancellationToken token)
+    {
+        return Task.CompletedTask;
+    }
 
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
 }

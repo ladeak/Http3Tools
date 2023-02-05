@@ -1,4 +1,4 @@
-﻿namespace CHttp.Writer;
+﻿namespace CHttp.Writers;
 
 internal class CHttpConsole : IConsole
 {

@@ -1,11 +1,8 @@
 ﻿using System.Buffers;
-using System.Net.Http.Headers;
-using System.Text;
-using CHttp.Data;
 
 namespace CHttp.Tests;
 
-public class BufferedWriterTests
+public class BufferedProcessorTests
 {
     [Theory]
     [MemberData(nameof(InputData))]
@@ -13,7 +10,7 @@ public class BufferedWriterTests
     {
         ReadOnlyMemory<byte> data = input.AsMemory();
         var segment = new ReadOnlySequence<byte>(data);
-        var sut = new TestBufferedWriter();
+        var sut = new BufferedProcessor();
         var result = sut.TryReadLine(ref segment, out var line);
         Assert.True(result);
         Assert.True(data.Span.SequenceEqual(line.ToArray()));
@@ -29,7 +26,7 @@ public class BufferedWriterTests
             var segment = new MemorySegment<byte>(data.Slice(0, offset))
                 .Append(data.Slice(offset, data.Length - offset))
                 .AsSequence();
-            var sut = new TestBufferedWriter();
+            var sut = new BufferedProcessor();
             var result = sut.TryReadLine(ref segment, out var line);
             Assert.True(result);
             Assert.True(data.Span.SequenceEqual(line.ToArray()));
@@ -49,7 +46,7 @@ public class BufferedWriterTests
                   .Append(data.Slice(offset, innerSegmentLength))
                   .Append(data.Slice(offset + innerSegmentLength, data.Length - offset - innerSegmentLength))
                   .AsSequence();
-                var sut = new TestBufferedWriter();
+                var sut = new BufferedProcessor();
                 var result = sut.TryReadLine(ref segment, out var line);
                 Assert.True(result);
                 Assert.True(data.Span.SequenceEqual(line.ToArray()));
@@ -68,22 +65,5 @@ public class BufferedWriterTests
         yield return new object[] { "hi𐍈there"u8.ToArray() };
         yield return new object[] { "there𐍈"u8.ToArray() };
         yield return new object[] { "𐍈한𐍈€€𐍈한𐍈𐍈"u8.ToArray() };
-    }
-
-    private class TestBufferedWriter : BufferedWriter
-    {
-        public override Task InitializeResponse(string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel) => throw new NotImplementedException();
-
-        public override void WriteSummary(Summary summary)
-        {
-        }
-
-        public override void WriteUpdate(Update update)
-        {
-        }
-
-        public new bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line) => base.TryReadLine(ref buffer, out line);
-
-        protected override Task ProcessLine(ReadOnlySequence<byte> line) => throw new NotImplementedException();
     }
 }

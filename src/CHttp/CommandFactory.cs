@@ -1,7 +1,7 @@
 ﻿using System.CommandLine;
 using CHttp.Binders;
 using CHttp.Data;
-using CHttp.Writer;
+using CHttp.Writers;
 
 namespace CHttp;
 
@@ -111,8 +111,8 @@ internal static class CommandFactory
         rootCommand.Add(formsCommand);
         formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
         {
-            writer ??= new StatefulBufferedConsoleWriter();
-            var client = new HttpMessageSender(new StatefulBufferedConsoleWriter());
+            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
+            var client = new HttpMessageSender(writer);
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
             await client.SendRequestAsync(requestDetails, httpBehavior);
@@ -134,7 +134,7 @@ internal static class CommandFactory
     {
         rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
         {
-            writer ??= new StatefulBufferedConsoleWriter();
+            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
             var client = new HttpMessageSender(writer);
             await client.SendRequestAsync(requestDetails, httpBehavior);
             await writer.CompleteAsync(CancellationToken.None);
@@ -152,13 +152,12 @@ internal static class CommandFactory
 
     private static void CreateJsonCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
     {
-        writer ??= new StatefulBufferedConsoleWriter();
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
         rootCommand.Add(jsonCommand);
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
         {
-            writer ??= new StatefulBufferedConsoleWriter();
+            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
             var client = new HttpMessageSender(writer);
             requestDetails = requestDetails with { Content = new StringContent(body) };
             await client.SendRequestAsync(requestDetails, httpBehavior);

@@ -1,36 +1,31 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
-using System.Text;
-using CHttp.Data;
 
-internal abstract class BufferedWriter : IWriter
+internal class BufferedProcessor : IBufferedProcessor
 {
-    protected Pipe _pipe;
-    protected CancellationTokenSource _cts;
-    protected Task _pipeReader;
+    private Pipe _pipe;
+    private CancellationTokenSource _cts;
+    private Task _pipeReader;
 
     public PipeWriter Pipe => _pipe.Writer;
 
-    public BufferedWriter()
+    public BufferedProcessor()
     {
         _pipe = new Pipe();
         _cts = new CancellationTokenSource();
         _pipeReader = Task.CompletedTask;
     }
 
-    protected Task RunAsync(PipeOptions? options = null)
+    public Task RunAsync(Func<ReadOnlySequence<byte>, Task> lineProcessor, PipeOptions? options = null)
     {
         _pipe = new Pipe(options ?? PipeOptions.Default);
         _cts = new CancellationTokenSource();
-        _pipeReader = Task.Run(() => ReadPipeAsync(_cts.Token));
+        _pipeReader = Task.Run(() => ReadPipeAsync(lineProcessor, _cts.Token));
         return _pipeReader;
     }
 
-    public abstract Task InitializeResponse(string responseStatus, HttpResponseHeaders headers, Encoding encoding, LogLevel logLevel);
-
-    private async Task ReadPipeAsync(CancellationToken token)
+    private async Task ReadPipeAsync(Func<ReadOnlySequence<byte>, Task> lineProcessor, CancellationToken token)
     {
         try
         {
@@ -45,7 +40,7 @@ internal abstract class BufferedWriter : IWriter
 
                 while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
-                    await ProcessLine(line);
+                    await lineProcessor(line);
                 }
 
                 // Tell the PipeReader how much of the buffer has been consumed.
@@ -63,8 +58,6 @@ internal abstract class BufferedWriter : IWriter
         }
     }
 
-    protected abstract Task ProcessLine(ReadOnlySequence<byte> line);
-
     internal bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
     {
         SequencePosition? position = GetNextUtf8Position(buffer);
@@ -80,12 +73,8 @@ internal abstract class BufferedWriter : IWriter
         return true;
     }
 
-    public abstract void WriteUpdate(Update update);
-
-    public abstract void WriteSummary(Summary summary);
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected SequencePosition? GetNextUtf8Position(in ReadOnlySequence<byte> source)
+    private SequencePosition? GetNextUtf8Position(in ReadOnlySequence<byte> source)
     {
         if (source.IsSingleSegment)
         {
@@ -100,7 +89,7 @@ internal abstract class BufferedWriter : IWriter
         }
     }
 
-    protected SequencePosition? PositionOfMultiSegment(in ReadOnlySequence<byte> source)
+    private SequencePosition? PositionOfMultiSegment(in ReadOnlySequence<byte> source)
     {
         SequencePosition position = source.Start;
         SequencePosition result = position;
@@ -123,7 +112,7 @@ internal abstract class BufferedWriter : IWriter
         return result;
     }
 
-    protected (int BytesCount, int Remainder) GetUtf8Length(ReadOnlySpan<byte> source, int previousRemaining)
+    private (int BytesCount, int Remainder) GetUtf8Length(ReadOnlySpan<byte> source, int previousRemaining)
     {
         int length = 0;
         int currentCharBytes = previousRemaining;
