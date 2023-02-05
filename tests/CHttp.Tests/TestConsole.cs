@@ -29,5 +29,13 @@ public class TestConsole : IConsole
 
     public void Write(char[] buffer, int index, int count) => _sb.Append(buffer, index, count);
 
-    public void WriteLine(string value) => _sb.AppendLine(value);
+    public void WriteLine(string value)
+    {
+        if (value.StartsWith("Date: "))
+        {
+            _sb.Append("Date:");
+            return;
+        }
+        _sb.AppendLine(value);
+    }
 }

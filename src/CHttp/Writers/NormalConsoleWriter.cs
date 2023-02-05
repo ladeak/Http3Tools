@@ -1,7 +1,6 @@
-﻿using System;
-using System.Buffers;
-using System.CommandLine.Parsing;
+﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -9,22 +8,31 @@ namespace CHttp.Writers;
 
 internal sealed class NormalConsoleWriter : IWriter
 {
-    private readonly IBufferedProcessor _processor;
+    private readonly IBufferedProcessor _contentProcessor;
     private readonly IConsole _console;
 
-    public PipeWriter Pipe => _processor.Pipe;
+    public PipeWriter Buffer => _contentProcessor.Pipe;
 
-    public NormalConsoleWriter(IBufferedProcessor processor, IConsole console)
+    public NormalConsoleWriter(IBufferedProcessor contentProcessor, IConsole console)
     {
-        _processor = processor ?? throw new ArgumentNullException(nameof(processor));
+        _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
         _console = console;
     }
 
-    public async Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding)
+    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding)
     {
-        _processor.Cancel();
-        await _processor.CompleteAsync(CancellationToken.None);
-        _ = _processor.RunAsync(ProcessLine);
+        _contentProcessor.Cancel();
+        await _contentProcessor.CompleteAsync(CancellationToken.None);
+
+        PrintResponse(responseStatus, headers);
+        _ = _contentProcessor.RunAsync(ProcessLine);
+    }
+
+    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers)
+    {
+        _console.WriteLine($"Status: {responseStatus}");
+        foreach (var header in headers)
+            _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
@@ -38,11 +46,11 @@ internal sealed class NormalConsoleWriter : IWriter
 
     public async Task WriteSummaryAsync(Summary summary)
     {
-        await _processor.CompleteAsync(CancellationToken.None);
+        await _contentProcessor.CompleteAsync(CancellationToken.None);
         _console.WriteLine(summary.ToString());
     }
 
-    public Task CompleteAsync(CancellationToken token) => _processor.CompleteAsync(token);
+    public Task CompleteAsync(CancellationToken token) => _contentProcessor.CompleteAsync(token);
 
     public async ValueTask DisposeAsync() => await CompleteAsync(CancellationToken.None);
 }

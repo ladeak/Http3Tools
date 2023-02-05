@@ -17,7 +17,7 @@ public class CHttpFunctionalTests
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal($"test{Environment.NewLine}", console.Text);
+        Assert.Equal($"Status: OK{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}test", console.Text);
     }
 
     [Fact]

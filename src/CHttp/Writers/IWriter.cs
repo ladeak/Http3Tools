@@ -1,12 +1,13 @@
 ﻿using System.IO.Pipelines;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
 internal interface IWriter : IAsyncDisposable
 {
-    PipeWriter Pipe { get; }
+    PipeWriter Buffer { get; }
 
-    Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding);
+    Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding);
 
     Task WriteSummaryAsync(Summary summary);
 

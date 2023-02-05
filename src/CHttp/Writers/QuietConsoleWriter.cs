@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -11,29 +12,37 @@ internal sealed class QuietConsoleWriter : IWriter
     private CancellationTokenSource _cts;
     private ProgressBar _progressBar;
     private long _responseSize;
-    private readonly IBufferedProcessor _processor;
+    private readonly IBufferedProcessor _contentProcessor;
     private readonly IConsole _console;
 
-    public PipeWriter Pipe => _processor.Pipe;
+    public PipeWriter Buffer => _contentProcessor.Pipe;
 
-    public QuietConsoleWriter(IBufferedProcessor processor, IConsole console)
+    public QuietConsoleWriter(IBufferedProcessor contentProcessor, IConsole console)
     {
-        _processor = processor ?? throw new ArgumentNullException(nameof(processor));
+        _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
         _console = console;
         _progressBarTask = Task.CompletedTask;
         _cts = new CancellationTokenSource();
         _progressBar = new ProgressBar(console ?? new CHttpConsole(), new Awaiter());
     }
 
-    public async Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding)
+    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding)
     {
-        _processor.Cancel();
+        _contentProcessor.Cancel();
         _cts.Cancel();
         await CompleteAsync(CancellationToken.None);
         _cts = new CancellationTokenSource();
         _responseSize = 0;
+        PrintResponse(responseStatus, headers);
         _progressBarTask = _progressBar.RunAsync(_cts.Token);
-        _ = _processor.RunAsync(ProcessLine);
+        _ = _contentProcessor.RunAsync(ProcessLine);
+    }
+
+    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers)
+    {
+        _console.WriteLine($"Status: {responseStatus}");
+        foreach (var header in headers)
+            _console.WriteLine($"{header.Key}: {header.Value}");
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
@@ -44,13 +53,13 @@ internal sealed class QuietConsoleWriter : IWriter
 
     public async Task WriteSummaryAsync(Summary summary)
     {
-        await _processor.CompleteAsync(CancellationToken.None);
+        await _contentProcessor.CompleteAsync(CancellationToken.None);
         _cts.Cancel();
         await _progressBarTask;
         _console.WriteLine(summary.ToString());
     }
 
-    public async Task CompleteAsync(CancellationToken token) => await Task.WhenAll(_processor.CompleteAsync(token), _progressBarTask);
+    public async Task CompleteAsync(CancellationToken token) => await Task.WhenAll(_contentProcessor.CompleteAsync(token), _progressBarTask);
 
     public async ValueTask DisposeAsync() => await CompleteAsync(CancellationToken.None);
 }

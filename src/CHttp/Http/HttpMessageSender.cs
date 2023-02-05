@@ -40,7 +40,7 @@ internal sealed class HttpMessageSender
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var charSet = response.Content.Headers.ContentType?.CharSet;
             var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
-            await _writer.InitializeResponseAsync(response.StatusCode.ToString(), response.Headers, encoding);
+            await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, encoding);
             await Read(response, encoding);
         }
         catch (HttpRequestException requestException)
@@ -66,8 +66,8 @@ internal sealed class HttpMessageSender
     {
         var contentStream = await response.Content.ReadAsStreamAsync();
         var transcodingStream = Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8);
-        await transcodingStream.CopyToAsync(_writer.Pipe);
-        await _writer.Pipe.CompleteAsync();
+        await transcodingStream.CopyToAsync(_writer.Buffer);
+        await _writer.Buffer.CompleteAsync();
     }
 
     private void SetHeaders(HttpRequestDetails requestData, HttpRequestMessage request)
