@@ -10,7 +10,11 @@ internal interface IConsole
 
     void Write(char[] buffer);
 
+    void Write(char[] buffer, int index, int count);
+
     void Write(string buffer);
 
     void WriteLine();
+
+    void WriteLine(string value);
 }

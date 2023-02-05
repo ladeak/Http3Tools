@@ -10,7 +10,7 @@ public class ProgressBarTests
         var testConsole = new TestConsole();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         await loopHandle.CompleteLoopAsync();
         await sutTask;
         Assert.Equal(@"
@@ -27,7 +27,7 @@ public class ProgressBarTests
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
         sut.Set(100);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         await loopHandle.CompleteLoopAsync();
         await sutTask;
         Assert.Equal(@"
@@ -43,7 +43,7 @@ public class ProgressBarTests
         var testConsole = new TestConsole();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         await loopHandle.WaitLoopAsync();
         sut.Set(100);
         await loopHandle.LoopAsync();
@@ -64,7 +64,7 @@ public class ProgressBarTests
         var testConsole = new TestConsole();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         for (int i = 1; i < 4; i++)
         {
             await loopHandle.WaitLoopAsync();
@@ -90,7 +90,7 @@ public class ProgressBarTests
         var testConsole = new TestConsole();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         for (int i = 1; i < 12; i++)
         {
             await loopHandle.WaitLoopAsync();
@@ -124,7 +124,7 @@ public class ProgressBarTests
         var testConsole = new TestConsole();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar(testConsole, loopHandle);
-        var sutTask = sut.Run(loopHandle.Token);
+        var sutTask = sut.RunAsync(loopHandle.Token);
         for (int i = 1; i < 6; i++)
         {
             await loopHandle.WaitLoopAsync();

@@ -10,14 +10,22 @@ internal sealed class WriterStrategy : IWriter
     private readonly IBufferedProcessor _processor;
     private IWriter _strategy;
 
-    public WriterStrategy(IBufferedProcessor processor, LogLevel logLevel)
+    public WriterStrategy(LogLevel logLevel) : this(new BufferedProcessor(), new CHttpConsole(), logLevel)
+    {
+    }
+
+    public WriterStrategy(IBufferedProcessor processor, LogLevel logLevel) : this(processor, new CHttpConsole(), logLevel)
+    {
+    }
+
+    public WriterStrategy(IBufferedProcessor processor, IConsole console, LogLevel logLevel)
     {
         _processor = processor ?? throw new ArgumentNullException(nameof(processor));
         _strategy = logLevel switch
         {
-            LogLevel.Quiet => new QuietConsoleWriter(_processor),
-            LogLevel.Normal => new NormalConsoleWriter(_processor),
-            LogLevel.Verbose => new NormalConsoleWriter(_processor),
+            LogLevel.Quiet => new QuietConsoleWriter(_processor, console),
+            LogLevel.Normal => new NormalConsoleWriter(_processor, console),
+            LogLevel.Verbose => new NormalConsoleWriter(_processor, console),
             _ => throw new InvalidOperationException("Not supported log level")
         };
     }
@@ -30,5 +38,5 @@ internal sealed class WriterStrategy : IWriter
 
     public Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding) => _strategy.InitializeResponseAsync(responseStatus, headers, encoding);
 
-    public void WriteSummary(Summary summary) => _strategy.WriteSummary(summary);
+    public Task WriteSummaryAsync(Summary summary) => _strategy.WriteSummaryAsync(summary);
 }

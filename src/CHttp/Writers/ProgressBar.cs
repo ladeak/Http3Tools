@@ -1,16 +1,5 @@
 ﻿namespace CHttp.Writers;
 
-internal interface IAwaiter
-{
-    // await 
-    public Task WaitAsync();
-}
-
-internal sealed class Awaiter : IAwaiter
-{
-    public Task WaitAsync() => Task.Delay(50);
-}
-
 internal sealed class ProgressBar
 {
     private const long TerraByte = GigaByte * 1024;
@@ -32,7 +21,7 @@ internal sealed class ProgressBar
         _awaiter = awaiter ?? new Awaiter();
     }
 
-    public async Task Run(CancellationToken token = default)
+    public async Task RunAsync(CancellationToken token = default)
     {
         _responseSize = 0;
         char[] buffer = new char[Length];

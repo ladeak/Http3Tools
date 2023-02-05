@@ -8,6 +8,8 @@ internal interface IBufferedProcessor
     Task RunAsync(Func<ReadOnlySequence<byte>, Task> lineProcessor, PipeOptions? options = null);
 
     Task CompleteAsync(CancellationToken token);
-    
+
+    void Cancel();
+
     ValueTask DisposeAsync();
 }

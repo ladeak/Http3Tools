@@ -29,10 +29,10 @@ internal sealed class HttpMessageSender
         request.Content = requestData.Content;
         client.Timeout = TimeSpan.FromSeconds(requestData.Timeout);
         SetHeaders(requestData, request);
-        await SendRequest(client, request, behavior);
+        await SendRequest(client, request);
     }
 
-    private async Task SendRequest(HttpClient client, HttpRequestMessage request, HttpBehavior behavior)
+    private async Task SendRequest(HttpClient client, HttpRequestMessage request)
     {
         var summary = new Summary();
         try
@@ -42,7 +42,6 @@ internal sealed class HttpMessageSender
             var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
             await _writer.InitializeResponseAsync(response.StatusCode.ToString(), response.Headers, encoding);
             await Read(response, encoding);
-
         }
         catch (HttpRequestException requestException)
         {
@@ -60,7 +59,7 @@ internal sealed class HttpMessageSender
         {
             summary.Error = $"Generic Error {ex}";
         }
-        _writer.WriteSummary(summary);
+        await _writer.WriteSummaryAsync(summary);
     }
 
     private async Task Read(HttpResponseMessage response, Encoding encoding)

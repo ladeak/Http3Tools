@@ -8,7 +8,7 @@ internal interface IWriter : IAsyncDisposable
 
     Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding);
 
-    void WriteSummary(Summary summary);
+    Task WriteSummaryAsync(Summary summary);
 
     Task CompleteAsync(CancellationToken token);
 }

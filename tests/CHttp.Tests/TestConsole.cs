@@ -17,10 +17,7 @@ public class TestConsole : IConsole
         // NoOp
     }
 
-    public void Write(char[] buffer)
-    {
-        _sb.Append(buffer);
-    }
+    public void Write(char[] buffer) => _sb.Append(buffer);
 
     public void Write(string buffer)
     {
@@ -28,8 +25,9 @@ public class TestConsole : IConsole
         _sb.AppendLine();
     }
 
-    public void WriteLine()
-    {
-        _sb.AppendLine();
-    }
+    public void WriteLine() => _sb.AppendLine();
+
+    public void Write(char[] buffer, int index, int count) => _sb.Append(buffer, index, count);
+
+    public void WriteLine(string value) => _sb.AppendLine(value);
 }

@@ -1,4 +1,6 @@
-﻿using System.Buffers;
+﻿using System;
+using System.Buffers;
+using System.CommandLine.Parsing;
 using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
@@ -7,26 +9,21 @@ namespace CHttp.Writers;
 
 internal sealed class NormalConsoleWriter : IWriter
 {
-    private Task _progress;
-    private CancellationTokenSource _cts;
-    private long _responseSize;
     private readonly IBufferedProcessor _processor;
+    private readonly IConsole _console;
 
-    public PipeWriter Pipe => throw new NotImplementedException();
+    public PipeWriter Pipe => _processor.Pipe;
 
-    public NormalConsoleWriter(IBufferedProcessor processor)
+    public NormalConsoleWriter(IBufferedProcessor processor, IConsole console)
     {
         _processor = processor ?? throw new ArgumentNullException(nameof(processor));
-        _progress = Task.CompletedTask;
-        _cts = new CancellationTokenSource();
+        _console = console;
     }
 
     public async Task InitializeResponseAsync(string responseStatus, HttpResponseHeaders headers, Encoding encoding)
     {
-        await CompleteAsync(CancellationToken.None);
-        _cts.Cancel();
-        _cts = new CancellationTokenSource();
-        _responseSize = 0;
+        _processor.Cancel();
+        await _processor.CompleteAsync(CancellationToken.None);
         _ = _processor.RunAsync(ProcessLine);
     }
 
@@ -34,15 +31,15 @@ internal sealed class NormalConsoleWriter : IWriter
     {
         var buffer = ArrayPool<char>.Shared.Rent((int)line.Length);
         int count = Encoding.UTF8.GetChars(line, buffer);
-        Console.Write(buffer, 0, count);
+        _console.Write(buffer, 0, count);
         ArrayPool<char>.Shared.Return(buffer);
         return Task.CompletedTask;
     }
 
-    public void WriteSummary(Summary summary)
+    public async Task WriteSummaryAsync(Summary summary)
     {
-        _cts.Cancel();
-        Console.WriteLine(summary.ToString());
+        await _processor.CompleteAsync(CancellationToken.None);
+        _console.WriteLine(summary.ToString());
     }
 
     public Task CompleteAsync(CancellationToken token) => _processor.CompleteAsync(token);

@@ -135,11 +135,12 @@ internal class BufferedProcessor : IBufferedProcessor
         return (length, 0);
     }
 
-    public virtual async Task CompleteAsync(CancellationToken token)
+    public async Task CompleteAsync(CancellationToken token)
     {
-        _cts.Cancel();
         await _pipeReader.WaitAsync(token);
     }
+
+    public void Cancel() => _cts.Cancel();
 
     public async ValueTask DisposeAsync() => await CompleteAsync(CancellationToken.None);
 }

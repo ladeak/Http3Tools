@@ -111,7 +111,7 @@ internal static class CommandFactory
         rootCommand.Add(formsCommand);
         formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
         {
-            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(httpBehavior.LogLevel);
             var client = new HttpMessageSender(writer);
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
@@ -134,7 +134,7 @@ internal static class CommandFactory
     {
         rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
         {
-            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(httpBehavior.LogLevel);
             var client = new HttpMessageSender(writer);
             await client.SendRequestAsync(requestDetails, httpBehavior);
             await writer.CompleteAsync(CancellationToken.None);
@@ -157,7 +157,7 @@ internal static class CommandFactory
         rootCommand.Add(jsonCommand);
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
         {
-            writer ??= new WriterStrategy(new BufferedProcessor(), httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(httpBehavior.LogLevel);
             var client = new HttpMessageSender(writer);
             requestDetails = requestDetails with { Content = new StringContent(body) };
             await client.SendRequestAsync(requestDetails, httpBehavior);

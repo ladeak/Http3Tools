@@ -16,7 +16,7 @@ internal static class HttpServer
         {
             if (configureKestrel == null)
             {
-                kestrel.ListenAnyIP(5001, options =>
+                kestrel.ListenAnyIP(5011, options =>
                 {
                     options.UseHttps(new X509Certificate2("testCert.pfx", "testPassword"));
                     options.Protocols = protocol ?? HttpProtocols.Http3;

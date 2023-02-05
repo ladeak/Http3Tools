@@ -1,4 +1,5 @@
 using System.CommandLine;
+using CHttp.Writers;
 using Microsoft.AspNetCore.Http;
 
 namespace CHttp.Tests;
@@ -6,16 +7,30 @@ namespace CHttp.Tests;
 public class CHttpFunctionalTests
 {
     [Fact]
-    public async Task TestVanilaHttp3Request()
+    public async Task NormalWriter_TestVanilaHttp3Request()
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
-        var writer = new TestContentResponseWriter(new BufferedProcessor());
-        
-        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5001");
+        var console = new TestConsole();
+        var writer = new NormalConsoleWriter(new BufferedProcessor(), console);
 
-        await writer.ReadCompleted;
-        var result = writer.ToString();
-        Assert.Equal("test", result);
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal($"test{Environment.NewLine}", console.Text);
+    }
+
+    [Fact]
+    public async Task QuietWriter_TestVanilaHttp3Request()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+        await host.StartAsync();
+        var console = new TestConsole();
+        var writer = new QuietConsoleWriter(new BufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Contains("100%       4 B", console.Text);
     }
 }
