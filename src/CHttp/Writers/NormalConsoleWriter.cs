@@ -46,7 +46,9 @@ internal sealed class NormalConsoleWriter : IWriter
 
     public async Task WriteSummaryAsync(Summary summary)
     {
+        summary.SetSize(_contentProcessor.Position);
         await _contentProcessor.CompleteAsync(CancellationToken.None);
+        _console.WriteLine();
         _console.WriteLine(summary.ToString());
     }
 

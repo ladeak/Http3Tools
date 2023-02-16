@@ -34,31 +34,35 @@ internal sealed class HttpMessageSender
 
     private async Task SendRequest(HttpClient client, HttpRequestMessage request)
     {
-        var summary = new Summary();
-        try
+        Summary summary = new Summary(request.RequestUri?.ToString() ?? string.Empty);
         {
-            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            var charSet = response.Content.Headers.ContentType?.CharSet;
-            var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
-            await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, encoding);
-            await Read(response, encoding);
+            try
+            {
+                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                var charSet = response.Content.Headers.ContentType?.CharSet;
+                var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
+                await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, encoding);
+                await Read(response, encoding);
+                summary.ReuqestCompleted();
+            }
+            catch (HttpRequestException requestException)
+            {
+                summary = summary with { Error = $"Request Error {requestException.Message}" };
+            }
+            catch (HttpProtocolException protocolException)
+            {
+                summary = summary with { Error = $"Protocol Error {protocolException.ErrorCode}" };
+            }
+            catch (OperationCanceledException)
+            {
+                summary = summary with { Error = "Request Timed Out" };
+            }
+            catch (Exception ex)
+            {
+                summary = summary with { Error = $"Generic Error {ex}" };
+            }
         }
-        catch (HttpRequestException requestException)
-        {
-            summary.Error = $"Request Error {requestException.Message}";
-        }
-        catch (HttpProtocolException protocolException)
-        {
-            summary.Error = $"Protocol Error {protocolException.ErrorCode}";
-        }
-        catch (OperationCanceledException)
-        {
-            summary.Error = "Request Timed Out";
-        }
-        catch (Exception ex)
-        {
-            summary.Error = $"Generic Error {ex}";
-        }
+
         await _writer.WriteSummaryAsync(summary);
     }
 

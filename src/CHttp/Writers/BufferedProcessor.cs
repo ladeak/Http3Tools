@@ -7,8 +7,7 @@ internal class BufferedProcessor : IBufferedProcessor
     private Pipe _pipe;
     private CancellationTokenSource _cts;
     private Task _pipeReader;
-
-    public PipeWriter Pipe => _pipe.Writer;
+    private long _position;
 
     public BufferedProcessor()
     {
@@ -16,6 +15,10 @@ internal class BufferedProcessor : IBufferedProcessor
         _cts = new CancellationTokenSource();
         _pipeReader = Task.CompletedTask;
     }
+
+    public PipeWriter Pipe => _pipe.Writer;
+
+    public long Position => _position;
 
     public Task RunAsync(Func<ReadOnlySequence<byte>, Task> lineProcessor, PipeOptions? options = null)
     {
@@ -29,6 +32,7 @@ internal class BufferedProcessor : IBufferedProcessor
     {
         try
         {
+            _position = 0;
             while (!token.IsCancellationRequested)
             {
                 var result = await _pipe.Reader.ReadAsync(token);
@@ -40,6 +44,10 @@ internal class BufferedProcessor : IBufferedProcessor
 
                 while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
+                    unchecked
+                    {
+                        _position += line.Length;
+                    }
                     await lineProcessor(line);
                 }
 

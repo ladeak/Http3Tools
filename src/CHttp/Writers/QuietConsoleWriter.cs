@@ -11,7 +11,6 @@ internal sealed class QuietConsoleWriter : IWriter
     private Task _progressBarTask;
     private CancellationTokenSource _cts;
     private ProgressBar _progressBar;
-    private long _responseSize;
     private readonly IBufferedProcessor _contentProcessor;
     private readonly IConsole _console;
 
@@ -32,7 +31,6 @@ internal sealed class QuietConsoleWriter : IWriter
         _cts.Cancel();
         await CompleteAsync(CancellationToken.None);
         _cts = new CancellationTokenSource();
-        _responseSize = 0;
         PrintResponse(responseStatus, headers);
         _progressBarTask = _progressBar.RunAsync(_cts.Token);
         _ = _contentProcessor.RunAsync(ProcessLine);
@@ -46,8 +44,8 @@ internal sealed class QuietConsoleWriter : IWriter
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
-    {
-        _progressBar.Set(_responseSize += line.Length);
+    {   
+        _progressBar.Set(_contentProcessor.Position);
         return Task.CompletedTask;
     }
 

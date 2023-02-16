@@ -2,11 +2,6 @@
 
 internal sealed class ProgressBar
 {
-    private const long TerraByte = GigaByte * 1024;
-    private const long GigaByte = MegaByte * 1024;
-    private const long MegaByte = KiloByte * 1024;
-    private const long KiloByte = 1024;
-    private const int Alignment = 4;
     private const int Length = 8;
     private readonly char[] Complete = "100%".PadRight(Length).ToArray();
     private readonly IConsole _console;
@@ -38,26 +33,14 @@ internal sealed class ProgressBar
             }
             _console.SetCursorPosition(position.Left, position.Top);
             _console.Write(buffer);
-            _console.Write(FormatSize());
+            _console.WriteLine(SizeFormatter<long>.FormatSize(_responseSize));
             state++;
             await _awaiter.WaitAsync();
         } while (!token.IsCancellationRequested);
         _console.SetCursorPosition(position.Left, position.Top);
         _console.Write(Complete);
-        _console.Write(FormatSize());
+        _console.WriteLine(SizeFormatter<long>.FormatSize(_responseSize));
         _console.WriteLine();
         _console.CursorVisible = true;
-    }
-
-    private string FormatSize()
-    {
-        return _responseSize switch
-        {
-            >= TerraByte => $"{_responseSize / TerraByte,Alignment:D} TB",
-            >= GigaByte => $"{_responseSize / GigaByte,Alignment:D} GB",
-            >= MegaByte and < GigaByte => $"{_responseSize / MegaByte,Alignment:D} MB",
-            >= KiloByte and < MegaByte => $"{_responseSize / KiloByte,Alignment:D} KB",
-            < KiloByte => $"{_responseSize,Alignment:D} B"
-        }; ;
     }
 }
