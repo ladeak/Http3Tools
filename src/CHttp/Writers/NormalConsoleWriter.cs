@@ -30,9 +30,7 @@ internal sealed class NormalConsoleWriter : IWriter
 
     private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
     {
-        _console.WriteLine($"Version: {httpVersion}");
-        _console.WriteLine($"Encoding: {encoding.WebName}");
-        _console.WriteLine($"Status: {responseStatus}");
+        _console.WriteLine($"Status: {responseStatus} Version: {httpVersion} Encoding: {encoding.WebName}");
         foreach (var header in headers)
             _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
     }
@@ -48,11 +46,11 @@ internal sealed class NormalConsoleWriter : IWriter
 
     public async Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
     {
-        summary.SetSize(_contentProcessor.Position);
         await _contentProcessor.CompleteAsync(CancellationToken.None);
         _console.WriteLine();
         foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
             _console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
+        summary.SetSize(_contentProcessor.Position);
         _console.WriteLine(summary.ToString());
     }
 

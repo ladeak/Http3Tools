@@ -65,7 +65,6 @@ internal sealed class HttpMessageSender
                 summary = summary with { Error = $"Generic Error {ex}" };
             }
         }
-
         await _writer.WriteSummaryAsync(trailers, summary);
     }
 

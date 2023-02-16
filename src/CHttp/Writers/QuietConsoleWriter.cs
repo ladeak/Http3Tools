@@ -31,14 +31,14 @@ internal sealed class QuietConsoleWriter : IWriter
         _cts.Cancel();
         await CompleteAsync(CancellationToken.None);
         _cts = new CancellationTokenSource();
-        PrintResponse(responseStatus, headers);
+        PrintResponse(responseStatus, headers, httpVersion, encoding);
         _progressBarTask = _progressBar.RunAsync(_cts.Token);
         _ = _contentProcessor.RunAsync(ProcessLine);
     }
 
-    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers)
+    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
     {
-        _console.WriteLine($"Status: {responseStatus}");
+        _console.WriteLine($"Status: {responseStatus} Version: {httpVersion} Encoding: {encoding.WebName}");
         foreach (var header in headers)
             _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
     }
