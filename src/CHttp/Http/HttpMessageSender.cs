@@ -45,6 +45,7 @@ internal sealed class HttpMessageSender
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
                 await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, response.Version, encoding);
                 await Read(response, encoding);
+                summary.RequestCompleted();
                 trailers = response.TrailingHeaders;
             }
             catch (HttpRequestException requestException)
