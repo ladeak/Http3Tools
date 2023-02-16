@@ -41,7 +41,7 @@ public record struct Summary
             buffer = buffer.Slice(inputs.url.Length);
             buffer[0] = ' ';
             buffer = buffer.Slice(1);
-            var responseSize = (long)(inputs.RequestActivity.GetTagItem(Length) ?? 0);
+            var responseSize = (long)(inputs.RequestActivity.GetTagItem(Length) ?? 0L);
             if (!SizeFormatter<long>.TryFormatSize(responseSize, buffer, out var count))
                 ThrowInvalidOperationException();
             buffer = buffer.Slice(count);

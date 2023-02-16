@@ -11,6 +11,18 @@
     "chttp stream": {
       "commandName": "Project",
       "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/stream"
+    },
+    "chttp quiet": {
+      "commandName": "Project",
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001 --log Quiet"
+    },
+    "chttp long quiet": {
+      "commandName": "Project",
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/long --log Quiet"
+    },
+    "chttp stream quiet": {
+      "commandName": "Project",
+      "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/stream --log Quiet"
     }
   }
 }

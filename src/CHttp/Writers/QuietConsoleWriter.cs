@@ -40,7 +40,7 @@ internal sealed class QuietConsoleWriter : IWriter
     {
         _console.WriteLine($"Status: {responseStatus}");
         foreach (var header in headers)
-            _console.WriteLine($"{header.Key}: {header.Value}");
+            _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
@@ -54,6 +54,7 @@ internal sealed class QuietConsoleWriter : IWriter
         await _contentProcessor.CompleteAsync(CancellationToken.None);
         _cts.Cancel();
         await _progressBarTask;
+        summary.SetSize(_contentProcessor.Position);
         _console.WriteLine(summary.ToString());
     }
 
