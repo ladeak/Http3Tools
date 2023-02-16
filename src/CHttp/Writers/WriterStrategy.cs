@@ -25,8 +25,8 @@ internal sealed class WriterStrategy : IWriter
         _strategy = logLevel switch
         {
             LogLevel.Quiet => new QuietConsoleWriter(_contentProcessor, console),
-            LogLevel.Normal => new NormalConsoleWriter(_contentProcessor, console),
-            LogLevel.Verbose => new NormalConsoleWriter(_contentProcessor, console),
+            LogLevel.Normal => new ProgressingConsoleWriter(_contentProcessor, console),
+            LogLevel.Verbose => new VerboseConsoleWriter(_contentProcessor, console),
             _ => throw new InvalidOperationException("Not supported log level")
         };
     }

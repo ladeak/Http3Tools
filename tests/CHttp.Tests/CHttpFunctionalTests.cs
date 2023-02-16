@@ -7,12 +7,12 @@ namespace CHttp.Tests;
 public class CHttpFunctionalTests
 {
     [Fact]
-    public async Task NormalWriter_TestVanilaHttp3Request()
+    public async Task VerboseWriter_TestVanilaHttp3Request()
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
         var console = new TestConsole();
-        var writer = new NormalConsoleWriter(new BufferedProcessor(), console);
+        var writer = new VerboseConsoleWriter(new BufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
 
@@ -21,12 +21,12 @@ public class CHttpFunctionalTests
     }
 
     [Fact]
-    public async Task QuietWriter_TestVanilaHttp3Request()
+    public async Task ProgressingWriter_TestVanilaHttp3Request()
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
         var console = new TestConsole();
-        var writer = new QuietConsoleWriter(new BufferedProcessor(), console);
+        var writer = new ProgressingConsoleWriter(new BufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
 

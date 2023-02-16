@@ -79,7 +79,7 @@ internal static class CommandFactory
 
         var logOption = new Option<LogLevel>(
             name: "--log",
-            getDefaultValue: () => LogLevel.Normal,
+            getDefaultValue: () => LogLevel.Verbose,
             description: "Level of logging details.");
         logOption.AddAlias("-l");
         logOption.IsRequired = false;
