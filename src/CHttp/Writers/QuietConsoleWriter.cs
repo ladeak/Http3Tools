@@ -25,7 +25,7 @@ internal sealed class QuietConsoleWriter : IWriter
         _progressBar = new ProgressBar(console ?? new CHttpConsole(), new Awaiter());
     }
 
-    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding)
+    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
     {
         _contentProcessor.Cancel();
         _cts.Cancel();
@@ -44,16 +44,18 @@ internal sealed class QuietConsoleWriter : IWriter
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
-    {   
+    {
         _progressBar.Set(_contentProcessor.Position);
         return Task.CompletedTask;
     }
 
-    public async Task WriteSummaryAsync(Summary summary)
+    public async Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
     {
         await _contentProcessor.CompleteAsync(CancellationToken.None);
         _cts.Cancel();
         await _progressBarTask;
+        foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+            _console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
         summary.SetSize(_contentProcessor.Position);
         _console.WriteLine(summary.ToString());
     }

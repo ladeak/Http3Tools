@@ -37,7 +37,7 @@ internal sealed class WriterStrategy : IWriter
 
     public ValueTask DisposeAsync() => _strategy.DisposeAsync();
 
-    public Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding) => _strategy.InitializeResponseAsync(responseStatus, headers, encoding);
+    public Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding) => _strategy.InitializeResponseAsync(responseStatus, headers, httpVersion, encoding);
 
-    public Task WriteSummaryAsync(Summary summary) => _strategy.WriteSummaryAsync(summary);
+    public Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary) => _strategy.WriteSummaryAsync(trailers, summary);
 }

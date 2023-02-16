@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.Net.Http.Headers;
 using CHttp.Writers;
 
 public record struct Summary
@@ -6,20 +8,21 @@ public record struct Summary
     private const string Request = nameof(Request);
     private const string Length = nameof(Length);
     private const string Url = nameof(Url);
+    private const string Trailers = nameof(Trailers);
     private static ActivitySource ActivitySource = new ActivitySource(nameof(Summary));
 
     public Summary(string url)
     {
         Error = string.Empty;
         RequestActivity = ActivitySource.StartActivity(Request, ActivityKind.Client) ?? new Activity(Request).Start();
-        RequestActivity.AddTag("Url", url);
+        RequestActivity.AddTag(Url, url);
     }
 
     public Activity RequestActivity { get; }
 
     public string Error { get; init; }
 
-    public void ReuqestCompleted()
+    public void RequestCompleted()
     {
         RequestActivity.Stop();
     }
@@ -34,6 +37,7 @@ public record struct Summary
         if (!string.IsNullOrEmpty(Error))
             return Error;
         var url = RequestActivity.GetTagItem(Url) as string ?? string.Empty;
+        var trailers = RequestActivity.GetTagItem(Trailers) as HttpResponseHeaders;
 
         return string.Create(url.Length + 7 + 16 + 3, (RequestActivity, url), static (buffer, inputs) =>
         {

@@ -19,17 +19,19 @@ internal sealed class NormalConsoleWriter : IWriter
         _console = console;
     }
 
-    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding)
+    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
     {
         _contentProcessor.Cancel();
         await _contentProcessor.CompleteAsync(CancellationToken.None);
 
-        PrintResponse(responseStatus, headers);
+        PrintResponse(responseStatus, headers, httpVersion, encoding);
         _ = _contentProcessor.RunAsync(ProcessLine);
     }
 
-    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers)
+    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
     {
+        _console.WriteLine($"Version: {httpVersion}");
+        _console.WriteLine($"Encoding: {encoding.WebName}");
         _console.WriteLine($"Status: {responseStatus}");
         foreach (var header in headers)
             _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
@@ -44,11 +46,13 @@ internal sealed class NormalConsoleWriter : IWriter
         return Task.CompletedTask;
     }
 
-    public async Task WriteSummaryAsync(Summary summary)
+    public async Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
     {
         summary.SetSize(_contentProcessor.Position);
         await _contentProcessor.CompleteAsync(CancellationToken.None);
         _console.WriteLine();
+        foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+            _console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
         _console.WriteLine(summary.ToString());
     }
 

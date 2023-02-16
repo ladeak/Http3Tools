@@ -1,4 +1,5 @@
 ﻿using System.IO.Pipelines;
+using System.Net.Http.Headers;
 using System.Text;
 
 internal sealed class HttpMessageSender
@@ -35,15 +36,16 @@ internal sealed class HttpMessageSender
     private async Task SendRequest(HttpClient client, HttpRequestMessage request)
     {
         Summary summary = new Summary(request.RequestUri?.ToString() ?? string.Empty);
+        HttpResponseHeaders? trailers = null;
         {
             try
             {
                 var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
                 var charSet = response.Content.Headers.ContentType?.CharSet;
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
-                await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, encoding);
+                await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, response.Version, encoding);
                 await Read(response, encoding);
-                summary.ReuqestCompleted();
+                trailers = response.TrailingHeaders;
             }
             catch (HttpRequestException requestException)
             {
@@ -63,7 +65,7 @@ internal sealed class HttpMessageSender
             }
         }
 
-        await _writer.WriteSummaryAsync(summary);
+        await _writer.WriteSummaryAsync(trailers, summary);
     }
 
     private async Task Read(HttpResponseMessage response, Encoding encoding)

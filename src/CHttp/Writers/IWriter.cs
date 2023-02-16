@@ -7,9 +7,9 @@ internal interface IWriter : IAsyncDisposable
 {
     PipeWriter Buffer { get; }
 
-    Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Encoding encoding);
+    Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding);
 
-    Task WriteSummaryAsync(Summary summary);
+    Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary);
 
     Task CompleteAsync(CancellationToken token);
 }
