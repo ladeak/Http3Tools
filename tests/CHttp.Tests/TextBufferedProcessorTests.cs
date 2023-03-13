@@ -2,7 +2,7 @@
 
 namespace CHttp.Tests;
 
-public class BufferedProcessorTests
+public class TextBufferedProcessorTests
 {
     [Theory]
     [MemberData(nameof(InputData))]
@@ -10,7 +10,7 @@ public class BufferedProcessorTests
     {
         ReadOnlyMemory<byte> data = input.AsMemory();
         var segment = new ReadOnlySequence<byte>(data);
-        var sut = new BufferedProcessor();
+        var sut = new TextBufferedProcessor();
         var result = sut.TryReadLine(ref segment, out var line);
         Assert.True(result);
         Assert.True(data.Span.SequenceEqual(line.ToArray()));
@@ -26,7 +26,7 @@ public class BufferedProcessorTests
             var segment = new MemorySegment<byte>(data.Slice(0, offset))
                 .Append(data.Slice(offset, data.Length - offset))
                 .AsSequence();
-            var sut = new BufferedProcessor();
+            var sut = new TextBufferedProcessor();
             var result = sut.TryReadLine(ref segment, out var line);
             Assert.True(result);
             Assert.True(data.Span.SequenceEqual(line.ToArray()));
@@ -46,7 +46,7 @@ public class BufferedProcessorTests
                   .Append(data.Slice(offset, innerSegmentLength))
                   .Append(data.Slice(offset + innerSegmentLength, data.Length - offset - innerSegmentLength))
                   .AsSequence();
-                var sut = new BufferedProcessor();
+                var sut = new TextBufferedProcessor();
                 var result = sut.TryReadLine(ref segment, out var line);
                 Assert.True(result);
                 Assert.True(data.Span.SequenceEqual(line.ToArray()));

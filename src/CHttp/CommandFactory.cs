@@ -85,6 +85,13 @@ internal static class CommandFactory
         logOption.IsRequired = false;
         logOption.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Normal), nameof(LogLevel.Verbose));
 
+        var outputFileOption = new Option<string>(
+            name: "--output",
+            getDefaultValue: () => string.Empty,
+            description: "Output response content to file.");
+        outputFileOption.AddAlias("-o");
+        outputFileOption.IsRequired = false;
+
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
@@ -95,23 +102,23 @@ internal static class CommandFactory
         rootCommand.AddGlobalOption(validateCertificateOption);
         rootCommand.AddGlobalOption(logOption);
 
-        CreateFormsCommand(writer, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+        CreateFormsCommand(writer, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateJsonCommand(writer, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+        CreateJsonCommand(writer, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, rootCommand);
+        CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
         return rootCommand;
     }
 
-    private static void CreateFormsCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<IEnumerable<string>> formsOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    private static void CreateFormsCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<IEnumerable<string>> formsOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, Option<string> outputFileOption, RootCommand rootCommand)
     {
         var formsCommand = new Command("forms", "Forms request");
         formsCommand.AddOption(formsOptions);
         rootCommand.Add(formsCommand);
-        formsCommand.SetHandler(async (requestDetails, httpBehavior, forms) =>
+        formsCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, forms) =>
         {
-            writer ??= new WriterStrategy(httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(outputBehavior);
             var client = new HttpMessageSender(writer);
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
@@ -125,16 +132,16 @@ internal static class CommandFactory
           timeoutOption),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption),
-        logOption),
+          new InvertBinder(validateCertificateOption)),
+        new OutputBehaviorBinder(logOption, outputFileOption),
         new KeyValueBinder(formsOptions));
     }
 
-    private static void CreateDefaultCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    private static void CreateDefaultCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, Option<string> outputFileOption, RootCommand rootCommand)
     {
-        rootCommand.SetHandler(async (requestDetails, httpBehavior) =>
+        rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior) =>
         {
-            writer ??= new WriterStrategy(httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(outputBehavior);
             var client = new HttpMessageSender(writer);
             await client.SendRequestAsync(requestDetails, httpBehavior);
             await writer.CompleteAsync(CancellationToken.None);
@@ -146,18 +153,18 @@ internal static class CommandFactory
           timeoutOption),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption),
-        logOption));
+          new InvertBinder(validateCertificateOption)),
+         new OutputBehaviorBinder(logOption, outputFileOption));
     }
 
-    private static void CreateJsonCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, RootCommand rootCommand)
+    private static void CreateJsonCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<string> bodyOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, Option<string> outputFileOption, RootCommand rootCommand)
     {
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
         rootCommand.Add(jsonCommand);
-        jsonCommand.SetHandler(async (requestDetails, httpBehavior, body) =>
+        jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body) =>
         {
-            writer ??= new WriterStrategy(httpBehavior.LogLevel);
+            writer ??= new WriterStrategy(outputBehavior);
             var client = new HttpMessageSender(writer);
             requestDetails = requestDetails with { Content = new StringContent(body) };
             await client.SendRequestAsync(requestDetails, httpBehavior);
@@ -170,8 +177,8 @@ internal static class CommandFactory
           timeoutOption),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption),
-        logOption),
+          new InvertBinder(validateCertificateOption)),
+        new OutputBehaviorBinder(logOption, outputFileOption),
         bodyOptions);
     }
 }

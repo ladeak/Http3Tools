@@ -1,3 +1,1 @@
-﻿using CHttp.Data;
-
-internal record HttpBehavior(bool EnableRedirects, bool EnableCertificateValidation, LogLevel LogLevel);
+﻿internal record HttpBehavior(bool EnableRedirects, bool EnableCertificateValidation);

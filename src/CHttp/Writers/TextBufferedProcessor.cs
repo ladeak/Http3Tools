@@ -2,14 +2,14 @@
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 
-internal class BufferedProcessor : IBufferedProcessor
+internal class TextBufferedProcessor : IBufferedProcessor
 {
     private Pipe _pipe;
     private CancellationTokenSource _cts;
     private Task _pipeReader;
     private long _position;
 
-    public BufferedProcessor()
+    public TextBufferedProcessor()
     {
         _pipe = new Pipe();
         _cts = new CancellationTokenSource();

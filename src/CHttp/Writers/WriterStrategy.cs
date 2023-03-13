@@ -11,22 +11,18 @@ internal sealed class WriterStrategy : IWriter
     private readonly IBufferedProcessor _contentProcessor;
     private IWriter _strategy;
 
-    public WriterStrategy(LogLevel logLevel) : this(new BufferedProcessor(), new CHttpConsole(), logLevel)
+    public WriterStrategy(OutputBehavior behavior, IBufferedProcessor? contentProcessor = null, IConsole? console = null)
     {
-    }
-
-    public WriterStrategy(IBufferedProcessor contentProcessor, LogLevel logLevel) : this(contentProcessor, new CHttpConsole(), logLevel)
-    {
-    }
-
-    public WriterStrategy(IBufferedProcessor contentProcessor, IConsole console, LogLevel logLevel)
-    {
+        contentProcessor ??= !string.IsNullOrWhiteSpace(behavior.FilePath) ?
+           new StreamBufferedProcessor(File.Open(behavior.FilePath, new FileStreamOptions() { Access = FileAccess.Write, Mode = FileMode.Create, Options = FileOptions.Asynchronous })) : new TextBufferedProcessor();
+        console ??= new CHttpConsole();
         _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
-        _strategy = logLevel switch
+        _strategy = behavior switch
         {
-            LogLevel.Quiet => new QuietConsoleWriter(_contentProcessor, console),
-            LogLevel.Normal => new ProgressingConsoleWriter(_contentProcessor, console),
-            LogLevel.Verbose => new VerboseConsoleWriter(_contentProcessor, console),
+            { LogLevel: LogLevel.Quiet } => new QuietConsoleWriter(_contentProcessor, console),
+            { LogLevel: LogLevel.Normal } => new ProgressingConsoleWriter(_contentProcessor, console),
+            { LogLevel: LogLevel.Verbose, FilePath: string { Length: > 0 } } => new ProgressingConsoleWriter(_contentProcessor, console),
+            { LogLevel: LogLevel.Verbose } => new VerboseConsoleWriter(_contentProcessor, console),
             _ => throw new InvalidOperationException("Not supported log level")
         };
     }

@@ -19,7 +19,9 @@ internal sealed class HttpMessageSender
         messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
         {
             // TODO: sockets behavior
+            // TODO: loglevel file
         };
+
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 
