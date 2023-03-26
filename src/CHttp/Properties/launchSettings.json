@@ -23,6 +23,10 @@
     "chttp stream quiet": {
       "commandName": "Project",
       "commandLineArgs": "--method GET --no-certificate-validation --uri https://localhost:5001/stream --log Quiet"
+    },
+    "chttp perf": {
+      "commandName": "Project",
+      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/"
     }
   }
 }

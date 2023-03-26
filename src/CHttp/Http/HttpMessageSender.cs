@@ -19,7 +19,6 @@ internal sealed class HttpMessageSender
         messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
         {
             // TODO: sockets behavior
-            // TODO: loglevel file
         };
 
         if (!behavior.EnableCertificateValidation)
@@ -46,31 +45,31 @@ internal sealed class HttpMessageSender
                 var charSet = response.Content.Headers.ContentType?.CharSet;
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
                 await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, response.Version, encoding);
-                await Read(response, encoding);
+                await ProcessResponseAsync(response, encoding);
                 summary.RequestCompleted();
                 trailers = response.TrailingHeaders;
             }
             catch (HttpRequestException requestException)
             {
-                summary = summary with { Error = $"Request Error {requestException.Message}" };
+                summary = summary with { Error = $"Request Error {requestException.Message}", ErrorCode = ErrorType.HttpRequestException };
             }
             catch (HttpProtocolException protocolException)
             {
-                summary = summary with { Error = $"Protocol Error {protocolException.ErrorCode}" };
+                summary = summary with { Error = $"Protocol Error {protocolException.ErrorCode}", ErrorCode = ErrorType.HttpProtocolException };
             }
             catch (OperationCanceledException)
             {
-                summary = summary with { Error = "Request Timed Out" };
+                summary = summary with { Error = "Request Timed Out", ErrorCode = ErrorType.Timeout };
             }
             catch (Exception ex)
             {
-                summary = summary with { Error = $"Generic Error {ex}" };
+                summary = summary with { Error = $"Generic Error {ex}", ErrorCode = ErrorType.Other };
             }
         }
         await _writer.WriteSummaryAsync(trailers, summary);
     }
 
-    private async Task Read(HttpResponseMessage response, Encoding encoding)
+    private async Task ProcessResponseAsync(HttpResponseMessage response, Encoding encoding)
     {
         var contentStream = await response.Content.ReadAsStreamAsync();
         var transcodingStream = Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8);

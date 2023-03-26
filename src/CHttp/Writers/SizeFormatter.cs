@@ -3,7 +3,14 @@ using System.Numerics;
 
 namespace CHttp.Writers;
 
-public static class SizeFormatter<T> where T : IBinaryInteger<T>
+public interface INumberFormatter<T> where T : IBinaryInteger<T>
+{
+    public static abstract string FormatSize(T value);
+
+    public static abstract bool TryFormatSize(T value, Span<char> destination, out int count);
+}
+
+public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
 {
     private const int Alignment = 4;
     private static readonly T KiloByte = T.CreateChecked(1024);
@@ -64,5 +71,24 @@ public static class SizeFormatter<T> where T : IBinaryInteger<T>
         result = Size.TryCopyTo(destination.Slice(count));
         count += Size.Length;
         return result;
+    }
+}
+
+public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
+{
+    private const int Alignment = 7;
+
+    public static string FormatSize(T value)
+    {
+        return $"{value,Alignment:D}";
+    }
+
+    public static bool TryFormatSize(T value, Span<char> destination, out int count)
+    {
+        count = 0;
+        if (destination.Length < 7)
+            return false;
+        ReadOnlySpan<char> Format = "######0";
+        return value.TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
     }
 }

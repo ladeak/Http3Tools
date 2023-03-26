@@ -10,7 +10,7 @@ internal sealed class ProgressingConsoleWriter : IWriter
 {
     private Task _progressBarTask;
     private CancellationTokenSource _cts;
-    private ProgressBar _progressBar;
+    private ProgressBar<long> _progressBar;
     private readonly IBufferedProcessor _contentProcessor;
     private readonly IConsole _console;
 
@@ -22,7 +22,7 @@ internal sealed class ProgressingConsoleWriter : IWriter
         _console = console;
         _progressBarTask = Task.CompletedTask;
         _cts = new CancellationTokenSource();
-        _progressBar = new ProgressBar(console ?? new CHttpConsole(), new Awaiter());
+        _progressBar = new ProgressBar<long>(console ?? new CHttpConsole(), new Awaiter());
     }
 
     public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
@@ -32,7 +32,7 @@ internal sealed class ProgressingConsoleWriter : IWriter
         await CompleteAsync(CancellationToken.None);
         _cts = new CancellationTokenSource();
         PrintResponse(responseStatus, headers, httpVersion, encoding);
-        _progressBarTask = _progressBar.RunAsync(_cts.Token);
+        _progressBarTask = _progressBar.RunAsync<SizeFormatter<long>>(_cts.Token);
         _ = _contentProcessor.RunAsync(ProcessLine);
     }
 

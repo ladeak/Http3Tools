@@ -92,6 +92,20 @@ internal static class CommandFactory
         outputFileOption.AddAlias("-o");
         outputFileOption.IsRequired = false;
 
+        var cOption = new Option<int>(
+            name: "--clients",
+            getDefaultValue: () => 20,
+            description: "Number of parallel clients.");
+        outputFileOption.AddAlias("-c");
+        outputFileOption.IsRequired = false;
+
+        var nOption = new Option<int>(
+            name: "--requestCount",
+            getDefaultValue: () => 100,
+            description: "Number of total requests sent.");
+        outputFileOption.AddAlias("-n");
+        outputFileOption.IsRequired = false;
+
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
@@ -107,6 +121,8 @@ internal static class CommandFactory
         CreateJsonCommand(writer, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
+
+        CreateMeasureCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, cOption, nOption, rootCommand);
 
         return rootCommand;
     }
@@ -181,4 +197,36 @@ internal static class CommandFactory
         new OutputBehaviorBinder(logOption, outputFileOption),
         bodyOptions);
     }
+
+    private static void CreateMeasureCommand(IWriter? writer,
+        Option<string> versionOptions,
+        Option<string> methodOptions,
+        Option<IEnumerable<string>> headerOptions,
+        Option<double> timeoutOption,
+        Option<bool> redirectOption,
+        Option<bool> validateCertificateOption,
+        Option<string> uriOption,
+        Option<int> nOption,
+        Option<int> cOption,
+        RootCommand rootCommand)
+    {
+        var perfCommand = new Command("perf", "Performance Measure");
+        rootCommand.Add(perfCommand);
+        perfCommand.SetHandler(async (requestDetails, httpBehavior, requestCount, clientsCount) =>
+        {
+            var orchestrator = new PerformanceMeasureOrchestrator(new CHttpConsole(), new Awaiter(), requestCount, clientsCount);
+            await orchestrator.RunAsync(requestDetails, httpBehavior);
+        },
+        new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
+          new UriBinder(uriOption),
+          new VersionBinder(versionOptions),
+          new KeyValueBinder(headerOptions),
+          timeoutOption),
+        new HttpBehaviorBinder(
+          new InvertBinder(redirectOption),
+          new InvertBinder(validateCertificateOption)),
+        nOption,
+        cOption);
+    }
+
 }

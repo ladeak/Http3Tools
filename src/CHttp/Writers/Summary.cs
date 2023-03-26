@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net.Http.Headers;
 using CHttp.Writers;
 
@@ -21,6 +20,8 @@ public record struct Summary
     public Activity RequestActivity { get; }
 
     public string Error { get; init; }
+
+    public ErrorType ErrorCode { get; init; }
 
     public void RequestCompleted()
     {
