@@ -5,14 +5,12 @@ using System.Text;
 internal sealed class HttpMessageSender
 {
     private readonly IWriter _writer;
+    private readonly HttpClient _client;
 
-    public HttpMessageSender(IWriter writer)
+    public HttpMessageSender(IWriter writer, HttpBehavior behavior)
     {
         _writer = writer ?? throw new ArgumentNullException(nameof(writer));
-    }
 
-    public async Task SendRequestAsync(HttpRequestDetails requestData, HttpBehavior behavior)
-    {
         var messageHandler = new SocketsHttpHandler();
         messageHandler.MaxConnectionsPerServer = 1;
         messageHandler.AllowAutoRedirect = behavior.EnableRedirects;
@@ -24,14 +22,18 @@ internal sealed class HttpMessageSender
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 
-        var client = new HttpClient(messageHandler);
+        _client = new HttpClient(messageHandler);
+        _client.Timeout = TimeSpan.FromSeconds(behavior.Timeout);
+    }
+
+    public async Task SendRequestAsync(HttpRequestDetails requestData)
+    {
         var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
         request.Version = requestData.Version;
         request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
         request.Content = requestData.Content;
-        client.Timeout = TimeSpan.FromSeconds(requestData.Timeout);
         SetHeaders(requestData, request);
-        await SendRequest(client, request);
+        await SendRequest(_client, request);
     }
 
     private async Task SendRequest(HttpClient client, HttpRequestMessage request)
@@ -46,7 +48,7 @@ internal sealed class HttpMessageSender
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
                 await _writer.InitializeResponseAsync(response.StatusCode, response.Headers, response.Version, encoding);
                 await ProcessResponseAsync(response, encoding);
-                summary.RequestCompleted();
+                summary.RequestCompleted(response.StatusCode);
                 trailers = response.TrailingHeaders;
             }
             catch (HttpRequestException requestException)

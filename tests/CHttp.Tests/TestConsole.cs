@@ -10,6 +10,8 @@ public class TestConsole : IConsole
 
     public string Text { get => _sb.ToString(); }
 
+    public int WindowWidth => 8;
+
     public (int Left, int Top) GetCursorPosition() => (0, 0);
 
     public void SetCursorPosition(int left, int top)

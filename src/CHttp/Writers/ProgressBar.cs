@@ -4,8 +4,8 @@ namespace CHttp.Writers;
 
 internal sealed class ProgressBar<T> where T : struct, IBinaryInteger<T>
 {
-    private const int Length = 8;
-    private readonly char[] Complete = "100%".PadRight(Length).ToArray();
+    private readonly int _length;
+    private readonly char[] _complete;
     private readonly IConsole _console;
     private readonly IAwaiter _awaiter;
     private T _responseSize;
@@ -16,12 +16,14 @@ internal sealed class ProgressBar<T> where T : struct, IBinaryInteger<T>
     {
         _console = console ?? new CHttpConsole();
         _awaiter = awaiter ?? new Awaiter();
+        _length = Math.Min(50, _console.WindowWidth);
+        _complete = "100%".PadRight(_length).ToArray();
     }
 
     public async Task RunAsync<U>(CancellationToken token = default) where U : INumberFormatter<T>
     {
         _responseSize = T.Zero;
-        char[] buffer = new char[Length];
+        char[] buffer = new char[_length];
         int state = 0;
         (int Left, int Top) position;
         _console.WriteLine();
@@ -31,7 +33,7 @@ internal sealed class ProgressBar<T> where T : struct, IBinaryInteger<T>
         {
             for (int i = 0; i < buffer.Length; i++)
             {
-                buffer[i] = i < (state % Length) ? ':' : ' ';
+                buffer[i] = i < (state % _length) ? '=' : ' ';
             }
             _console.SetCursorPosition(position.Left, position.Top);
             _console.Write(buffer);
@@ -40,7 +42,7 @@ internal sealed class ProgressBar<T> where T : struct, IBinaryInteger<T>
             await _awaiter.WaitAsync();
         } while (!token.IsCancellationRequested);
         _console.SetCursorPosition(position.Left, position.Top);
-        _console.Write(Complete);
+        _console.Write(_complete);
         _console.WriteLine(U.FormatSize(_responseSize));
         _console.WriteLine();
         _console.CursorVisible = true;

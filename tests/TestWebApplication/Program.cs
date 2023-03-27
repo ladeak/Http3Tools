@@ -30,6 +30,11 @@ app.MapGet("/longer", async (HttpContext context, [FromServices] HttpClient clie
     await stream.CopyToAsync(context.Response.Body);
 });
 
+app.MapGet("/delay", async (HttpContext context) =>
+{
+    await Task.Delay(TimeSpan.FromMilliseconds(100));
+});
+
 app.MapGet("/stream", GenerateData);
 
 app.Run();

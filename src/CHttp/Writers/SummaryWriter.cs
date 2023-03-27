@@ -5,7 +5,7 @@ using System.Text;
 
 namespace CHttp.Writers;
 
-internal sealed class StatisticsWriter : IWriter
+internal sealed class SummaryWriter : IWriter
 {
     private readonly SizeMeasuringPipeWriter _buffer;
     private readonly List<Summary> _summaries;
@@ -14,7 +14,7 @@ internal sealed class StatisticsWriter : IWriter
 
     public IEnumerable<Summary> Summaries => _summaries;
 
-    public StatisticsWriter()
+    public SummaryWriter()
     {
         _buffer = new SizeMeasuringPipeWriter();
         _summaries = new List<Summary>();

@@ -10,6 +10,7 @@ internal class PerformanceMeasureOrchestrator
     private readonly ProgressBar<int> _progressBar;
     private readonly CancellationTokenSource _cts;
     private Task? _progressBarTask;
+    private int _requestCompleted;
 
     public PerformanceMeasureOrchestrator(IConsole console, IAwaiter awaiter, int requestCount, int clientsCount)
     {
@@ -27,19 +28,26 @@ internal class PerformanceMeasureOrchestrator
         for (int i = 0; i < _clientsCount; i++)
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior));
         await Task.WhenAll(clientTasks);
-        await SummarizeResults(clientTasks.SelectMany(x=>x.Result));
+        await SummarizeResults(clientTasks.SelectMany(x => x.Result));
     }
 
     private async Task<IEnumerable<Summary>> RunClient(HttpRequestDetails requestDetails, HttpBehavior httpBehavior)
     {
-        var writer = new StatisticsWriter();
-        var client = new HttpMessageSender(writer);
+        var writer = new SummaryWriter();
+        var client = new HttpMessageSender(writer, httpBehavior);
+
+        //Warm up
+        await client.SendRequestAsync(requestDetails);
+
         for (int j = 0; j < _requestCount / _clientsCount; j++)
         {
-            await client.SendRequestAsync(requestDetails, httpBehavior);
+            await client.SendRequestAsync(requestDetails);
+            _progressBar.Set(Interlocked.Increment(ref _requestCompleted));
         }
         await writer.CompleteAsync(CancellationToken.None);
-        return writer.Summaries;
+
+        // Skip the first request as that is warm up.
+        return writer.Summaries.Skip(1);
     }
 
     private async Task SummarizeResults(IEnumerable<Summary> summaries)
@@ -48,6 +56,34 @@ internal class PerformanceMeasureOrchestrator
         if (_progressBarTask != null)
             await _progressBarTask;
 
-
+        double average = summaries.Average(x => x.RequestActivity.Duration.Ticks);
+        double displayAverage = 0;
+        string qualifier;
+        if (average > TimeSpan.TicksPerMinute)
+        {
+            displayAverage = average / TimeSpan.TicksPerMinute;
+            qualifier = "m";
+        }
+        else if (average > TimeSpan.TicksPerSecond)
+        {
+            displayAverage = average / TimeSpan.TicksPerSecond;
+            qualifier = "s";
+        }
+        else if (average > TimeSpan.TicksPerMillisecond)
+        {
+            displayAverage = average / TimeSpan.TicksPerMillisecond;
+            qualifier = "ms";
+        }
+        else if (average > TimeSpan.TicksPerMicrosecond)
+        {
+            displayAverage = average / TimeSpan.TicksPerMicrosecond;
+            qualifier = "us";
+        }
+        else
+        {
+            displayAverage = average * 100;
+            qualifier = "ns";
+        }
+        _console.WriteLine($"{displayAverage:F3} {qualifier}");
     }
 }

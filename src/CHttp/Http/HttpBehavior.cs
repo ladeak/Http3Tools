@@ -1,1 +1,1 @@
-﻿internal record HttpBehavior(bool EnableRedirects, bool EnableCertificateValidation);
+﻿internal record HttpBehavior(bool EnableRedirects, bool EnableCertificateValidation, double Timeout);

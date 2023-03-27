@@ -4,6 +4,8 @@ internal class CHttpConsole : IConsole
 {
     public bool CursorVisible { set => Console.CursorVisible = value; }
 
+    public int WindowWidth => Console.WindowWidth;
+
     public (int Left, int Top) GetCursorPosition() => Console.GetCursorPosition();
 
     public void SetCursorPosition(int left, int top) => Console.SetCursorPosition(left, top);

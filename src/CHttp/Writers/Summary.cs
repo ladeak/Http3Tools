@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using CHttp.Writers;
 
@@ -8,6 +9,7 @@ public record struct Summary
     private const string Length = nameof(Length);
     private const string Url = nameof(Url);
     private const string Trailers = nameof(Trailers);
+    private const string StatusCode = nameof(StatusCode);
     private static ActivitySource ActivitySource = new ActivitySource(nameof(Summary));
 
     public Summary(string url)
@@ -23,9 +25,10 @@ public record struct Summary
 
     public ErrorType ErrorCode { get; init; }
 
-    public void RequestCompleted()
+    public void RequestCompleted(HttpStatusCode statusCode)
     {
         RequestActivity.Stop();
+        RequestActivity.AddTag(StatusCode, (int)statusCode);
     }
 
     public void SetSize(long length)

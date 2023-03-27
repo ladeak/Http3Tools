@@ -2,6 +2,8 @@
 
 internal interface IConsole
 {
+    int WindowWidth { get; }
+
     bool CursorVisible { set; }
 
     (int Left, int Top) GetCursorPosition();

@@ -52,7 +52,7 @@ public class ProgressBarTests
         await sutTask;
         Assert.Equal(@"
            0 B
-:        100 B
+=        100 B
 100%     100 B
 
 ", testConsole.Text);
@@ -76,9 +76,9 @@ public class ProgressBarTests
         await sutTask;
         Assert.Equal(@"
            0 B
-:        100 B
-::       200 B
-:::      300 B
+=        100 B
+==       200 B
+===      300 B
 100%     300 B
 
 ", testConsole.Text);
@@ -102,17 +102,17 @@ public class ProgressBarTests
         await sutTask;
         Assert.Equal(@"
            0 B
-:        100 B
-::       200 B
-:::      300 B
-::::     400 B
-:::::    500 B
-::::::   600 B
-:::::::  700 B
+=        100 B
+==       200 B
+===      300 B
+====     400 B
+=====    500 B
+======   600 B
+=======  700 B
          800 B
-:        900 B
-::      1000 B
-:::        1 KB
+=        900 B
+==      1000 B
+===        1 KB
 100%       1 KB
 
 ", testConsole.Text);
@@ -136,11 +136,11 @@ public class ProgressBarTests
         await sutTask;
         Assert.Equal(@"
            0 B
-:          1 KB
-::         1 MB
-:::        1 GB
-::::       1 TB
-:::::   1024 TB
+=          1 KB
+==         1 MB
+===        1 GB
+====       1 TB
+=====   1024 TB
 100%    1024 TB
 
 ", testConsole.Text);

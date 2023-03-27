@@ -96,15 +96,15 @@ internal static class CommandFactory
             name: "--clients",
             getDefaultValue: () => 20,
             description: "Number of parallel clients.");
-        outputFileOption.AddAlias("-c");
-        outputFileOption.IsRequired = false;
+        cOption.AddAlias("-c");
+        cOption.IsRequired = false;
 
         var nOption = new Option<int>(
             name: "--requestCount",
             getDefaultValue: () => 100,
             description: "Number of total requests sent.");
-        outputFileOption.AddAlias("-n");
-        outputFileOption.IsRequired = false;
+        nOption.AddAlias("-n");
+        nOption.IsRequired = false;
 
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
@@ -122,7 +122,7 @@ internal static class CommandFactory
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateMeasureCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, cOption, nOption, rootCommand);
+        CreateMeasureCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, rootCommand);
 
         return rootCommand;
     }
@@ -135,20 +135,20 @@ internal static class CommandFactory
         formsCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, forms) =>
         {
             writer ??= new WriterStrategy(outputBehavior);
-            var client = new HttpMessageSender(writer);
+            var client = new HttpMessageSender(writer, httpBehavior);
             var formContent = new FormUrlEncodedContent(forms.Select(x => new KeyValuePair<string, string>(x.GetKey().ToString(), x.GetValue().ToString())));
             requestDetails = requestDetails with { Content = formContent };
-            await client.SendRequestAsync(requestDetails, httpBehavior);
+            await client.SendRequestAsync(requestDetails);
             await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
           new VersionBinder(versionOptions),
-          new KeyValueBinder(headerOptions),
-          timeoutOption),
+          new KeyValueBinder(headerOptions)),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption)),
+          new InvertBinder(validateCertificateOption),
+          timeoutOption),
         new OutputBehaviorBinder(logOption, outputFileOption),
         new KeyValueBinder(formsOptions));
     }
@@ -158,18 +158,18 @@ internal static class CommandFactory
         rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior) =>
         {
             writer ??= new WriterStrategy(outputBehavior);
-            var client = new HttpMessageSender(writer);
-            await client.SendRequestAsync(requestDetails, httpBehavior);
+            var client = new HttpMessageSender(writer, httpBehavior);
+            await client.SendRequestAsync(requestDetails);
             await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
           new VersionBinder(versionOptions),
-          new KeyValueBinder(headerOptions),
-          timeoutOption),
+          new KeyValueBinder(headerOptions)),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption)),
+          new InvertBinder(validateCertificateOption),
+          timeoutOption),
          new OutputBehaviorBinder(logOption, outputFileOption));
     }
 
@@ -181,19 +181,19 @@ internal static class CommandFactory
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body) =>
         {
             writer ??= new WriterStrategy(outputBehavior);
-            var client = new HttpMessageSender(writer);
+            var client = new HttpMessageSender(writer, httpBehavior);
             requestDetails = requestDetails with { Content = new StringContent(body) };
-            await client.SendRequestAsync(requestDetails, httpBehavior);
+            await client.SendRequestAsync(requestDetails);
             await writer.CompleteAsync(CancellationToken.None);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
           new VersionBinder(versionOptions),
-          new KeyValueBinder(headerOptions),
-          timeoutOption),
+          new KeyValueBinder(headerOptions)),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption)),
+          new InvertBinder(validateCertificateOption),
+          timeoutOption),
         new OutputBehaviorBinder(logOption, outputFileOption),
         bodyOptions);
     }
@@ -212,6 +212,8 @@ internal static class CommandFactory
     {
         var perfCommand = new Command("perf", "Performance Measure");
         rootCommand.Add(perfCommand);
+        perfCommand.AddOption(nOption);
+        perfCommand.AddOption(cOption);
         perfCommand.SetHandler(async (requestDetails, httpBehavior, requestCount, clientsCount) =>
         {
             var orchestrator = new PerformanceMeasureOrchestrator(new CHttpConsole(), new Awaiter(), requestCount, clientsCount);
@@ -220,11 +222,11 @@ internal static class CommandFactory
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
           new UriBinder(uriOption),
           new VersionBinder(versionOptions),
-          new KeyValueBinder(headerOptions),
-          timeoutOption),
+          new KeyValueBinder(headerOptions)),
         new HttpBehaviorBinder(
           new InvertBinder(redirectOption),
-          new InvertBinder(validateCertificateOption)),
+          new InvertBinder(validateCertificateOption),
+          timeoutOption),
         nOption,
         cOption);
     }
