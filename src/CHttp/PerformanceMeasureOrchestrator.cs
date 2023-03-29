@@ -11,6 +11,7 @@ internal class PerformanceMeasureOrchestrator
     private readonly CancellationTokenSource _cts;
     private Task? _progressBarTask;
     private int _requestCompleted;
+    private int _requestStarting;
 
     public PerformanceMeasureOrchestrator(IConsole console, IAwaiter awaiter, int requestCount, int clientsCount)
     {
@@ -25,9 +26,13 @@ internal class PerformanceMeasureOrchestrator
     {
         _progressBarTask = _progressBar.RunAsync<CountFormatter<int>>(_cts.Token);
         var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
+        int averageRequestCount = _requestCount / _clientsCount;
         for (int i = 0; i < _clientsCount; i++)
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior));
         await Task.WhenAll(clientTasks);
+        
+        // Final update to progressbar
+        _progressBar.Set(Interlocked.Increment(ref _requestCompleted));
         await SummarizeResults(clientTasks.SelectMany(x => x.Result));
     }
 
@@ -36,10 +41,11 @@ internal class PerformanceMeasureOrchestrator
         var writer = new SummaryWriter();
         var client = new HttpMessageSender(writer, httpBehavior);
 
-        //Warm up
+        // Warm up
         await client.SendRequestAsync(requestDetails);
 
-        for (int j = 0; j < _requestCount / _clientsCount; j++)
+        // Measured requests
+        while (Interlocked.Increment(ref _requestStarting) < _requestCount)
         {
             await client.SendRequestAsync(requestDetails);
             _progressBar.Set(Interlocked.Increment(ref _requestCompleted));

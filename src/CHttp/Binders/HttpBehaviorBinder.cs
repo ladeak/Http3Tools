@@ -22,6 +22,6 @@ internal sealed class HttpBehaviorBinder : BinderBase<HttpBehavior>
         var enableCertificateValidation = _enableCertificateValidationBinder.GetValue(bindingContext);
         var timeout = bindingContext.ParseResult.GetValueForOption<double>(_timeoutOption);
 
-        return new HttpBehavior(redirects, enableCertificateValidation, timeout);
+        return new HttpBehavior(redirects, enableCertificateValidation, timeout, true);
     }
 }

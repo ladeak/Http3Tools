@@ -6,11 +6,12 @@ internal sealed class HttpMessageSender
 {
     private readonly IWriter _writer;
     private readonly HttpClient _client;
+    private readonly HttpBehavior _behavior;
 
     public HttpMessageSender(IWriter writer, HttpBehavior behavior)
     {
         _writer = writer ?? throw new ArgumentNullException(nameof(writer));
-
+        _behavior = behavior ?? throw new ArgumentNullException(nameof(behavior));
         var messageHandler = new SocketsHttpHandler();
         messageHandler.MaxConnectionsPerServer = 1;
         messageHandler.AllowAutoRedirect = behavior.EnableRedirects;
@@ -74,7 +75,7 @@ internal sealed class HttpMessageSender
     private async Task ProcessResponseAsync(HttpResponseMessage response, Encoding encoding)
     {
         var contentStream = await response.Content.ReadAsStreamAsync();
-        var transcodingStream = Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8);
+        var transcodingStream = _behavior.ToUtf8 ? Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8) : contentStream;
         await transcodingStream.CopyToAsync(_writer.Buffer);
         await _writer.Buffer.CompleteAsync();
     }
