@@ -24,17 +24,28 @@ internal sealed class ProgressBar<T> where T : struct, IBinaryInteger<T>
     {
         _responseSize = T.Zero;
         char[] buffer = new char[_length];
+        buffer[0] = '[';
+        buffer[^1] = ']';
         int state = 0;
         (int Left, int Top) position;
         _console.WriteLine();
         position = _console.GetCursorPosition();
         _console.CursorVisible = false;
+        for (int i = 1; i < buffer.Length - 1; i++)
+        {
+            buffer[i] = '-';
+        }
+        int prevIndex = 1;
         do
         {
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                buffer[i] = i < (state % _length) ? '=' : ' ';
-            }
+            buffer[prevIndex] = '-';
+            var index = state % (_length - 2) + 1;
+            buffer[index] = '=';
+            prevIndex = index;
+            //for (int i = 0; i < buffer.Length; i++)
+            //{
+            //    buffer[i] = i < (state % _length) ? '=' : '-';
+            //}
             _console.SetCursorPosition(position.Left, position.Top);
             _console.Write(buffer);
             _console.WriteLine(U.FormatSize(_responseSize));

@@ -3,14 +3,16 @@ using System.Numerics;
 
 namespace CHttp.Writers;
 
-public interface INumberFormatter<T> where T : IBinaryInteger<T>
+public interface INumberFormatter<T> where T : IBinaryNumber<T>
 {
     public static abstract string FormatSize(T value);
+
+    public static abstract (string Formatted, string Qualifier) FormatSizeWithQualifier(T value);
 
     public static abstract bool TryFormatSize(T value, Span<char> destination, out int count);
 }
 
-public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
+public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
 {
     private const int Alignment = 4;
     private static readonly T KiloByte = T.CreateChecked(1024);
@@ -29,6 +31,19 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
         if (value >= KiloByte)
             return $"{value / KiloByte,Alignment:D} KB";
         return $"{value,Alignment:D} B";
+    }
+
+    public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
+    {
+        if (value >= TeraByte)
+            return ($"{value / TeraByte,Alignment:F3}", "T");
+        if (value >= GigaByte)
+            return ($"{value / GigaByte,Alignment:F3}", "G");
+        if (value >= MegaByte)
+            return ($"{value / MegaByte,Alignment:F3}", "M");
+        if (value >= KiloByte)
+            return ($"{value / KiloByte,Alignment:F3}", "K");
+        return ($"{value,Alignment:F3}", "");
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
@@ -81,6 +96,11 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
     public static string FormatSize(T value)
     {
         return $"{value,Alignment:D}";
+    }
+
+    public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
+    {
+        return ($"{value,Alignment:F3}", "");
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
