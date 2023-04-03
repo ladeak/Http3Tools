@@ -25,6 +25,8 @@ public record struct Summary
 
     public ErrorType ErrorCode { get; init; }
 
+    public int? HttpStatusCode => RequestActivity.GetTagItem(StatusCode) as int?;
+
     public void RequestCompleted(HttpStatusCode statusCode)
     {
         RequestActivity.Stop();
