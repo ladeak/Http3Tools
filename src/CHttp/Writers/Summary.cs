@@ -19,6 +19,13 @@ public record struct Summary
         RequestActivity.AddTag(Url, url);
     }
 
+    internal Summary(string url, Activity activity)
+    {
+        Error = string.Empty;
+        RequestActivity = activity;
+        RequestActivity.AddTag(Url, url);
+    }
+
     public Activity RequestActivity { get; }
 
     public string Error { get; init; }

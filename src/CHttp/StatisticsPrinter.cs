@@ -13,6 +13,12 @@ internal class StatisticsPrinter : IStatisticsPrinter
 
     public void SummarizeResults(IEnumerable<Summary> summaries, long bytesRead)
     {
+        if (!summaries.Any())
+        {
+            _console.WriteLine("No measurements available");
+            return;
+        }
+
         var summariesOrdered = summaries.OrderBy(x => x.RequestActivity.Duration.Ticks).ToList();
 
         long totalTicks = 0;
@@ -37,7 +43,6 @@ internal class StatisticsPrinter : IStatisticsPrinter
 
         double requestSec = (double)summariesOrdered.Count * TimeSpan.TicksPerSecond / totalTicks;
 
-
         (var displayMean, var meanQualifier) = Display(mean);
         (var displayStdDev, var stdDevQualifier) = Display(stdDev);
         (var displayError, var errorQualifier) = Display(error);
@@ -54,19 +59,18 @@ internal class StatisticsPrinter : IStatisticsPrinter
         _console.WriteLine($"| Min:        {displayMinResponseTime,10:F3} {minResponseTimeQualifier}   |");
         _console.WriteLine($"| Max:        {displayMaxResponseTime,10:F3} {maxResponseTimeQualifier}   |");
         _console.WriteLine($"| Throughput: {throughputFormatted,10} {throughputQualifier}B/s |");
-        _console.WriteLine($"| Req/Sec:    {requestSec,10:F3}      |");
-
-        // Histogram
-        if (summariesOrdered.Count < 100)
-            return;
+        _console.WriteLine($"| Req/Sec:    {requestSec,10:G3}      |");
 
         int lineLength = 45;
         var scaleNormalize = (double)lineLength / summariesOrdered.Count;
         string separator = new string('-', lineLength + 14);
+        // Histogram
+        if (summariesOrdered.Count >= 100)
+        {
+            _console.WriteLine(separator);
+            PrintHistogram(summariesOrdered, min, max, error, scaleNormalize);
+        }
         _console.WriteLine(separator);
-        PrintHistogram(summariesOrdered, min, max, error, scaleNormalize);
-        _console.WriteLine(separator);
-
         PrintStatusCodes(statusCodes);
         _console.WriteLine(separator);
     }
@@ -102,22 +106,22 @@ internal class StatisticsPrinter : IStatisticsPrinter
     {
         double displayAverage;
         string qualifier;
-        if (value > TimeSpan.TicksPerMinute)
+        if (value >= TimeSpan.TicksPerMinute)
         {
             displayAverage = value / TimeSpan.TicksPerMinute;
             qualifier = "m ";
         }
-        else if (value > TimeSpan.TicksPerSecond)
+        else if (value >= TimeSpan.TicksPerSecond)
         {
             displayAverage = value / TimeSpan.TicksPerSecond;
-            qualifier = "s";
+            qualifier = "s ";
         }
-        else if (value > TimeSpan.TicksPerMillisecond)
+        else if (value >= TimeSpan.TicksPerMillisecond)
         {
             displayAverage = value / TimeSpan.TicksPerMillisecond;
             qualifier = "ms";
         }
-        else if (value > TimeSpan.TicksPerMicrosecond)
+        else if (value >= TimeSpan.TicksPerMicrosecond)
         {
             displayAverage = value / TimeSpan.TicksPerMicrosecond;
             qualifier = "us";

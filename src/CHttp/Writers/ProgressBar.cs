@@ -40,10 +40,6 @@ internal sealed class ProgressBar<T> where T : struct
             var index = state % (_length - 2) + 1;
             buffer[index] = '=';
             prevIndex = index;
-            //for (int i = 0; i < buffer.Length; i++)
-            //{
-            //    buffer[i] = i < (state % _length) ? '=' : '-';
-            //}
             _console.SetCursorPosition(position.Left, position.Top);
             _console.Write(buffer);
             _console.WriteLine(U.FormatSize(_value));

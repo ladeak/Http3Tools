@@ -43,7 +43,7 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
             return ($"{value / MegaByte,Alignment:F3}", "M");
         if (value >= KiloByte)
             return ($"{value / KiloByte,Alignment:F3}", "K");
-        return ($"{value,Alignment:F3}", "");
+        return ($"{value,Alignment:F3}", " ");
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
@@ -100,7 +100,7 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
     {
-        return ($"{value,Alignment:F3}", "");
+        return ($"{value,Alignment:F3}", string.Empty);
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
@@ -113,7 +113,7 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
     }
 }
 
-public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryNumber<T>
+public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInteger<T>
 {
     private const int Alignment = 7;
 
