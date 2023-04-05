@@ -18,8 +18,10 @@ internal sealed class HttpMessageSender
         messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
         {
             // TODO: sockets behavior
-        };
+            CertificateRevocationCheckMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.Offline,
 
+        };
+        
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 

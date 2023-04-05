@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace CHttp.Writers;
 
-public interface INumberFormatter<T> where T : IBinaryNumber<T>
+public interface INumberFormatter<T>
 {
     public static abstract string FormatSize(T value);
 
@@ -110,5 +110,39 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
             return false;
         ReadOnlySpan<char> Format = "######0";
         return value.TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
+    }
+}
+
+public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryNumber<T>
+{
+    private const int Alignment = 7;
+
+    public static string FormatSize(Ratio<T> value)
+    {
+        return $"{value.Numerator,Alignment:D}/{value.Total:D}";
+    }
+
+    public static (string Formatted, string Qualifier) FormatSizeWithQualifier(Ratio<T> value)
+    {
+        return ($"{value.Numerator,Alignment:D}/{value.Total:D}", string.Empty);
+    }
+
+    public static bool TryFormatSize(Ratio<T> value, Span<char> destination, out int count)
+    {
+        count = 0;
+        if (destination.Length < 15)
+            return false;
+        ReadOnlySpan<char> FormatNumerator = "######0";
+        ReadOnlySpan<char> FormatTotal = "0";
+        if (!value.Numerator.TryFormat(destination, out var currentCount, FormatNumerator, CultureInfo.InvariantCulture))
+            return false;
+        count += currentCount;
+        destination = destination.Slice(count);
+        destination[0] = '/';
+        count++;
+        if (!value.Total.TryFormat(destination.Slice(1), out currentCount, FormatTotal, CultureInfo.InvariantCulture))
+            return false;
+        count += currentCount;
+        return true;
     }
 }

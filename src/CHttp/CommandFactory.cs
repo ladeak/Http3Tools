@@ -217,7 +217,8 @@ internal static class CommandFactory
         perfCommand.SetHandler(async (requestDetails, httpBehavior, requestCount, clientsCount) =>
         {
             httpBehavior = httpBehavior with { ToUtf8 = false };
-            var orchestrator = new PerformanceMeasureOrchestrator(new CHttpConsole(), new Awaiter(), requestCount, clientsCount);
+            var console = new CHttpConsole();
+            var orchestrator = new PerformanceMeasureOrchestrator(new StatisticsPrinter(console), console, new Awaiter(), requestCount, clientsCount);
             await orchestrator.RunAsync(requestDetails, httpBehavior);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
