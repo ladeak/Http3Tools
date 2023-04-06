@@ -15,11 +15,11 @@ internal class PerformanceMeasureOrchestrator
     private int _requestCompleted;
     private int _requestStarting;
 
-    public PerformanceMeasureOrchestrator(IStatisticsPrinter summaryPrinter, IConsole console, IAwaiter awaiter, int requestCount, int clientsCount)
+    public PerformanceMeasureOrchestrator(IStatisticsPrinter summaryPrinter, IConsole console, IAwaiter awaiter, PerformanceBehavior behavior)
     {
         _summaryPrinter = summaryPrinter ?? throw new ArgumentNullException(nameof(summaryPrinter));
-        _requestCount = requestCount;
-        _clientsCount = clientsCount;
+        _requestCount = behavior.requestCount;
+        _clientsCount = behavior.clientsCount;
         _progressBar = new ProgressBar<Ratio<int>>(console, awaiter);
         _cts = new();
     }

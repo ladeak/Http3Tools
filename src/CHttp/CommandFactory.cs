@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+﻿using System;
+using System.CommandLine;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Writers;
@@ -7,7 +8,7 @@ namespace CHttp;
 
 internal static class CommandFactory
 {
-    public static Command CreateRootCommand(IWriter? writer = null)
+    public static Command CreateRootCommand(IWriter? writer = null, CHttp.Writers.IConsole? console = null)
     {
         // kerberos auth
         // certificates
@@ -122,7 +123,7 @@ internal static class CommandFactory
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateMeasureCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, rootCommand);
+        CreateMeasureCommand(console, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, rootCommand);
 
         return rootCommand;
     }
@@ -198,7 +199,7 @@ internal static class CommandFactory
         bodyOptions);
     }
 
-    private static void CreateMeasureCommand(IWriter? writer,
+    private static void CreateMeasureCommand(Writers.IConsole? console,
         Option<string> versionOptions,
         Option<string> methodOptions,
         Option<IEnumerable<string>> headerOptions,
@@ -214,11 +215,11 @@ internal static class CommandFactory
         rootCommand.Add(perfCommand);
         perfCommand.AddOption(nOption);
         perfCommand.AddOption(cOption);
-        perfCommand.SetHandler(async (requestDetails, httpBehavior, requestCount, clientsCount) =>
+        perfCommand.SetHandler<HttpRequestDetails, HttpBehavior, PerformanceBehavior>(async (requestDetails, httpBehavior, performanceBehavior) =>
         {
             httpBehavior = httpBehavior with { ToUtf8 = false };
-            var console = new CHttpConsole();
-            var orchestrator = new PerformanceMeasureOrchestrator(new StatisticsPrinter(console), console, new Awaiter(), requestCount, clientsCount);
+            console ??= new CHttpConsole();
+            var orchestrator = new PerformanceMeasureOrchestrator(new StatisticsPrinter(console), console, new Awaiter(), performanceBehavior);
             await orchestrator.RunAsync(requestDetails, httpBehavior);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
@@ -229,8 +230,7 @@ internal static class CommandFactory
           new InvertBinder(redirectOption),
           new InvertBinder(validateCertificateOption),
           timeoutOption),
-        nOption,
-        cOption);
+         new PerformanceBehaviorBinder(nOption, cOption));
     }
 
 }

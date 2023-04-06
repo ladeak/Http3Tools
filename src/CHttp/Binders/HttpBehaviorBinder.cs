@@ -6,7 +6,7 @@ namespace CHttp.Binders;
 internal sealed class HttpBehaviorBinder : BinderBase<HttpBehavior>
 {
     private readonly Binder<bool> _redirectBinder;
-    private readonly Binder<bool> _enableCertificateValidationBinder; 
+    private readonly Binder<bool> _enableCertificateValidationBinder;
     private readonly Option<double> _timeoutOption;
 
     public HttpBehaviorBinder(Binder<bool> redirectBinder, Binder<bool> enableCertificateValidationBinder, Option<double> timeout)
