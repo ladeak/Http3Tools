@@ -9,14 +9,14 @@ namespace CHttp.Tests;
 
 internal static class HttpServer
 {
-    public static WebApplication CreateHostBuilder(RequestDelegate requestDelegate, HttpProtocols? protocol = null, Action<KestrelServerOptions>? configureKestrel = null, Action<IServiceCollection>? configureServices = null)
+    public static WebApplication CreateHostBuilder(RequestDelegate requestDelegate, HttpProtocols? protocol = null, Action<KestrelServerOptions>? configureKestrel = null, Action<IServiceCollection>? configureServices = null, int port = 5011)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseKestrel(kestrel =>
         {
             if (configureKestrel == null)
             {
-                kestrel.ListenAnyIP(5011, options =>
+                kestrel.ListenAnyIP(port, options =>
                 {
                     options.UseHttps(new X509Certificate2("testCert.pfx", "testPassword"));
                     options.Protocols = protocol ?? HttpProtocols.Http3;

@@ -5,15 +5,17 @@ namespace CHttp.Tests;
 
 public class CHttpPerformanceFunctional
 {
+    private const int Port = 5015;
+
     [Theory]
     [InlineData("test message")]
     public async Task TestPerformance_OutputsBasicResults(string response)
     {
-        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3, port: Port);
         await host.StartAsync();
         var console = new TestConsole();
 
-        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync("perf --method GET --no-certificate-validation --uri https://localhost:5011 -c 2 -n 2 -v 3")
+        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 2 -v 3")
             .WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Contains("[=-----]      0/0", console.Text);
         Assert.Contains("100%          2/2", console.Text);
@@ -65,11 +67,11 @@ public class CHttpPerformanceFunctional
                 requestCounter++;
             }
             return context.Response.WriteAsync("response");
-        }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+        }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3, port: Port);
         await host.StartAsync();
         var console = new TestConsole();
 
-        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:5011 -c {clients} -n {requests} -v 3")
+        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 3")
             .WaitAsync(TimeSpan.FromSeconds(10));
 
         // Each client does a preflight warnup request.
