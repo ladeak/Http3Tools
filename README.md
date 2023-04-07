@@ -9,7 +9,7 @@ Tools to send HTTP requests. The tool is based on .NET7, for HTTP/3 uses msquic.
 To install as a dotnet tool:
 
 ```
-dotnet tool install -g LaDeak.CHttp --prerelease
+dotnet tool install -g LaDeak.CHttp
 ```
 
 ### Install Executable
