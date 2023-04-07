@@ -91,7 +91,7 @@ HTTP status codes:
         summary2.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsole(59);
         var sut = new StatisticsPrinter(console);
-        sut.SummarizeResults(new List<Summary>() { summary0, summary1, summary2 }, 1);
+        sut.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(new[] { summary0, summary1, summary2 }, 3), 1);
 
         Assert.Equal(
 @"| Mean:            2.000 s    |
@@ -101,10 +101,46 @@ HTTP status codes:
 | Min:             1.000 s    |
 | Max:             3.000 s    |
 | Throughput:      0.500  B/s |
-| Req/Sec:           0.5      |
+| Req/Sec:             1      |
 -----------------------------------------------------------
 HTTP status codes:
 1xx - 0, 2xx - 3, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+-----------------------------------------------------------
+", console.Text);
+    }
+
+    [Theory]
+    [InlineData(96)]
+    [InlineData(99)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void NMeasurements(int n)
+    {
+        var input = new List<Summary>();
+        for (int i = 0; i < n; i++)
+        {
+            var summary = new Summary("url", new Activity("test")
+                .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
+                .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
+            summary.RequestCompleted(System.Net.HttpStatusCode.OK);
+            input.Add(summary);
+        }
+        var console = new TestConsole(59);
+        var sut = new StatisticsPrinter(console);
+        sut.SummarizeResults(input, 1);
+
+        Assert.Equal(
+@$"| Mean:            1.000 s    |
+| StdDev:          0.000 ns   |
+| Error:           0.000 ns   |
+| Median:          1.000 s    |
+| Min:             1.000 s    |
+| Max:             1.000 s    |
+| Throughput:      1.000  B/s |
+| Req/Sec:           {n,3}      |
+-----------------------------------------------------------
+HTTP status codes:
+1xx - 0, 2xx - {n}, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
 -----------------------------------------------------------
 ", console.Text);
     }

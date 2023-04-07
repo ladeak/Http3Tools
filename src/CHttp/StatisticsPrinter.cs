@@ -1,4 +1,6 @@
-﻿using CHttp.Writers;
+﻿using System.Numerics;
+using System.Runtime.InteropServices;
+using CHttp.Writers;
 
 namespace CHttp;
 
@@ -13,7 +15,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
 
     public void SummarizeResults(IReadOnlyCollection<Summary> summaries, long bytesRead)
     {
-        if (!summaries.Any())
+        if (summaries.Count == 0)
         {
             _console.WriteLine("No measurements available");
             return;
@@ -24,6 +26,8 @@ internal class StatisticsPrinter : IStatisticsPrinter
         long totalTicks = 0;
         int[] statusCodes = new int[6];
         int current = 0;
+        DateTime earliestStart = DateTime.MaxValue;
+        DateTime latestEnd = DateTime.MinValue;
         foreach (var item in summaries)
         {
             durations[current++] = item.RequestActivity.Duration.Ticks;
@@ -33,25 +37,25 @@ internal class StatisticsPrinter : IStatisticsPrinter
                 statusCodes[(statusCode.Value / 100) - 1]++;
             if (item.ErrorCode != ErrorType.None)
                 statusCodes[5]++;
+            if (item.RequestActivity.StartTimeUtc < earliestStart)
+                earliestStart = item.RequestActivity.StartTimeUtc;
+            if (item.RequestActivity.StartTimeUtc + item.RequestActivity.Duration > latestEnd)
+                latestEnd = item.RequestActivity.StartTimeUtc + item.RequestActivity.Duration;
         }
         Array.Sort(durations);
 
-        long min = durations[0];
-        long max = durations[^1];
         var mean = totalTicks / (double)summaries.Count;
-        double squaredStdDev = CalcSquaredStdDev(durations, mean);
-        double stdDev = Math.Sqrt(squaredStdDev);
+        double stdDev = Math.Sqrt(CalcSquaredStdDev(durations, mean));
         double error = stdDev / Math.Sqrt(summaries.Count);
-
-        double requestSec = (double)summaries.Count * TimeSpan.TicksPerSecond / totalTicks;
+        double requestSec = (double)summaries.Count * TimeSpan.TicksPerSecond / (latestEnd - earliestStart).Ticks;
+        double throughput = bytesRead / (mean / TimeSpan.TicksPerSecond);
 
         (var displayMean, var meanQualifier) = Display(mean);
         (var displayStdDev, var stdDevQualifier) = Display(stdDev);
         (var displayError, var errorQualifier) = Display(error);
-        (var displayMinResponseTime, var minResponseTimeQualifier) = Display(min);
-        (var displayMaxResponseTime, var maxResponseTimeQualifier) = Display(max);
+        (var displayMinResponseTime, var minResponseTimeQualifier) = Display(durations[0]);
+        (var displayMaxResponseTime, var maxResponseTimeQualifier) = Display(durations[^1]);
         (var displayMedian, var medianQualifier) = Display(durations[summaries.Count / 2]);
-        var throughput = bytesRead / (mean / TimeSpan.TicksPerSecond);
         (var throughputFormatted, var throughputQualifier) = SizeFormatter<double>.FormatSizeWithQualifier(throughput);
 
         _console.WriteLine($"| Mean:       {displayMean,10:F3} {meanQualifier}   |");
@@ -70,7 +74,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
         if (summaries.Count >= 100)
         {
             _console.WriteLine(separator);
-            PrintHistogram(durations, min, max, error, scaleNormalize);
+            PrintHistogram(durations, error, scaleNormalize);
         }
         _console.WriteLine(separator);
         PrintStatusCodes(statusCodes);
@@ -79,7 +83,31 @@ internal class StatisticsPrinter : IStatisticsPrinter
 
     private double CalcSquaredStdDev(long[] durations, double mean)
     {
-        return durations.Sum(x => Math.Pow(mean - x, 2)) / durations.Length;
+        var avg = new Vector<double>(mean);
+        var input = durations.AsSpan();
+        double sum = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            var vSize = Vector<int>.Count;
+            while (input.Length >= vSize)
+            {
+                var vInput = Vector.ConvertToDouble(new Vector<long>(input));
+                var difference = Vector.Subtract(avg, vInput);
+                var squared = Vector.Multiply(difference, difference);
+                sum += Vector.Sum(squared);
+                input = input.Slice(vSize);
+            }
+        }
+
+        // Remaining
+        while (input.Length > 0)
+        {
+            var difference = mean - input[0];
+            sum += difference * difference;
+            input = input.Slice(1);
+        }
+
+        return sum / durations.Length;
     }
 
     private void PrintStatusCodes(int[] statusCodes)
@@ -88,8 +116,10 @@ internal class StatisticsPrinter : IStatisticsPrinter
         _console.WriteLine($"1xx - {statusCodes[0]}, 2xx - {statusCodes[1]}, 3xx - {statusCodes[2]}, 4xx - {statusCodes[3]}, 5xx - {statusCodes[4]}, Other - {statusCodes[5]}");
     }
 
-    private void PrintHistogram(long[] durations, long min, long max, double error, double scaleNormalize)
+    private void PrintHistogram(long[] durations, double error, double scaleNormalize)
     {
+        var min = durations[0];
+        var max = durations[^1];
         double bucketCount = Math.Max(Math.Min(10, (max - min) / error), 5);
         var bucketSize = (max - min) / bucketCount;
 
