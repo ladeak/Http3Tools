@@ -17,7 +17,7 @@ public class StatisticsPrinterTests
             .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
             .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole();
+        var console = new TestConsole(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new List<Summary>() { summary }, 1);
 
@@ -42,7 +42,7 @@ HTTP status codes:
     {
         var console = new TestConsole();
         var sut = new StatisticsPrinter(console);
-        sut.SummarizeResults(Enumerable.Empty<Summary>(), 1);
+        sut.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(Enumerable.Empty<Summary>(), 0), 1);
 
         Assert.Equal($"No measurements available{Environment.NewLine}", console.Text);
     }
@@ -52,7 +52,7 @@ HTTP status codes:
     {
         var summary = new Summary("url", new Activity("test"));
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole();
+        var console = new TestConsole(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new List<Summary>() { summary }, 1);
 
@@ -89,7 +89,7 @@ HTTP status codes:
             .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
             .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 03, DateTimeKind.Utc)));
         summary2.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole();
+        var console = new TestConsole(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new List<Summary>() { summary0, summary1, summary2 }, 1);
 

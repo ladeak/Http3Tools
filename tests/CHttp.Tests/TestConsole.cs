@@ -8,9 +8,19 @@ public class TestConsole : IConsole
     public bool CursorVisible { get; set; }
     private StringBuilder _sb = new StringBuilder();
 
+    public TestConsole()
+    {
+        WindowWidth = 8;
+    }
+
+    public TestConsole(int windowWidth)
+    {
+        WindowWidth = windowWidth;
+    }
+
     public string Text { get => _sb.ToString(); }
 
-    public int WindowWidth => 8;
+    public int WindowWidth { get; }
 
     public (int Left, int Top) GetCursorPosition() => (0, 0);
 

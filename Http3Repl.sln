@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp", "src\CHttp\CHttp.cs
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Tests", "tests\CHttp.Tests\CHttp.Tests.csproj", "{D5C74B2D-AD90-4A4B-80D7-584450753A5F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Benchmarks", "tests\CHttp.Benchmarks\CHttp.Benchmarks.csproj", "{F05F3667-9DC6-45B5-A008-EA0528E86323}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{D5C74B2D-AD90-4A4B-80D7-584450753A5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5C74B2D-AD90-4A4B-80D7-584450753A5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5C74B2D-AD90-4A4B-80D7-584450753A5F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

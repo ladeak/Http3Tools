@@ -2,5 +2,5 @@
 
 internal interface IStatisticsPrinter
 {
-    void SummarizeResults(IEnumerable<Summary> summaries, long bytesRead);
+    void SummarizeResults(IReadOnlyCollection<Summary> summaries, long bytesRead);
 }

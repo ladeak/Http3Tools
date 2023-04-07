@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Collections;
+using System.Net;
 using CHttp.EventListeners;
 using CHttp.Writers;
 
@@ -34,7 +35,8 @@ internal class PerformanceMeasureOrchestrator
         await Task.WhenAll(clientTasks);
         await readListner.WaitUpdateAndStopAsync();
         await CompleteProgressBarAsync();
-        _summaryPrinter.SummarizeResults(clientTasks.SelectMany(x => x.Result), readListner.GetBytesRead());
+
+        _summaryPrinter.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted), readListner.GetBytesRead());
     }
 
     private async Task CompleteProgressBarAsync()
