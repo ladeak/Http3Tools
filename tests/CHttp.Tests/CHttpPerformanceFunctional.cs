@@ -13,7 +13,7 @@ public class CHttpPerformanceFunctional
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3, port: Port);
         await host.StartAsync();
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
 
         var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 2 -v 3")
             .WaitAsync(TimeSpan.FromSeconds(10));
@@ -69,7 +69,7 @@ public class CHttpPerformanceFunctional
             return context.Response.WriteAsync("response");
         }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3, port: Port);
         await host.StartAsync();
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
 
         var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 3")
             .WaitAsync(TimeSpan.FromSeconds(10));

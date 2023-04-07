@@ -12,7 +12,7 @@ public class CHttpFunctionalTests
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
@@ -26,7 +26,7 @@ public class CHttpFunctionalTests
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
@@ -43,7 +43,7 @@ public class CHttpFunctionalTests
         using var output = new MemoryStream();
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
         await host.StartAsync();
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new StreamBufferedProcessor(output), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");

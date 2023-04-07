@@ -17,7 +17,7 @@ public class StatisticsPrinterTests
             .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
             .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole(59);
+        var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new List<Summary>() { summary }, 1);
 
@@ -40,7 +40,7 @@ HTTP status codes:
     [Fact]
     public void NoMeasurement()
     {
-        var console = new TestConsole();
+        var console = new TestConsolePerWrite();
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(Enumerable.Empty<Summary>(), 0), 1);
 
@@ -52,7 +52,7 @@ HTTP status codes:
     {
         var summary = new Summary("url", new Activity("test"));
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole(59);
+        var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new List<Summary>() { summary }, 1);
 
@@ -89,7 +89,7 @@ HTTP status codes:
             .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
             .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 03, DateTimeKind.Utc)));
         summary2.RequestCompleted(System.Net.HttpStatusCode.OK);
-        var console = new TestConsole(59);
+        var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(new[] { summary0, summary1, summary2 }, 3), 1);
 
@@ -125,7 +125,7 @@ HTTP status codes:
             summary.RequestCompleted(System.Net.HttpStatusCode.OK);
             input.Add(summary);
         }
-        var console = new TestConsole(59);
+        var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
         sut.SummarizeResults(input, 1);
 
@@ -143,5 +143,28 @@ HTTP status codes:
 1xx - 0, 2xx - {n}, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
 -----------------------------------------------------------
 ", console.Text);
+    }
+
+    [Fact]
+    public void Histogram()
+    {
+        var input = new List<Summary>();
+        for (int i = 0; i < 100; i++)
+        {
+            var summary = new Summary("url", new Activity("test")
+                .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
+                .SetEndTime(new DateTime(2023, 04, 05, 21, 32, (i / 25) + 1, DateTimeKind.Utc)));
+            summary.RequestCompleted(System.Net.HttpStatusCode.OK);
+            input.Add(summary);
+        }
+        var console = new TestConsoleAsOuput(200);
+        var sut = new StatisticsPrinter(console);
+        sut.SummarizeResults(input, 1);
+
+        Assert.Contains("     1.300 s  ##################################################", console.Text);
+        Assert.Contains("     2.200 s  ##################################################", console.Text);
+        Assert.Contains("     3.100 s  ##################################################", console.Text);
+        Assert.Contains("     4.000 s  ##################################################", console.Text);
+        Assert.Equal(200, console.Text.Count(x => x == '#'));
     }
 }

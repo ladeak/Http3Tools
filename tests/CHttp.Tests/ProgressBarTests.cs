@@ -7,7 +7,7 @@ public class ProgressBarTests
     [Fact]
     public async Task SingleLoop_Writes100PercentAndZero()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         var sutTask = sut.RunAsync<SizeFormatter<long>>(loopHandle.Token);
@@ -23,7 +23,7 @@ public class ProgressBarTests
     [Fact]
     public async Task Run_Resets_Size()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         sut.Set(100);
@@ -40,7 +40,7 @@ public class ProgressBarTests
     [Fact]
     public async Task WhenEnds_Writes100PercentAndSize()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         var sutTask = sut.RunAsync<SizeFormatter<long>>(loopHandle.Token);
@@ -61,7 +61,7 @@ public class ProgressBarTests
     [Fact]
     public async Task MultipleLoops_IncrasesSize()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         var sutTask = sut.RunAsync<SizeFormatter<long>>(loopHandle.Token);
@@ -87,7 +87,7 @@ public class ProgressBarTests
     [Fact]
     public async Task Complete_Cycle_StartsOverSemicolons()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         var sutTask = sut.RunAsync<SizeFormatter<long>>(loopHandle.Token);
@@ -121,7 +121,7 @@ public class ProgressBarTests
     [Fact]
     public async Task DisplayAllSizes()
     {
-        var testConsole = new TestConsole();
+        var testConsole = new TestConsolePerWrite();
         var loopHandle = new SyncedAwaiter(0);
         var sut = new ProgressBar<long>(testConsole, loopHandle);
         var sutTask = sut.RunAsync<SizeFormatter<long>>(loopHandle.Token);

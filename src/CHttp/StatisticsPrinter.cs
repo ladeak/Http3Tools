@@ -131,7 +131,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
             int currentCounter = 0;
             while (j < durations.Length && bucketLimit >= durations[j++])
                 currentCounter++;
-
+            j--;
             (var limit, var limitQualifier) = Display(bucketLimit);
             _console.Write($"{limit,10:F3} {limitQualifier} ");
             _console.Write(new string('#', (int)Math.Round(scaleNormalize * currentCounter)));

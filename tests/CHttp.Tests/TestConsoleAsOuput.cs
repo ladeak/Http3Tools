@@ -3,17 +3,17 @@ using CHttp.Writers;
 
 namespace CHttp.Tests;
 
-public class TestConsole : IConsole
+public class TestConsoleAsOuput : IConsole
 {
     public bool CursorVisible { get; set; }
     private StringBuilder _sb = new StringBuilder();
 
-    public TestConsole()
+    public TestConsoleAsOuput()
     {
         WindowWidth = 8;
     }
 
-    public TestConsole(int windowWidth)
+    public TestConsoleAsOuput(int windowWidth)
     {
         WindowWidth = windowWidth;
     }
@@ -34,7 +34,6 @@ public class TestConsole : IConsole
     public void Write(string buffer)
     {
         _sb.Append(buffer);
-        _sb.AppendLine();
     }
 
     public void WriteLine() => _sb.AppendLine();
@@ -43,11 +42,6 @@ public class TestConsole : IConsole
 
     public void WriteLine(string value)
     {
-        if (value.StartsWith("Date: "))
-        {
-            _sb.Append("Date:");
-            return;
-        }
         _sb.AppendLine(value);
     }
 }
