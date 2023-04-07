@@ -1,6 +1,4 @@
 ﻿using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics.X86;
 using CHttp.Writers;
 
 namespace CHttp;
@@ -27,28 +25,28 @@ internal class StatisticsPrinter : IStatisticsPrinter
         long totalTicks = 0;
         int[] statusCodes = new int[6];
         int current = 0;
-        DateTime earliestStart = DateTime.MaxValue;
-        DateTime latestEnd = DateTime.MinValue;
+        long earliestStart = long.MaxValue;
+        long latestEnd = long.MinValue;
         foreach (var item in summaries)
         {
-            durations[current++] = item.RequestActivity.Duration.Ticks;
-            totalTicks += item.RequestActivity.Duration.Ticks;
+            durations[current++] = item.Duration.Ticks;
+            totalTicks += item.Duration.Ticks;
             var statusCode = item.HttpStatusCode;
             if (statusCode.HasValue && statusCode.Value < 600)
                 statusCodes[(statusCode.Value / 100) - 1]++;
             if (item.ErrorCode != ErrorType.None)
                 statusCodes[5]++;
-            if (item.RequestActivity.StartTimeUtc < earliestStart)
-                earliestStart = item.RequestActivity.StartTimeUtc;
-            if (item.RequestActivity.StartTimeUtc + item.RequestActivity.Duration > latestEnd)
-                latestEnd = item.RequestActivity.StartTimeUtc + item.RequestActivity.Duration;
+            if (item.StartTime < earliestStart)
+                earliestStart = item.StartTime;
+            if (item.EndTime > latestEnd)
+                latestEnd = item.EndTime;
         }
         Array.Sort(durations);
 
         var mean = totalTicks / (double)summaries.Count;
         double stdDev = Math.Sqrt(CalcSquaredStdDev(durations, mean));
         double error = stdDev / Math.Sqrt(summaries.Count);
-        double requestSec = (double)summaries.Count * TimeSpan.TicksPerSecond / (latestEnd - earliestStart).Ticks;
+        double requestSec = (double)summaries.Count * TimeSpan.TicksPerSecond / (latestEnd - earliestStart);
         double throughput = bytesRead / (mean / TimeSpan.TicksPerSecond);
 
         (var displayMean, var meanQualifier) = Display(mean);
@@ -121,6 +119,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
     {
         var min = durations[0];
         var max = durations[^1];
+        error = error == 0 ? 1 : error;
         double bucketCount = Math.Max(Math.Min(10, (max - min) / error), 5);
         var bucketSize = new Vector<double>((max - min) / bucketCount);
 

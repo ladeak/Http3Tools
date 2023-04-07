@@ -1,70 +1,81 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Headers;
 using CHttp.Writers;
 
 public record struct Summary
 {
-    private const string Request = nameof(Request);
-    private const string Length = nameof(Length);
-    private const string Url = nameof(Url);
-    private const string Trailers = nameof(Trailers);
-    private const string StatusCode = nameof(StatusCode);
-    private static ActivitySource ActivitySource = new ActivitySource(nameof(Summary));
-
     public Summary(string url)
     {
         Error = string.Empty;
-        RequestActivity = ActivitySource.StartActivity(Request, ActivityKind.Client) ?? new Activity(Request).Start();
-        RequestActivity.AddTag(Url, url);
+        Url = url;
+        StartTime = Stopwatch.GetTimestamp();
     }
 
-    internal Summary(string url, Activity activity)
+    internal Summary(string url, DateTime startTime, TimeSpan duration)
     {
         Error = string.Empty;
-        RequestActivity = activity;
-        RequestActivity.AddTag(Url, url);
+        Url = url;
+        if (startTime.Kind != DateTimeKind.Utc)
+            throw new InvalidOperationException();
+        StartTime = startTime.Ticks;
+        EndTime = StartTime + duration.Ticks;
     }
-
-    public Activity RequestActivity { get; }
 
     public string Error { get; init; }
 
     public ErrorType ErrorCode { get; init; }
 
-    public int? HttpStatusCode => RequestActivity.GetTagItem(StatusCode) as int?;
+    public long StartTime { get; }
+
+    private long _endTime;
+    public long EndTime
+    {
+        get => _endTime; set
+        {
+            if (_endTime != default || StartTime == default)
+                return;
+            _endTime = value;
+            Duration = TimeSpan.FromTicks(_endTime - StartTime);
+        }
+    }
+
+    public TimeSpan Duration { get; private set; }
+
+    public long Length { get; private set; }
+
+    public string Url { get; }
+
+    public int? HttpStatusCode { get; private set; }
 
     public void RequestCompleted(HttpStatusCode statusCode)
     {
-        RequestActivity.Stop();
-        RequestActivity.AddTag(StatusCode, (int)statusCode);
+        EndTime = Stopwatch.GetTimestamp();
+        HttpStatusCode = (int)statusCode;
     }
 
     public void SetSize(long length)
     {
-        RequestActivity.AddTag(Length, length);
+        Length = length;
     }
 
     public override string ToString()
     {
         if (!string.IsNullOrEmpty(Error))
             return Error;
-        var url = RequestActivity.GetTagItem(Url) as string ?? string.Empty;
-        var trailers = RequestActivity.GetTagItem(Trailers) as HttpResponseHeaders;
 
-        return string.Create(url.Length + 7 + 16 + 3, (RequestActivity, url), static (buffer, inputs) =>
+        return string.Create(Url.Length + 7 + 16 + 3, (Length, Url, Duration), static (buffer, inputs) =>
         {
-            inputs.url.CopyTo(buffer);
-            buffer = buffer.Slice(inputs.url.Length);
+            inputs.Url.CopyTo(buffer);
+            buffer = buffer.Slice(inputs.Url.Length);
             buffer[0] = ' ';
             buffer = buffer.Slice(1);
-            var responseSize = (long)(inputs.RequestActivity.GetTagItem(Length) ?? 0L);
+            var responseSize = inputs.Length;
             if (!SizeFormatter<long>.TryFormatSize(responseSize, buffer, out var count))
                 ThrowInvalidOperationException();
             buffer = buffer.Slice(count);
             buffer[0] = ' ';
             buffer = buffer.Slice(1);
-            if (!inputs.RequestActivity.Duration.TryFormat(buffer, out count, "c"))
+            if (!inputs.Duration.TryFormat(buffer, out count, "c"))
                 ThrowInvalidOperationException();
             buffer = buffer.Slice(count);
             buffer[0] = 's';

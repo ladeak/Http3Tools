@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Net;
+﻿using System.Net;
 using CHttp.EventListeners;
 using CHttp.Writers;
 

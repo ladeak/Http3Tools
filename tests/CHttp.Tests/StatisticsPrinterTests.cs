@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace CHttp.Tests;
 
@@ -13,9 +12,7 @@ public class StatisticsPrinterTests
     [Fact]
     public void SingleMeasurement()
     {
-        var summary = new Summary("url", new Activity("test")
-            .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-            .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
+        var summary = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(1));
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
@@ -50,7 +47,7 @@ HTTP status codes:
     [Fact]
     public void NoMeasuredTime()
     {
-        var summary = new Summary("url", new Activity("test"));
+        var summary = new Summary("url", DateTime.MinValue.ToUniversalTime(), TimeSpan.Zero);
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
@@ -75,19 +72,13 @@ HTTP status codes:
     [Fact]
     public void ThreeMeasurements()
     {
-        var summary0 = new Summary("url", new Activity("test")
-            .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-            .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
+        var summary0 = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(1));
         summary0.RequestCompleted(System.Net.HttpStatusCode.OK);
 
-        var summary1 = new Summary("url", new Activity("test")
-            .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-            .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 02, DateTimeKind.Utc)));
+        var summary1 = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(2));
         summary1.RequestCompleted(System.Net.HttpStatusCode.OK);
 
-        var summary2 = new Summary("url", new Activity("test")
-            .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-            .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 03, DateTimeKind.Utc)));
+        var summary2 = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(3));
         summary2.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
@@ -119,9 +110,7 @@ HTTP status codes:
         var input = new List<Summary>();
         for (int i = 0; i < n; i++)
         {
-            var summary = new Summary("url", new Activity("test")
-                .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-                .SetEndTime(new DateTime(2023, 04, 05, 21, 32, 01, DateTimeKind.Utc)));
+            var summary = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(1));
             summary.RequestCompleted(System.Net.HttpStatusCode.OK);
             input.Add(summary);
         }
@@ -151,9 +140,7 @@ HTTP status codes:
         var input = new List<Summary>();
         for (int i = 0; i < 100; i++)
         {
-            var summary = new Summary("url", new Activity("test")
-                .SetStartTime(new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc))
-                .SetEndTime(new DateTime(2023, 04, 05, 21, 32, (i / 25) + 1, DateTimeKind.Utc)));
+            var summary = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds((i / 25) + 1));
             summary.RequestCompleted(System.Net.HttpStatusCode.OK);
             input.Add(summary);
         }
