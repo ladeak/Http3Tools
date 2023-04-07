@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
 using CHttp.Writers;
 
 namespace CHttp;
@@ -88,7 +89,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
         double sum = 0;
         if (Vector.IsHardwareAccelerated)
         {
-            var vSize = Vector<int>.Count;
+            var vSize = Vector<long>.Count;
             while (input.Length >= vSize)
             {
                 var vInput = Vector.ConvertToDouble(new Vector<long>(input));
@@ -121,18 +122,27 @@ internal class StatisticsPrinter : IStatisticsPrinter
         var min = durations[0];
         var max = durations[^1];
         double bucketCount = Math.Max(Math.Min(10, (max - min) / error), 5);
-        var bucketSize = (max - min) / bucketCount;
+        var bucketSize = new Vector<double>((max - min) / bucketCount);
 
-        int j = 0;
-        double bucketLimit = min;
+        var bucketLimit = new Vector<double>(min);
+        var input = durations.AsSpan();
         for (int i = 0; i < bucketCount; i++)
         {
             bucketLimit += bucketSize;
-            int currentCounter = 0;
-            while (j < durations.Length && bucketLimit >= durations[j++])
-                currentCounter++;
-            j--;
-            (var limit, var limitQualifier) = Display(bucketLimit);
+            long currentCounter = 0;
+            var vSize = Vector<long>.Count;
+            int oneCnt = vSize;
+            while (oneCnt == vSize && input.Length >= vSize)
+            {
+                var vInput = Vector.ConvertToDouble(new Vector<long>(input));
+                oneCnt = (int)Vector.Sum(Vector.LessThanOrEqual(vInput, bucketLimit)) * -1;
+                currentCounter += oneCnt;
+                input = input.Slice(oneCnt);
+            }
+            if (input.Length < vSize && input.Length > 0)
+                currentCounter += input.Length;
+
+            (var limit, var limitQualifier) = Display(bucketLimit[0]);
             _console.Write($"{limit,10:F3} {limitQualifier} ");
             _console.Write(new string('#', (int)Math.Round(scaleNormalize * currentCounter)));
             _console.WriteLine();
