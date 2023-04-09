@@ -1,23 +1,32 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Http.QPack;
 using System.Net.Quic;
 using System.Net.Security;
+using System.Text;
+using Microsoft.IO;
 
-var client = new HttpClient();
-var response = await client.SendAsync(new HttpRequestMessage()
-{
-    Method = HttpMethod.Get,
-    RequestUri = new Uri("https://localhost:5001"),
-    VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
-    Version = HttpVersion.Version30
-});
-response.EnsureSuccessStatusCode();
-var content = await response.Content.ReadAsStringAsync();
-Console.WriteLine(content);
-Console.ReadLine();
+//var client = new HttpClient();
+//var response = await client.SendAsync(new HttpRequestMessage()
+//{
+//    Method = HttpMethod.Get,
+//    RequestUri = new Uri("https://localhost:5001"),
+//    VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
+//    Version = HttpVersion.Version30
+//});
+//response.EnsureSuccessStatusCode();
+//var content = await response.Content.ReadAsStringAsync();
+//Console.WriteLine(content);
+//Console.ReadLine();
 
-async Task Test()
+
+//https://datatracker.ietf.org/doc/rfc9114/
+
+RecyclableMemoryStreamManager _manager = new RecyclableMemoryStreamManager();
+await TestAsync();
+
+async Task TestAsync()
 {
     // Open connection and send settings frame on control stream.
     var options = CreateClientConnectionOptions(new IPEndPoint(IPAddress.Loopback, 5001));
@@ -31,6 +40,7 @@ async Task Test()
     var clientStream = await clientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional);
     var getRequestHeader = BuildGetHeaderFrame();
     await clientStream.WriteAsync(getRequestHeader, completeWrites: true);
+    await ReadAsync(clientStream, CancellationToken.None);
 
     var goAwayFrame = BuildGoAwayFrame();
 
@@ -146,12 +156,101 @@ static QuicClientConnectionOptions CreateClientConnectionOptions(EndPoint remote
         ClientAuthenticationOptions = new SslClientAuthenticationOptions
         {
             ApplicationProtocols = new List<SslApplicationProtocol>
-                {
+            {
                     SslApplicationProtocol.Http3
-                },
+            },
             RemoteCertificateValidationCallback = (_, _, _, _) => true
         },
         DefaultStreamErrorCode = (long)Http3ErrorCode.RequestCancelled,
         DefaultCloseErrorCode = (long)Http3ErrorCode.NoError,
     };
+}
+
+async Task ReadAsync(QuicStream clientStream, CancellationToken token)
+{
+    var pipe = new Pipe();
+    var writer = pipe.Writer;
+    var copyTask = clientStream.CopyToAsync(writer, token);
+
+    var pipeTask = ProcessPipeAsync(pipe.Reader, token);
+
+    await copyTask;
+    await pipe.Writer.CompleteAsync();
+    await pipeTask;
+}
+
+async Task ProcessPipeAsync(PipeReader reader, CancellationToken token)
+{
+    try
+    {
+        while (!token.IsCancellationRequested)
+        {
+            var read = await reader.ReadAsync(token);
+            if (read.IsCanceled)
+                break;
+
+            var buffer = read.Buffer;
+            while (TryReadFrame(ref buffer, out var frame))
+            {
+                await ProcessFrameAsync(frame);
+            }
+
+            reader.AdvanceTo(buffer.Start, buffer.End);
+
+            if (read.IsCompleted)
+                break;
+        }
+    }
+    finally
+    {
+        await reader.CompleteAsync();
+    }
+}
+
+Task ProcessFrameAsync(DataFrame frame)
+{
+    return frame.Type switch
+    {
+        Http3FrameType.Data => ProcessDataFrame(frame),
+        _ => Task.CompletedTask
+    };
+}
+
+
+
+Task ProcessDataFrame(DataFrame frame)
+{
+    long count = Encoding.UTF8.GetChars(frame.Payload, new ConsoleBufferWriter());
+    return Task.CompletedTask;
+}
+
+static bool TryReadFrame(ref ReadOnlySequence<byte> buffer, out DataFrame frame)
+{
+    frame = default;
+    if (buffer.Length == 0)
+        return false;
+
+    var frameType = (Http3FrameType)buffer.FirstSpan[0];
+    var reader = new SequenceReader<byte>(buffer.Slice(1L));
+    var frameTypelessBuffer = buffer.Slice(1L);
+    if (!VariableLengthIntegerHelper.TryRead(ref reader, out long length))
+        return false;
+    int bytesCount = (int)reader.Consumed;
+    // Failed to read length
+    if (length == -1)
+        return false;
+    var totalFrameLength = 1L + bytesCount + length;
+    if (buffer.Length < totalFrameLength)
+        return false;
+
+    frame = new DataFrame() { Type = frameType, Payload = frameTypelessBuffer.Slice(bytesCount, length) };
+    buffer = buffer.Slice(totalFrameLength);
+    return true;
+}
+
+internal struct DataFrame
+{
+    public required Http3FrameType? Type { get; init; }
+
+    public required ReadOnlySequence<byte> Payload { get; set; }
 }

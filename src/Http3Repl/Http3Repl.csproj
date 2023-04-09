@@ -13,6 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.0-preview.2.23153.2" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2" />
+    <PackageReference Include="System.IO.Pipelines" Version="8.0.0-preview.2.23128.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\Shared\runtime\Http3\**\*.cs" Link="Shared\runtime\Http3\%(Filename)%(Extension)" />
     <Compile Include="..\Shared\runtime\Http2\**\*.cs" Link="Shared\runtime\Http2\%(Filename)%(Extension)" />
     <Compile Include="..\Shared\runtime\IHttpStreamHeadersHandler.cs" Link="Shared\runtime\%(Filename)%(Extension)" />
