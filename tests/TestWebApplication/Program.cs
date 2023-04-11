@@ -15,6 +15,7 @@ var app = builder.Build();
 
 app.MapGet("/", async context =>
 {
+    context.Response.Headers.TryAdd("x-custom", new Microsoft.Extensions.Primitives.StringValues("test"));
     await context.Response.WriteAsync("Hello World " + context.Request.Protocol.ToString());
 });
 

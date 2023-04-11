@@ -7,6 +7,8 @@ using System.Net.Security;
 using System.Text;
 using Microsoft.IO;
 
+#pragma warning disable CA1416 // Validate platform compatibility
+
 //var client = new HttpClient();
 //var response = await client.SendAsync(new HttpRequestMessage()
 //{
@@ -31,19 +33,42 @@ async Task TestAsync()
     // Open connection and send settings frame on control stream.
     var options = CreateClientConnectionOptions(new IPEndPoint(IPAddress.Loopback, 5001));
     await using var clientConnection = await QuicConnection.ConnectAsync(options);
+    var connecectionContext = new ConnectionContext() { QuicConnection = clientConnection };
 
     var settingsFrame = BuildSettingsFrame();
     var clientControl = await clientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional);
     await clientControl.WriteAsync(settingsFrame);
 
+    var inboundCts = new CancellationTokenSource();
+    var inboundTasks = Task.Run(() => HandleIncomingStreams(connecectionContext, inboundCts.Token), inboundCts.Token);
+
     // Open bidirectional stream to send request.
     var clientStream = await clientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional);
     var getRequestHeader = BuildGetHeaderFrame();
     await clientStream.WriteAsync(getRequestHeader, completeWrites: true);
-    await ReadAsync(clientStream, CancellationToken.None);
+    await ReadAsync(connecectionContext, clientStream, CancellationToken.None);
 
     var goAwayFrame = BuildGoAwayFrame();
+    inboundCts.Cancel();
+    await inboundTasks;
 
+
+
+}
+
+async Task HandleIncomingStreams(ConnectionContext connectionCtx,CancellationToken token)
+{
+    while (!token.IsCancellationRequested)
+    {
+        try
+        {
+            var inbound = await connectionCtx.QuicConnection.AcceptInboundStreamAsync(token);
+            _ = Task.Run(() => ReadAsync(connectionCtx, inbound, token), token);
+        }
+        catch (OperationCanceledException)
+        { 
+        }
+    }
 }
 
 static byte[] BuildGetHeaderFrame()
@@ -119,8 +144,6 @@ static byte[] BuildGoAwayFrame()
 
         buffer = frame.AsSpan(1 + VariableLengthIntegerHelper.MaximumEncodedLength - 1 - payloadLengthSize, payloadLength + 1 + payloadLengthSize);
 
-        // H3 Header frame
-        // Header frame type
         buffer[0] = (byte)Http3FrameType.GoAway;
         VariableLengthIntegerHelper.WriteInteger(buffer.Slice(1), payloadLength);
         return buffer.ToArray();
@@ -166,36 +189,36 @@ static QuicClientConnectionOptions CreateClientConnectionOptions(EndPoint remote
     };
 }
 
-async Task ReadAsync(QuicStream clientStream, CancellationToken token)
+async Task ReadAsync(ConnectionContext connectionCtx, QuicStream clientStream, CancellationToken token)
 {
     var pipe = new Pipe();
     var writer = pipe.Writer;
     var copyTask = clientStream.CopyToAsync(writer, token);
-
-    var pipeTask = ProcessPipeAsync(pipe.Reader, token);
+    var context = new StreamContext() { StreamType = clientStream.Type, Reader = pipe.Reader, Stream = clientStream, Connection = connectionCtx };
+    var pipeTask = ProcessPipeAsync(context, token);
 
     await copyTask;
     await pipe.Writer.CompleteAsync();
     await pipeTask;
 }
 
-async Task ProcessPipeAsync(PipeReader reader, CancellationToken token)
+async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
 {
     try
     {
         while (!token.IsCancellationRequested)
         {
-            var read = await reader.ReadAsync(token);
+            var read = await context.Reader.ReadAsync(token);
             if (read.IsCanceled)
                 break;
 
             var buffer = read.Buffer;
             while (TryReadFrame(ref buffer, out var frame))
             {
-                await ProcessFrameAsync(frame);
+                await ProcessFrameAsync(frame, context);
             }
 
-            reader.AdvanceTo(buffer.Start, buffer.End);
+            context.Reader.AdvanceTo(buffer.Start, buffer.End);
 
             if (read.IsCompleted)
                 break;
@@ -203,20 +226,26 @@ async Task ProcessPipeAsync(PipeReader reader, CancellationToken token)
     }
     finally
     {
-        await reader.CompleteAsync();
+        await context.Reader.CompleteAsync();
     }
 }
 
-Task ProcessFrameAsync(DataFrame frame)
+Task ProcessFrameAsync(DataFrame frame, StreamContext context)
 {
     return frame.Type switch
     {
         Http3FrameType.Data => ProcessDataFrame(frame),
+        Http3FrameType.Headers => ProcessHeaderFrame(frame, context),
         _ => Task.CompletedTask
     };
 }
 
-
+Task ProcessHeaderFrame(DataFrame frame, StreamContext context)
+{
+    context.HeaderDecoder ??= new QPackDecoder((int)frame.Payload.Length);
+    context.HeaderDecoder.Decode(frame.Payload, true, new HeadersHandler());
+    return Task.CompletedTask;
+}
 
 Task ProcessDataFrame(DataFrame frame)
 {
@@ -248,9 +277,33 @@ static bool TryReadFrame(ref ReadOnlySequence<byte> buffer, out DataFrame frame)
     return true;
 }
 
-internal struct DataFrame
+internal class HeadersHandler : IHttpStreamHeadersHandler
 {
-    public required Http3FrameType? Type { get; init; }
+    public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+    }
 
-    public required ReadOnlySequence<byte> Payload { get; set; }
+    public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+    }
+
+    public void OnHeadersComplete(bool endStream)
+    {
+    }
+
+    public void OnStaticIndexedHeader(int index)
+    {
+        var field = H3StaticTable.Get(index);
+        Console.WriteLine(field.ToString());
+    }
+
+    public void OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
+    {
+        var field = H3StaticTable.Get(index);
+        Console.WriteLine($"{field}{Encoding.ASCII.GetString(value)}");
+    }
 }
+
+
+
+#pragma warning restore CA1416 // Validate platform compatibility
