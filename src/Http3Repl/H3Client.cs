@@ -1,6 +1,4 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Concurrent;
+﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Http.QPack;
@@ -10,26 +8,14 @@ using System.Text;
 
 namespace Http3Repl;
 
+/// <summary>
+/// https://datatracker.ietf.org/doc/rfc9114/
+/// </summary>
 public class H3Client
 {
+    public event EventHandler<Frame>? OnFrame;
 
-    //var client = new HttpClient();
-    //var response = await client.SendAsync(new HttpRequestMessage()
-    //{
-    //    Method = HttpMethod.Get,
-    //    RequestUri = new Uri("https://localhost:5001"),
-    //    VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
-    //    Version = HttpVersion.Version30
-    //});
-    //response.EnsureSuccessStatusCode();
-    //var content = await response.Content.ReadAsStringAsync();
-    //Console.WriteLine(content);
-    //Console.ReadLine();
-
-
-    //https://datatracker.ietf.org/doc/rfc9114/
-
-    public async Task TestAsync()
+    public async Task<Frame> TestAsync()
     {
         // Open connection and send settings frame on control stream.
         var options = CreateClientConnectionOptions(new IPEndPoint(IPAddress.Loopback, 5001));
@@ -50,6 +36,8 @@ public class H3Client
         var goAwayFrame = BuildGoAwayFrame();
         inboundCts.Cancel();
         await inboundTasks;
+
+        return new Frame() { Data = "test", SourceStream = "test" };
     }
 
     async Task HandleIncomingStreams(ConnectionContext connectionCtx, CancellationToken token)
@@ -66,7 +54,6 @@ public class H3Client
             }
         }
     }
-
 
     private async Task OpenControlStreamAsync(ConnectionContext connectionContext)
     {
@@ -204,12 +191,12 @@ public class H3Client
         };
     }
 
-    async Task ProcessIncomingStream(ConnectionContext connectionCtx, QuicStream stream, CancellationToken token)
+    private async Task ProcessIncomingStream(ConnectionContext connectionCtx, QuicStream stream, CancellationToken token)
     {
         await ReadAsync(connectionCtx, stream, true, token);
     }
 
-    async Task ReadAsync(ConnectionContext connectionCtx, QuicStream clientStream, bool incoming, CancellationToken token)
+    private async Task ReadAsync(ConnectionContext connectionCtx, QuicStream clientStream, bool incoming, CancellationToken token)
     {
         var pipe = new Pipe();
         var writer = pipe.Writer;
@@ -228,7 +215,7 @@ public class H3Client
         await pipeTask;
     }
 
-    async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
+    private async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
     {
         try
         {
@@ -274,6 +261,8 @@ public class H3Client
         if (context.Incoming && !context.InitialFrameProcessed && frame.Type != Http3FrameType.Settings)
         {
             // H3_MISSING_SETTINGS error
+            await ConnectionErrorAsync(context, Http3ErrorCode.MissingSettings);
+            return;
         }
 
         switch (frame.Type)
@@ -359,43 +348,4 @@ public class H3Client
     {
         return context.Connection.QuicConnection.CloseAsync((long)error);
     }
-}
-
-internal class HeadersHandler : IHttpStreamHeadersHandler
-{
-    private readonly ConcurrentDictionary<int, string> _dynamicHeaders = new ConcurrentDictionary<int, string>();
-
-    public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-    {
-        string headerName = string.Empty;
-        if (index.HasValue)
-            if (!_dynamicHeaders.TryGetValue(index.Value, out headerName))
-            {
-                headerName = Encoding.ASCII.GetString(name);
-                _dynamicHeaders.TryAdd(index.Value, headerName);
-            }
-        Console.WriteLine($"{headerName}{Encoding.ASCII.GetString(value)}");
-    }
-
-    public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-    {
-        Console.WriteLine($"{Encoding.ASCII.GetString(name)}{Encoding.ASCII.GetString(value)}");
-    }
-
-    public void OnHeadersComplete(bool endStream)
-    {
-    }
-
-    public void OnStaticIndexedHeader(int index)
-    {
-        var field = H3StaticTable.Get(index);
-        Console.WriteLine(field.ToString());
-    }
-
-    public void OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
-    {
-        var field = H3StaticTable.Get(index);
-        Console.WriteLine($"{field}{Encoding.ASCII.GetString(value)}");
-    }
-
 }
