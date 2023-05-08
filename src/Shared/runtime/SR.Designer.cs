@@ -40,7 +40,7 @@ namespace System.Net.Http
             {
                 if (object.ReferenceEquals(resourceMan, null))
                 {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Http3Repl.Shared.runtime.SR", typeof(SR).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Http3Tools.Shared.runtime.SR", typeof(SR).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.32804.182
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Http3Repl", "src\Http3Repl\Http3Repl.csproj", "{D9D2BE68-F1BE-4485-BF6B-2DDBC1398E5C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Http3Tools", "src\Http3Tools\Http3Tools.csproj", "{D9D2BE68-F1BE-4485-BF6B-2DDBC1398E5C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Http3Repl.Tests", "tests\Http3Repl.Tests\Http3Repl.Tests.csproj", "{37534784-C7CC-47DA-9E38-16BD94C5AD60}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Http3Tools.Tests", "tests\Http3Tools.Tests\Http3Tools.Tests.csproj", "{37534784-C7CC-47DA-9E38-16BD94C5AD60}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestWebApplication", "tests\TestWebApplication\TestWebApplication.csproj", "{BC1422AE-8253-4CC7-A027-1756A80E6147}"
 EndProject

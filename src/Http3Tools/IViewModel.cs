@@ -1,4 +1,4 @@
-﻿namespace Http3Repl;
+﻿namespace Http3Tools;
 
 public interface IViewModel
 {

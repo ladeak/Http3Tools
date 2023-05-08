@@ -6,7 +6,7 @@ using System.Net.Quic;
 using System.Net.Security;
 using System.Text;
 
-namespace Http3Repl;
+namespace Http3Tools;
 
 /// <summary>
 /// https://datatracker.ietf.org/doc/rfc9114/

@@ -1,4 +1,4 @@
-# Http3Repl
+# Http3Tools
 
 Tools to send HTTP requests. The tool is based on .NET7, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
