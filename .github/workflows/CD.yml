@@ -8,6 +8,7 @@ on:
 env:
   CONFIGURATION: Release
   DOTNET_VERSION: 8.0.x
+  GH_PACKAGE_VERSION: ${{ GH_PACKAGE_VERSION }}
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -21,44 +22,50 @@ jobs:
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Build
-      run: dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+      run: |
+        dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+        dotnet build src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
     - name: Pack
-      run: dotnet pack src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+      run:  |
+        dotnet pack src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+        dotnet pack src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
     - name: Push Nuget
-      run: dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+      run: |
+        dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+        dotnet nuget push src/Http3Parts/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
       env:
         nuget_api_key: ${{ secrets.NUGET_API_KEY }}
     - name: Publish
       run: |
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework net7.0
-        mv src/CHttp/bin/Release/net7.0/win-x64/publish/CHttp.exe src/CHttp/bin/Release/net7.0/win-x64/publish/chttp-win-x64.exe
-        mv src/CHttp/bin/Release/net7.0/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/net7.0/win-x64/publish/chttp-win-x64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION}  -p:PublishSingleFile=true -p:PublishTrimmed=true --framework net7.0
-        mv src/CHttp/bin/Release/net7.0/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/net7.0/win-arm64/publish/chttp-win-arm64.exe
-        mv src/CHttp/bin/Release/net7.0/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/net7.0/win-arm64/publish/chttp-win-arm64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework net7.0
-        mv src/CHttp/bin/Release/net7.0/linux-x64/publish/CHttp src/CHttp/bin/Release/net7.0/linux-x64/publish/chttp-linux-x64
-        mv src/CHttp/bin/Release/net7.0/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/net7.0/linux-x64/publish/chttp-linux-x64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework net7.0
-        mv src/CHttp/bin/Release/net7.0/linux-arm64/publish/CHttp src/CHttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64
-        mv src/CHttp/bin/Release/net7.0/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework net7.0
-        mv src/CHttp/bin/Release/net7.0/linux-arm/publish/CHttp src/CHttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm
-        mv src/CHttp/bin/Release/net7.0/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION}  -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publiísh/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
           files: |
-            src/CHttp/bin/Release/net7.0/win-x64/publish/chttp-win-x64.exe
-            src/CHttp/bin/Release/net7.0/win-x64/publish/chttp-win-x64.pdb
-            src/CHttp/bin/Release/net7.0/win-arm64/publish/chttp-win-arm64.exe
-            src/CHttp/bin/Release/net7.0/win-arm64/publish/chttp-win-arm64.pdb
-            src/CHttp/bin/Release/net7.0/linux-x64/publish/chttp-linux-x64
-            src/CHttp/bin/Release/net7.0/linux-x64/publish/chttp-linux-x64.pdb
-            src/CHttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64
-            src/CHttp/bin/Release/net7.0/linux-arm64/publish/chttp-linux-arm64.pdb
-            src/CHttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm
-            src/CHttp/bin/Release/net7.0/linux-arm/publish/chttp-linux-arm.pdb
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
 
 
         

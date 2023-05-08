@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Http3Tools\Http3Tools.csproj" />
+    <ProjectReference Include="..\..\src\Http3Parts\Http3Parts.csproj" />
   </ItemGroup>
 
 </Project>

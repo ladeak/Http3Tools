@@ -2,7 +2,7 @@
 using System.Net.Http.QPack;
 using System.Text;
 
-namespace Http3Tools;
+namespace Http3Parts;
 
 internal class HeadersHandler : IHttpStreamHeadersHandler
 {

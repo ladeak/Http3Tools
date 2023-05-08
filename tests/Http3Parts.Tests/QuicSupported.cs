@@ -1,6 +1,6 @@
 ﻿using System.Net.Quic;
 
-namespace Http3Tools.Tests;
+namespace Http3Parts.Tests;
 
 public sealed class QuicSupported : FactAttribute
 {

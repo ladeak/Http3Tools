@@ -2,7 +2,7 @@ using CHttp.Tests;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
-namespace Http3Tools.Tests;
+namespace Http3Parts.Tests;
 
 [Collection(nameof(NonParallel))]
 public class H3ClientTests
