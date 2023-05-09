@@ -10,6 +10,7 @@
     <RootNamespace>Http3Parts</RootNamespace>
     <PackageId>LaDeak.Http3Parts</PackageId>
     <Authors>LaDeak</Authors>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.QPack;
 using System.Net.Quic;
 using System.Net.Security;
@@ -11,33 +12,228 @@ namespace Http3Parts;
 /// <summary>
 /// https://datatracker.ietf.org/doc/rfc9114/
 /// </summary>
-public class H3Client
+public class H3Client : IAsyncDisposable
 {
+    private CancellationTokenSource _inboundCts = new CancellationTokenSource();
+
+    private Task? _inboundConnectionHandler;
+
     public event EventHandler<Frame>? OnFrame;
 
-    public async Task<Frame> TestAsync()
+    public ConnectionContext? ConnectionContext { get; private set; }
+
+    public StreamContext? OutgoingControlStream { get; private set; }
+
+    private Dictionary<long, StreamContext> _requestStreams = new();
+
+    public async ValueTask DisposeAsync()
+    {
+        _inboundCts.Cancel();
+        await (ConnectionContext?.QuicConnection.DisposeAsync() ?? ValueTask.CompletedTask);
+        await (_inboundConnectionHandler ?? Task.CompletedTask);
+    }
+
+    public Task ConnectAsync(IPEndPoint endpoint)
+    {
+        var options = CreateClientConnectionOptions(endpoint);
+        return ConnectAsync(options);
+    }
+
+    public async Task ConnectAsync(QuicClientConnectionOptions options)
+    {
+        var clientConnection = await QuicConnection.ConnectAsync(options);
+        ConnectionContext = new ConnectionContext() { QuicConnection = clientConnection };
+        if (options.MaxInboundUnidirectionalStreams > 0 || options.MaxInboundBidirectionalStreams > 0)
+            _inboundConnectionHandler = Task.Run(() => HandleIncomingStreams(ConnectionContext, _inboundCts.Token), _inboundCts.Token);
+    }
+
+    public Task SendSettingsAsync() => SendSettingsAsync(new SettingParameter((long)Http3SettingType.MaxHeaderListSize, 1024));
+
+    public async Task SendSettingsAsync(params SettingParameter[] settings)
+    {
+        if (ConnectionContext == null)
+            throw new InvalidOperationException("Call ConnectAsync() first");
+
+        var connection = ConnectionContext.QuicConnection;
+        var clientControl = await connection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional);
+
+        OutgoingControlStream = new StreamContext()
+        {
+            Connection = ConnectionContext,
+            Incoming = false,
+            Stream = clientControl
+        };
+
+        SendStreamIdentifier(clientControl);
+        var settingsFrame = BuildSettingsFrame(settings);
+        SendFrameHeader(clientControl, Http3FrameType.Settings, settingsFrame);
+        await clientControl.WriteAsync(settingsFrame);
+    }
+
+    private void SendStreamIdentifier(QuicStream clientControl)
+    {
+        Span<byte> streamIdentifier = stackalloc byte[1];
+        streamIdentifier[0] = (byte)Http3StreamType.Control;
+        clientControl.Write(streamIdentifier);
+    }
+
+    private void SendFrameHeader(QuicStream clientControl, Http3FrameType type, ReadOnlyMemory<byte> payload)
+    {
+        Span<byte> buffer = stackalloc byte[1 + VariableLengthIntegerHelper.GetByteCount(payload.Length)];
+        buffer[0] = (byte)type;
+        VariableLengthIntegerHelper.WriteInteger(buffer.Slice(1), payload.Length);
+        clientControl.Write(buffer);
+    }
+
+    private ReadOnlyMemory<byte> BuildSettingsFrame(params SettingParameter[] settings)
+    {
+        byte[] buffer = new byte[2 * VariableLengthIntegerHelper.MaximumEncodedLength * settings.Length];
+        Span<byte> remainingBuffer = buffer;
+        int payloadSize = 0;
+        foreach (var setting in settings)
+        {
+            int currentLength = VariableLengthIntegerHelper.WriteInteger(remainingBuffer, setting.Id);
+            currentLength += VariableLengthIntegerHelper.WriteInteger(remainingBuffer.Slice(currentLength), setting.Value);
+            remainingBuffer = remainingBuffer.Slice(currentLength);
+            payloadSize += currentLength;
+        }
+        return buffer.AsMemory(0, payloadSize);
+    }
+
+    public async Task<long> OpenRequestStream()
+    {
+        if (ConnectionContext == null)
+            throw new InvalidOperationException("Call ConnectAsync() first");
+
+        var connection = ConnectionContext.QuicConnection;
+        var dataStream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional);
+
+        var requestContext = new StreamContext()
+        {
+            Connection = ConnectionContext,
+            Incoming = true,
+            Stream = dataStream,
+        };
+        _requestStreams.Add(dataStream.Id, requestContext);
+        return dataStream.Id;
+    }
+
+    private ReadOnlyMemory<byte> BuildHeaderFrame(Uri url, HttpMethod method, IEnumerable<KeyValuePair<string, string>> headers)
+    {
+        using var writer = new PooledArrayBufferWriter<byte>();
+        BuildQpackHeaders(writer, url, method, headers);
+        var frameHeader = BuildFrameHeader(Http3FrameType.Headers, writer.WrittenMemory);
+        byte[] result = new byte[frameHeader.Length + writer.WrittenCount];
+        frameHeader.CopyTo(result.AsMemory());
+        writer.WrittenSpan.CopyTo(result.AsSpan(frameHeader.Length));
+        return result;
+    }
+
+    public ValueTask SendFrameAsync(long streamId, ReadOnlyMemory<byte> data, CancellationToken token)
+    {
+        // This only sends data
+        if (!_requestStreams.TryGetValue(streamId, out var streamContext))
+            throw new ArgumentException("Given streamId has no corresponding stream opened");
+        return streamContext.Stream.WriteAsync(data, token);
+    }
+
+    private void BuildQpackHeaders(IBufferWriter<byte> writer, Uri url, HttpMethod method, IEnumerable<KeyValuePair<string, string>> headers)
+    {
+        int currentRequestSize = 128;
+        var buffer = writer.GetSpan(currentRequestSize);
+
+        // Add QPACK header block prefix.
+        //https://datatracker.ietf.org/doc/html/draft-ietf-quic-qpack-11#section-4.5.1
+        buffer[0] = 0;
+        buffer[1] = 0;
+        writer.Advance(2);
+
+        int length;
+
+        // Write method
+        var staticTableMethod = H3StaticTable.MethodIndex[method];
+        buffer = writer.GetSpan(currentRequestSize);
+        while (!QPackEncoder.EncodeStaticIndexedHeaderField(staticTableMethod, buffer, out length))
+        {
+            currentRequestSize = currentRequestSize << 1;
+            buffer = writer.GetSpan(currentRequestSize);
+        }
+        writer.Advance(length);
+
+        // Write scheme
+        var scheme = url.Scheme.ToLowerInvariant() switch
+        {
+            "http" => H3StaticTable.SchemeHttp,
+            "https" => H3StaticTable.SchemeHttps,
+            _ => throw new NotSupportedException("Scheme not supported")
+        };
+        buffer = writer.GetSpan(currentRequestSize);
+        while (!QPackEncoder.EncodeStaticIndexedHeaderField(scheme, buffer, out length))
+        {
+            currentRequestSize = currentRequestSize << 1;
+            buffer = writer.GetSpan(currentRequestSize);
+        }
+        writer.Advance(length);
+
+        // Write Host
+        buffer = writer.GetSpan(currentRequestSize);
+        while (!QPackEncoder.EncodeLiteralHeaderFieldWithStaticNameReference(H3StaticTable.Authority, url.Host, null, buffer, out length))
+        {
+            currentRequestSize = currentRequestSize << 1;
+            buffer = writer.GetSpan(currentRequestSize);
+        }
+        writer.Advance(length);
+
+        // Write Path
+        buffer = writer.GetSpan(currentRequestSize);
+        while (!QPackEncoder.EncodeLiteralHeaderFieldWithStaticNameReference(H3StaticTable.PathSlash, url.AbsolutePath, buffer, out length))
+        {
+            currentRequestSize = currentRequestSize << 1;
+            buffer = writer.GetSpan(currentRequestSize);
+        }
+        writer.Advance(length);
+
+        // Other Headers
+        foreach (var header in headers)
+        {
+            // TODO and use static table
+            buffer = writer.GetSpan(currentRequestSize);
+            while (!QPackEncoder.EncodeLiteralHeaderFieldWithoutNameReference(header.Key, header.Value, buffer, out length))
+            {
+                currentRequestSize = currentRequestSize << 1;
+                buffer = writer.GetSpan(currentRequestSize);
+            }
+            writer.Advance(length);
+        }
+    }
+
+    private ReadOnlyMemory<byte> BuildFrameHeader(Http3FrameType type, ReadOnlyMemory<byte> payload)
+    {
+        var buffer = new byte[VariableLengthIntegerHelper.GetByteCount((long)type) + VariableLengthIntegerHelper.GetByteCount(payload.Length)];
+        int count = VariableLengthIntegerHelper.WriteInteger(buffer.AsSpan(0), (long)type);
+        VariableLengthIntegerHelper.WriteInteger(buffer.AsSpan(count), payload.Length);
+        return buffer;
+    }
+
+    public async Task TestAsync()
     {
         // Open connection and send settings frame on control stream.
-        var options = CreateClientConnectionOptions(new IPEndPoint(IPAddress.Loopback, 5001));
-        await using var clientConnection = await QuicConnection.ConnectAsync(options);
-        var connecectionContext = new ConnectionContext() { QuicConnection = clientConnection };
-
-        await OpenControlStreamAsync(connecectionContext);
+        await ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5001));
+        await SendSettingsAsync();
 
         var inboundCts = new CancellationTokenSource();
-        var inboundTasks = Task.Run(() => HandleIncomingStreams(connecectionContext, inboundCts.Token), inboundCts.Token);
+        var inboundTasks = Task.Run(() => HandleIncomingStreams(ConnectionContext, inboundCts.Token), inboundCts.Token);
 
         // Open bidirectional stream to send request.
-        var clientStream = await clientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional);
-        var getRequestHeader = BuildGetHeaderFrame();
-        await clientStream.WriteAsync(getRequestHeader, completeWrites: true);
-        await ReadAsync(connecectionContext, clientStream, false, CancellationToken.None);
+        var connectionId = await OpenRequestStream();
+        var frame = BuildHeaderFrame(new Uri("https://localhost:5001/"), HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
+        await SendFrameAsync(connectionId, frame, CancellationToken.None);
+
+        await ReadAsync(ConnectionContext, _requestStreams[connectionId].Stream, false, CancellationToken.None);
 
         var goAwayFrame = BuildGoAwayFrame();
         inboundCts.Cancel();
         await inboundTasks;
-
-        return new Frame() { Data = "test", SourceStream = "test" };
     }
 
     async Task HandleIncomingStreams(ConnectionContext connectionCtx, CancellationToken token)
@@ -55,16 +251,7 @@ public class H3Client
         }
     }
 
-    private async Task OpenControlStreamAsync(ConnectionContext connectionContext)
-    {
-        var clientControl = await connectionContext.QuicConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional);
 
-        var streamIdentifier = new byte[1];
-        streamIdentifier[0] = (byte)Http3StreamType.Control;
-        await clientControl.WriteAsync(streamIdentifier);
-        var settingsFrame = BuildSettingsFrame();
-        await clientControl.WriteAsync(settingsFrame);
-    }
 
     private byte[] BuildGetHeaderFrame()
     {
@@ -149,18 +336,7 @@ public class H3Client
         }
     }
 
-    private byte[] BuildSettingsFrame()
-    {
-        Span<byte> buffer = stackalloc byte[1 + VariableLengthIntegerHelper.MaximumEncodedLength];
-
-        buffer[0] = (byte)Http3SettingType.MaxHeaderListSize;
-        int integerLength = VariableLengthIntegerHelper.WriteInteger(buffer.Slice(1), 1024);
-
-        var payloadSize = 1 + integerLength;
-        return BuildFrameHeader(Http3FrameType.Settings, buffer.Slice(0, payloadSize));
-    }
-
-    private static byte[] BuildFrameHeader(Http3FrameType type, ReadOnlySpan<byte> payload)
+    private byte[] BuildFrameHeader(Http3FrameType type, ReadOnlySpan<byte> payload)
     {
         int payloadSize = payload.Length;
         Span<byte> buffer = stackalloc byte[1 + VariableLengthIntegerHelper.MaximumEncodedLength + payloadSize];
@@ -171,7 +347,7 @@ public class H3Client
         return buffer.Slice(0, 1 + payloadSizeByteCount + payloadSize).ToArray();
     }
 
-    static QuicClientConnectionOptions CreateClientConnectionOptions(EndPoint remoteEndPoint)
+    private QuicClientConnectionOptions CreateClientConnectionOptions(EndPoint remoteEndPoint)
     {
         return new QuicClientConnectionOptions
         {
@@ -181,9 +357,9 @@ public class H3Client
             ClientAuthenticationOptions = new SslClientAuthenticationOptions
             {
                 ApplicationProtocols = new List<SslApplicationProtocol>
-            {
+                {
                     SslApplicationProtocol.Http3
-            },
+                },
                 RemoteCertificateValidationCallback = (_, _, _, _) => true
             },
             DefaultStreamErrorCode = (long)Http3ErrorCode.RequestCancelled,
@@ -217,6 +393,9 @@ public class H3Client
 
     private async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
     {
+        if (!context.Incoming || context.Reader == null)
+            return;
+
         try
         {
             while (!token.IsCancellationRequested)

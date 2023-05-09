@@ -1,6 +1,6 @@
 ﻿using System.Net.Quic;
 
-internal class ConnectionContext
+public class ConnectionContext
 {
     public required QuicConnection QuicConnection { get; init; }
 }

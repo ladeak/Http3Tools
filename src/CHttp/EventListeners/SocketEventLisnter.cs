@@ -50,7 +50,7 @@ internal class SocketEventListener : EventListener, INetEventListener
             return;
         if (_source.Name == SocketSourceName)
         {
-            _tcs = new();
+            _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
             await _tcs.Task;
         }
         DisableEvents(_source);

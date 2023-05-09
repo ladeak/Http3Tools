@@ -2,11 +2,11 @@
 using System.Net.Http.QPack;
 using System.Net.Quic;
 
-internal class StreamContext
+public class StreamContext
 {
-    public QPackDecoder? HeaderDecoder { get; set; }
+    internal QPackDecoder? HeaderDecoder { get; set; }
 
-    public required PipeReader Reader { get; set; }
+    public PipeReader? Reader { get; set; }
 
     public required ConnectionContext Connection { get; init; }
 
@@ -14,9 +14,9 @@ internal class StreamContext
 
     public required bool Incoming { get; init; }
 
-    public Http3StreamType StreamType { get; set; }
+    internal Http3StreamType StreamType { get; set; }
 
     public bool InitialFrameProcessed { get; set; }
 
-    public Dictionary<Http3SettingType, long> Settings { get; } = new();
+    internal Dictionary<Http3SettingType, long> Settings { get; } = new();
 }
