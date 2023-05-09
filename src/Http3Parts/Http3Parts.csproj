@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
     <NoWarn>1701;1702;CA1416</NoWarn>
+    <RootNamespace>Http3Parts</RootNamespace>
+    <PackageId>LaDeak.Http3Parts</PackageId>
+    <Authors>LaDeak</Authors>
   </PropertyGroup>
 
   <ItemGroup>
