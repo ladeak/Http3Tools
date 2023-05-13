@@ -2,9 +2,18 @@
 
 namespace Http3Parts.Tests;
 
-public sealed class QuicSupported : FactAttribute
+public sealed class QuicSupportedFactAttribute : FactAttribute
 {
-    public QuicSupported()
+    public QuicSupportedFactAttribute()
+    {
+        if (!QuicConnection.IsSupported)
+            Skip = "Quic is not supported on this platform.";
+    }
+}
+
+public sealed class QuicSupportedTheoryAttribute : TheoryAttribute
+{
+    public QuicSupportedTheoryAttribute()
     {
         if (!QuicConnection.IsSupported)
             Skip = "Quic is not supported on this platform.";

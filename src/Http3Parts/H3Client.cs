@@ -1,7 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.QPack;
 using System.Net.Quic;
 using System.Net.Security;
@@ -196,14 +195,26 @@ public class H3Client : IAsyncDisposable
         // Other Headers
         foreach (var header in headers)
         {
-            // TODO and use static table
-            buffer = writer.GetSpan(currentRequestSize);
-            while (!QPackEncoder.EncodeLiteralHeaderFieldWithoutNameReference(header.Key, header.Value, buffer, out length))
+            if (HeaderMap.TryGetStaticRequestHeader(header.Key, out var headerKey))
             {
-                currentRequestSize = currentRequestSize << 1;
                 buffer = writer.GetSpan(currentRequestSize);
+                while (!QPackEncoder.EncodeLiteralHeaderFieldWithStaticNameReference(headerKey, header.Value, buffer, out length))
+                {
+                    currentRequestSize = currentRequestSize << 1;
+                    buffer = writer.GetSpan(currentRequestSize);
+                }
+                writer.Advance(length);
             }
-            writer.Advance(length);
+            else
+            {
+                buffer = writer.GetSpan(currentRequestSize);
+                while (!QPackEncoder.EncodeLiteralHeaderFieldWithoutNameReference(header.Key, header.Value, buffer, out length))
+                {
+                    currentRequestSize = currentRequestSize << 1;
+                    buffer = writer.GetSpan(currentRequestSize);
+                }
+                writer.Advance(length);
+            }
         }
     }
 
@@ -215,7 +226,7 @@ public class H3Client : IAsyncDisposable
         return buffer;
     }
 
-    public async Task TestAsync()
+    public async Task TestAsync(string path = "")
     {
         // Open connection and send settings frame on control stream.
         await ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5001));
@@ -226,7 +237,7 @@ public class H3Client : IAsyncDisposable
 
         // Open bidirectional stream to send request.
         var connectionId = await OpenRequestStream();
-        var frame = BuildHeaderFrame(new Uri("https://localhost:5001/"), HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
+        var frame = BuildHeaderFrame(new Uri(Path.Combine("https://localhost:5001", path)), HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
         await SendFrameAsync(connectionId, frame, CancellationToken.None);
 
         await ReadAsync(ConnectionContext, _requestStreams[connectionId].Stream, false, CancellationToken.None);
@@ -236,7 +247,7 @@ public class H3Client : IAsyncDisposable
         await inboundTasks;
     }
 
-    async Task HandleIncomingStreams(ConnectionContext connectionCtx, CancellationToken token)
+    private async Task HandleIncomingStreams(ConnectionContext connectionCtx, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
@@ -249,65 +260,6 @@ public class H3Client : IAsyncDisposable
             {
             }
         }
-    }
-
-
-
-    private byte[] BuildGetHeaderFrame()
-    {
-        var frame = ArrayPool<byte>.Shared.Rent(32);
-        try
-        {
-            Span<byte> buffer = frame.AsSpan(1 + VariableLengthIntegerHelper.MaximumEncodedLength);
-            var payloadLength = BuildQPACKFrame(buffer);
-            int payloadLengthSize = VariableLengthIntegerHelper.GetByteCount(payloadLength);
-
-            buffer = frame.AsSpan(1 + VariableLengthIntegerHelper.MaximumEncodedLength - 1 - payloadLengthSize, payloadLength + 1 + payloadLengthSize);
-
-            // H3 Header frame
-            // Header frame type
-            buffer[0] = (byte)Http3FrameType.Headers;
-            VariableLengthIntegerHelper.WriteInteger(buffer.Slice(1), payloadLength);
-            return buffer.ToArray();
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(frame);
-        }
-    }
-
-    /// <summary>
-    /// Send GET request header
-    /// </summary>
-    /// <returns></returns>
-    private int BuildQPACKFrame(Span<byte> buffer)
-    {
-        // Add QPACK header block prefix.
-        //https://datatracker.ietf.org/doc/html/draft-ietf-quic-qpack-11#section-4.5.1
-        buffer[0] = 0;
-        buffer[1] = 0;
-        buffer = buffer.Slice(2);
-        int payloadLength = 2;
-
-        // Write method
-        QPackEncoder.EncodeStaticIndexedHeaderField(H3StaticTable.MethodGet, buffer, out var length);
-        payloadLength += length;
-        buffer = buffer.Slice(length);
-
-        // Write scheme
-        QPackEncoder.EncodeStaticIndexedHeaderField(H3StaticTable.SchemeHttps, buffer, out length);
-        payloadLength += length;
-        buffer = buffer.Slice(length);
-
-        // Write Host
-        QPackEncoder.EncodeLiteralHeaderFieldWithStaticNameReference(H3StaticTable.Authority, "localhost", null, buffer, out length);
-        payloadLength += length;
-        buffer = buffer.Slice(length);
-
-        // Write Path
-        QPackEncoder.EncodeStaticIndexedHeaderField(H3StaticTable.PathSlash, buffer, out length);
-        payloadLength += length;
-        return payloadLength;
     }
 
     private byte[] BuildGoAwayFrame()
@@ -334,17 +286,6 @@ public class H3Client : IAsyncDisposable
         {
             ArrayPool<byte>.Shared.Return(frame);
         }
-    }
-
-    private byte[] BuildFrameHeader(Http3FrameType type, ReadOnlySpan<byte> payload)
-    {
-        int payloadSize = payload.Length;
-        Span<byte> buffer = stackalloc byte[1 + VariableLengthIntegerHelper.MaximumEncodedLength + payloadSize];
-        int payloadSizeByteCount = VariableLengthIntegerHelper.GetByteCount(payloadSize); // includes the setting ID and the integer value.
-        buffer[0] = (byte)type;
-        VariableLengthIntegerHelper.WriteInteger(buffer.Slice(1), payloadSize);
-        payload.CopyTo(buffer.Slice(1 + payloadSizeByteCount));
-        return buffer.Slice(0, 1 + payloadSizeByteCount + payloadSize).ToArray();
     }
 
     private QuicClientConnectionOptions CreateClientConnectionOptions(EndPoint remoteEndPoint)
@@ -393,7 +334,7 @@ public class H3Client : IAsyncDisposable
 
     private async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
     {
-        if (!context.Incoming || context.Reader == null)
+        if (context.Reader == null)
             return;
 
         try
@@ -413,6 +354,7 @@ public class H3Client : IAsyncDisposable
                     if (!Enum.IsDefined<Http3StreamType>((Http3StreamType)streamTypeRaw))
                     {
                         // error H3_STREAM_CREATION_ERROR or read data without processing
+                        await ConnectionErrorAsync(context, Http3ErrorCode.StreamCreationError);
                     }
                     buffer = buffer.Slice(consumed);
                     context.StreamType = (Http3StreamType)streamTypeRaw; // this is the stream type, not the Id
@@ -444,6 +386,7 @@ public class H3Client : IAsyncDisposable
             return;
         }
 
+        // TODO: CANCEL_PUSH, PUSH_PROMISE, GOAWAY, MAX_PUSH_ID
         switch (frame.Type)
         {
             case Http3FrameType.Data:

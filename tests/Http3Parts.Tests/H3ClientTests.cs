@@ -13,8 +13,8 @@ public class H3ClientTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    [QuicSupported]
-    public async Task Test1()
+    [QuicSupportedFact]
+    public async Task Test_VanillaRequest()
     {
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
         await app.StartAsync();
@@ -23,7 +23,18 @@ public class H3ClientTests
         await client.TestAsync();
     }
 
-    [QuicSupported]
+    [QuicSupportedTheory]
+    [InlineData("/api/resource")]
+    public async Task Test_CustomPath(string path)
+    {
+        using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001, path: path);
+        await app.StartAsync();
+
+        var client = new H3Client();
+        await client.TestAsync(path);
+    }
+
+    [QuicSupportedFact]
     public async Task OpenAsync_Sets_ConnectionContext()
     {
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
@@ -34,7 +45,7 @@ public class H3ClientTests
         Assert.NotNull(client.ConnectionContext);
     }
 
-    [QuicSupported]
+    [QuicSupportedFact]
     public async Task SendSettingsAsync_SendsSettingsBytes()
     {
         await using QuicListener listener = await CreateListener();
@@ -55,7 +66,7 @@ public class H3ClientTests
         Assert.True(dataRead.SequenceEqual(expected));
     }
 
-    [QuicSupported]
+    [QuicSupportedFact]
     public async Task CustomSettingsAsync_SendSettingsAsync_SendsBytes()
     {
         await using QuicListener listener = await CreateListener();
