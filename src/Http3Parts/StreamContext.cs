@@ -14,7 +14,7 @@ public class StreamContext
 
     public required bool Incoming { get; init; }
 
-    internal Http3StreamType StreamType { get; set; }
+    internal Http3StreamType? StreamType { get; set; }
 
     public bool InitialFrameProcessed { get; set; }
 

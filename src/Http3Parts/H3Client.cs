@@ -44,6 +44,7 @@ public class H3Client : IAsyncDisposable
         ConnectionContext = new ConnectionContext() { QuicConnection = clientConnection };
         if (options.MaxInboundUnidirectionalStreams > 0 || options.MaxInboundBidirectionalStreams > 0)
             _inboundConnectionHandler = Task.Run(() => HandleIncomingStreams(ConnectionContext, _inboundCts.Token), _inboundCts.Token);
+
     }
 
     public Task SendSettingsAsync() => SendSettingsAsync(new SettingParameter((long)Http3SettingType.MaxHeaderListSize, 1024));
@@ -226,27 +227,21 @@ public class H3Client : IAsyncDisposable
         return buffer;
     }
 
-    public async Task TestAsync(string path = "")
+    public async Task TestAsync(Uri address)
     {
         // Open connection and send settings frame on control stream.
-        await ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5001));
+        await ConnectAsync(new IPEndPoint(IPAddress.Loopback, address.Port));
         await SendSettingsAsync();
-
-        var inboundCts = new CancellationTokenSource();
-        var inboundTasks = Task.Run(() => HandleIncomingStreams(ConnectionContext, inboundCts.Token), inboundCts.Token);
 
         // Open bidirectional stream to send request.
         var connectionId = await OpenRequestStream();
-        UriBuilder uriBuilder = new UriBuilder("https://localhost:5001/");
-        uriBuilder.Path = path;
-        var frame = BuildHeaderFrame(uriBuilder.Uri, HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
+        var frame = BuildHeaderFrame(address, HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
         await SendFrameAsync(connectionId, frame, CancellationToken.None);
 
         await ReadAsync(ConnectionContext, _requestStreams[connectionId].Stream, false, CancellationToken.None);
 
         var goAwayFrame = BuildGoAwayFrame();
-        inboundCts.Cancel();
-        await inboundTasks;
+        await OutgoingControlStream.Stream.WriteAsync(goAwayFrame);
     }
 
     private async Task HandleIncomingStreams(ConnectionContext connectionCtx, CancellationToken token)
@@ -294,7 +289,7 @@ public class H3Client : IAsyncDisposable
     {
         return new QuicClientConnectionOptions
         {
-            MaxInboundBidirectionalStreams = 0,
+            MaxInboundBidirectionalStreams = 1,
             MaxInboundUnidirectionalStreams = 5,
             RemoteEndPoint = remoteEndPoint,
             ClientAuthenticationOptions = new SslClientAuthenticationOptions
@@ -317,21 +312,44 @@ public class H3Client : IAsyncDisposable
 
     private async Task ReadAsync(ConnectionContext connectionCtx, QuicStream clientStream, bool incoming, CancellationToken token)
     {
-        var pipe = new Pipe();
-        var writer = pipe.Writer;
-        var copyTask = clientStream.CopyToAsync(writer, token);
-        var context = new StreamContext()
+        try
         {
-            Reader = pipe.Reader,
-            Stream = clientStream,
-            Connection = connectionCtx,
-            Incoming = incoming
-        };
-        var pipeTask = ProcessPipeAsync(context, token);
+            var pipe = new Pipe();
+            Task? pipeTask = null;
+            try
+            {
+                var writer = pipe.Writer;
+                var copyTask = clientStream.CopyToAsync(writer, token);
+                var context = new StreamContext()
+                {
+                    Reader = pipe.Reader,
+                    Stream = clientStream,
+                    Connection = connectionCtx,
+                    Incoming = incoming
+                };
+                pipeTask = ProcessPipeAsync(context, token);
 
-        await copyTask;
-        await pipe.Writer.CompleteAsync();
-        await pipeTask;
+                await copyTask;
+                await pipe.Writer.CompleteAsync();
+
+                await pipeTask;
+            }
+            catch (OperationCanceledException cancelled)
+            {
+                await pipe.Writer.CompleteAsync(cancelled);
+            }
+            catch (QuicException ex)
+            {
+                if (clientStream.Type == QuicStreamType.Bidirectional)
+                    await pipe.Writer.CompleteAsync(ex);
+            }
+            await (pipeTask ?? Task.CompletedTask);
+
+        }
+        finally
+        {
+            _requestStreams.Remove(clientStream.Id);
+        }
     }
 
     private async Task ProcessPipeAsync(StreamContext context, CancellationToken token)
@@ -349,7 +367,7 @@ public class H3Client : IAsyncDisposable
 
                 var buffer = read.Buffer;
 
-                if (context.Incoming)
+                if (context.Incoming && context.StreamType is null)
                 {
                     // Read HTTP stream type
                     long streamTypeRaw = VariableLengthIntegerHelper.GetInteger(in buffer, out var consumed, out var examined);

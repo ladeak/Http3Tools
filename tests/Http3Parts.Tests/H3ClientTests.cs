@@ -1,3 +1,5 @@
+using System.IO;
+using System;
 using System.Net;
 using System.Net.Quic;
 using System.Net.Security;
@@ -18,20 +20,25 @@ public class H3ClientTests
     {
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
         await app.StartAsync();
-
-        var client = new H3Client();
-        await client.TestAsync();
+        await using (var client = new H3Client())
+            await client.TestAsync(new Uri("https://localhost:5001"));
+        await app.StopAsync();
     }
 
     [QuicSupportedTheory]
     [InlineData("/api/resource")]
+    [InlineData("/")]
     public async Task Test_CustomPath(string path)
     {
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001, path: path);
         await app.StartAsync();
 
-        var client = new H3Client();
-        await client.TestAsync(path);
+        UriBuilder builder = new UriBuilder("https://localhost:5001");
+        builder.Path = path;
+        await using (var client = new H3Client())
+            await client.TestAsync(builder.Uri);
+
+        await app.StopAsync();
     }
 
     [QuicSupportedFact]
@@ -40,9 +47,13 @@ public class H3ClientTests
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
         await app.StartAsync();
 
-        var client = new H3Client();
-        await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5001));
-        Assert.NotNull(client.ConnectionContext);
+        await using (var client = new H3Client())
+        {
+            await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5001));
+            Assert.NotNull(client.ConnectionContext);
+        }
+
+        await app.StopAsync();
     }
 
     [QuicSupportedFact]
