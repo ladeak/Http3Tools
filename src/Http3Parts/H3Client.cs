@@ -237,7 +237,9 @@ public class H3Client : IAsyncDisposable
 
         // Open bidirectional stream to send request.
         var connectionId = await OpenRequestStream();
-        var frame = BuildHeaderFrame(new Uri(Path.Combine("https://localhost:5001", path)), HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
+        UriBuilder uriBuilder = new UriBuilder("https://localhost:5001/");
+        uriBuilder.Path = path;
+        var frame = BuildHeaderFrame(uriBuilder.Uri, HttpMethod.Get, Enumerable.Empty<KeyValuePair<string, string>>());
         await SendFrameAsync(connectionId, frame, CancellationToken.None);
 
         await ReadAsync(ConnectionContext, _requestStreams[connectionId].Stream, false, CancellationToken.None);
