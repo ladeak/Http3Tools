@@ -17,6 +17,8 @@ public class H3Client : IAsyncDisposable
 
     private Task? _inboundConnectionHandler;
 
+    private List<Task> _readingTasks = new();
+
     public event EventHandler<Frame>? OnFrame;
 
     public ConnectionContext? ConnectionContext { get; private set; }
@@ -29,7 +31,24 @@ public class H3Client : IAsyncDisposable
     {
         _inboundCts.Cancel();
         await (ConnectionContext?.QuicConnection.DisposeAsync() ?? ValueTask.CompletedTask);
-        await (_inboundConnectionHandler ?? Task.CompletedTask);
+        try
+        {
+            await (_inboundConnectionHandler ?? Task.CompletedTask);
+        }
+        catch (OperationCanceledException)
+        {
+            // Because _inboundCts is cancelled above.
+        }
+        try
+        {
+            await Task.WhenAll(_readingTasks);
+        }
+        catch (AggregateException aggregate)
+        {
+            // Because _inboundCts is cancelled above.
+            if (aggregate.InnerExceptions.Any(x => x is not OperationCanceledException))
+                throw;
+        }
     }
 
     public Task ConnectAsync(IPEndPoint endpoint)
@@ -253,6 +272,10 @@ public class H3Client : IAsyncDisposable
                 var inbound = await connectionCtx.QuicConnection.AcceptInboundStreamAsync(token);
                 _ = Task.Run(() => ProcessIncomingStream(connectionCtx, inbound, token), token);
             }
+            catch (QuicException) when (_inboundCts.IsCancellationRequested)
+            {
+                // Shutting down connection due to dispose.
+            }
             catch (OperationCanceledException)
             {
             }
@@ -307,7 +330,18 @@ public class H3Client : IAsyncDisposable
 
     private async Task ProcessIncomingStream(ConnectionContext connectionCtx, QuicStream stream, CancellationToken token)
     {
-        await ReadAsync(connectionCtx, stream, true, token);
+        Task? readingTask = null;
+        try
+        {
+            readingTask = ReadAsync(connectionCtx, stream, true, token);
+            _readingTasks.Add(readingTask);
+            await readingTask;
+        }
+        finally
+        {
+            if (readingTask != null)
+                _readingTasks.Remove(readingTask);
+        }
     }
 
     private async Task ReadAsync(ConnectionContext connectionCtx, QuicStream clientStream, bool incoming, CancellationToken token)
