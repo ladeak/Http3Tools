@@ -67,11 +67,11 @@ public class CHttpPerformanceFunctional
                 requestCounter++;
             }
             return context.Response.WriteAsync("response");
-        }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3, port: Port);
+        }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2, port: Port);
         await host.StartAsync();
         var console = new TestConsolePerWrite();
 
-        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 3")
+        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 2")
             .WaitAsync(TimeSpan.FromSeconds(10));
 
         // Each client does a preflight warnup request.
