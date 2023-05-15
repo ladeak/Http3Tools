@@ -20,7 +20,6 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
-        include-prerelease: true
     - name: Install Package libmsquic
       run: |
         sudo apt update

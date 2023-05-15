@@ -420,6 +420,10 @@ public class H3Client : IAsyncDisposable
                     break;
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Shutdown
+        }
         finally
         {
             await context.Reader.CompleteAsync();

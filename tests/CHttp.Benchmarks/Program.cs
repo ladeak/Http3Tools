@@ -15,7 +15,7 @@ BenchmarkRunner.Run<StdDevBenchmark>();
 
 public class StdDevBenchmark
 {
-    public List<int> _numbers;
+    public List<int> _numbers = new();
 
     public double _average;
 
