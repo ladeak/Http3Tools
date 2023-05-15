@@ -1,4 +1,6 @@
-﻿public class KeyValueDescriptor
+﻿namespace CHttp.Data;
+
+public class KeyValueDescriptor
 {
     private readonly string _header;
 
@@ -13,7 +15,7 @@
             throw new ArgumentException(nameof(header));
         _header = header;
         _keyRange = new Range(0, separatorIndex);
-        _valueRange = new Range(separatorIndex + 1, header.Length - 1);
+        _valueRange = new Range(separatorIndex + 1, header.Length);
     }
 
     public ReadOnlySpan<char> GetKey() => _header[_keyRange];

@@ -116,10 +116,11 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
 public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInteger<T>
 {
     private const int Alignment = 7;
+    private const int AlignmentSec = 5;
 
     public static string FormatSize(Ratio<T> value)
     {
-        return $"{value.Numerator,Alignment:D}/{value.Total:D}";
+        return $"{value.Numerator,Alignment:D}/{value.Total:D} {value.Remaining.TotalSeconds,AlignmentSec:F1}s";
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(Ratio<T> value)

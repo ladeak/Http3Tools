@@ -42,13 +42,13 @@ internal sealed class ProgressBar<T> where T : struct
             prevIndex = index;
             _console.SetCursorPosition(position.Left, position.Top);
             _console.Write(buffer);
-            _console.WriteLine(U.FormatSize(_value));
+            _console.Write(U.FormatSize(_value));
             state++;
             await _awaiter.WaitAsync();
         } while (!token.IsCancellationRequested);
         _console.SetCursorPosition(position.Left, position.Top);
         _console.Write(_complete);
-        _console.WriteLine(U.FormatSize(_value));
+        _console.Write(U.FormatSize(_value));
         _console.WriteLine();
         _console.CursorVisible = true;
     }

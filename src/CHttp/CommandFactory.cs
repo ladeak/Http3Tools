@@ -34,7 +34,7 @@ internal static class CommandFactory
         var headerOptions = new Option<IEnumerable<string>>(
             name: "--header",
             getDefaultValue: Enumerable.Empty<string>,
-            description: "Headers Key-Value pairs separated by ':'");
+            description: """Headers Key-Value pairs separated by ':'. For example --header="key:myvalue" """);
         headerOptions.AddAlias("-h");
         headerOptions.IsRequired = false;
         headerOptions.Arity = ArgumentArity.ZeroOrMore;
@@ -43,7 +43,7 @@ internal static class CommandFactory
         var formsOptions = new Option<IEnumerable<string>>(
             name: "--form",
             getDefaultValue: Enumerable.Empty<string>,
-            description: "Forms Key-Value pairs separated by ':'");
+            description: """Forms Key-Value pairs separated by ':' For example --form="name:myvalue" """);
         formsOptions.AddAlias("-f");
         formsOptions.IsRequired = false;
         formsOptions.Arity = ArgumentArity.ZeroOrMore;

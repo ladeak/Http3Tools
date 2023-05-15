@@ -51,4 +51,27 @@ public class CHttpFunctionalTests
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(response, Encoding.UTF8.GetString(output.ToArray()));
     }
+
+    [Theory]
+    [InlineData("headerValue")]
+    public async Task TestingHeaders(string headerValue)
+    {
+        using var output = new MemoryStream();
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            if (context.Request.Headers.TryGetValue("myheader", out var headers) && headers.Single() == headerValue)
+                await context.Response.WriteAsync("test");
+            else
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        }, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+
+        await host.StartAsync();
+        var console = new TestConsolePerWrite();
+        var writer = new ProgressingConsoleWriter(new StreamBufferedProcessor(output), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync($"--method GET --no-certificate-validation --uri https://localhost:5011 --header=myheader:{headerValue}");
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal("test", Encoding.UTF8.GetString(output.ToArray()));
+    }
 }

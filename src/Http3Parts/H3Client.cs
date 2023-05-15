@@ -368,14 +368,9 @@ public class H3Client : IAsyncDisposable
 
                 await pipeTask;
             }
-            catch (OperationCanceledException cancelled)
+            catch (Exception ex)
             {
-                await pipe.Writer.CompleteAsync(cancelled);
-            }
-            catch (QuicException ex)
-            {
-                if (clientStream.Type == QuicStreamType.Bidirectional)
-                    await pipe.Writer.CompleteAsync(ex);
+                await pipe.Writer.CompleteAsync(ex);
             }
             await (pipeTask ?? Task.CompletedTask);
 
@@ -411,7 +406,7 @@ public class H3Client : IAsyncDisposable
                         await ConnectionErrorAsync(context, Http3ErrorCode.StreamCreationError);
                     }
                     buffer = buffer.Slice(consumed);
-                    context.StreamType = (Http3StreamType)streamTypeRaw; // this is the stream type, not the Id
+                    context.StreamType = (Http3StreamType)streamTypeRaw;
                 }
 
                 while (TryReadFrame(ref buffer, out var frame))

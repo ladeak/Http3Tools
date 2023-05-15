@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using CHttp.EventListeners;
 using CHttp.Writers;
 
@@ -14,6 +15,7 @@ internal class PerformanceMeasureOrchestrator
     private Task? _progressBarTask;
     private int _requestCompleted;
     private int _requestStarting;
+    private long _startTimestamp;
 
     public PerformanceMeasureOrchestrator(IStatisticsPrinter summaryPrinter, IConsole console, IAwaiter awaiter, PerformanceBehavior behavior)
     {
@@ -26,6 +28,7 @@ internal class PerformanceMeasureOrchestrator
 
     public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior)
     {
+        _startTimestamp = Stopwatch.GetTimestamp();
         _progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
         var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
         INetEventListener readListner = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
@@ -40,7 +43,7 @@ internal class PerformanceMeasureOrchestrator
 
     private async Task CompleteProgressBarAsync()
     {
-        _progressBar.Set(new Ratio<int>(_requestCompleted, _requestCount));
+        _progressBar.Set(new Ratio<int>(_requestCompleted, _requestCount, TimeSpan.Zero));
         _cts.Cancel();
         if (_progressBarTask != null)
             await _progressBarTask;
@@ -59,7 +62,9 @@ internal class PerformanceMeasureOrchestrator
         {
             await client.SendRequestAsync(requestDetails);
             var completed = Interlocked.Increment(ref _requestCompleted);
-            _progressBar.Set(new Ratio<int>(completed, _requestCount));
+            var currentTimestamp = Stopwatch.GetTimestamp();
+            var reaminingTime = TimeSpan.FromTicks((long)((currentTimestamp - _startTimestamp) / (double)completed * (_requestCount - completed)));
+            _progressBar.Set(new Ratio<int>(completed, _requestCount, reaminingTime));
         }
         await writer.CompleteAsync(CancellationToken.None);
 
