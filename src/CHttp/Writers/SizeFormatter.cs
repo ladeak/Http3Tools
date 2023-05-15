@@ -23,27 +23,27 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
     public static string FormatSize(T value)
     {
         if (value >= TeraByte)
-            return $"{value / TeraByte,Alignment:D} TB";
+            return string.Create(CultureInfo.InvariantCulture, $"{value / TeraByte,Alignment:D} TB");
         if (value >= GigaByte)
-            return $"{value / GigaByte,Alignment:D} GB";
+            return string.Create(CultureInfo.InvariantCulture, $"{value / GigaByte,Alignment:D} GB");
         if (value >= MegaByte)
-            return $"{value / MegaByte,Alignment:D} MB";
+            return string.Create(CultureInfo.InvariantCulture, $"{value / MegaByte,Alignment:D} MB");
         if (value >= KiloByte)
-            return $"{value / KiloByte,Alignment:D} KB";
-        return $"{value,Alignment:D} B";
+            return string.Create(CultureInfo.InvariantCulture, $"{value / KiloByte,Alignment:D} KB");
+        return string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:D} B");
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
     {
         if (value >= TeraByte)
-            return ($"{value / TeraByte,Alignment:F3}", "T");
+            return (string.Create(CultureInfo.InvariantCulture, $"{value / TeraByte,Alignment:F3}"), "T");
         if (value >= GigaByte)
-            return ($"{value / GigaByte,Alignment:F3}", "G");
+            return (string.Create(CultureInfo.InvariantCulture, $"{value / GigaByte,Alignment:F3}"), "G");
         if (value >= MegaByte)
-            return ($"{value / MegaByte,Alignment:F3}", "M");
+            return (string.Create(CultureInfo.InvariantCulture, $"{value / MegaByte,Alignment:F3}"), "M");
         if (value >= KiloByte)
-            return ($"{value / KiloByte,Alignment:F3}", "K");
-        return ($"{value,Alignment:F3}", " ");
+            return (string.Create(CultureInfo.InvariantCulture, $"{value / KiloByte,Alignment:F3}"), "K");
+        return (string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:F3}"), " ");
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
@@ -95,12 +95,12 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
 
     public static string FormatSize(T value)
     {
-        return $"{value,Alignment:D}";
+        return string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:D}");
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
     {
-        return ($"{value,Alignment:F3}", string.Empty);
+        return (string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:F3}"), string.Empty);
     }
 
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
@@ -120,12 +120,12 @@ public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInt
 
     public static string FormatSize(Ratio<T> value)
     {
-        return $"{value.Numerator,Alignment:D}/{value.Total:D} {value.Remaining.TotalSeconds,AlignmentSec:F1}s";
+        return string.Create(CultureInfo.InvariantCulture, $"{value.Numerator,Alignment:D}/{value.Total:D} {value.Remaining.TotalSeconds,AlignmentSec:F1}s");
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(Ratio<T> value)
     {
-        return ($"{value.Numerator,Alignment:D}/{value.Total:D}", string.Empty);
+        return (string.Create(CultureInfo.InvariantCulture, $"{value.Numerator,Alignment:D}/{value.Total:D}"), string.Empty);
     }
 
     public static bool TryFormatSize(Ratio<T> value, Span<char> destination, out int count)
