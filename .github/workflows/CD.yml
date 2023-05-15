@@ -37,34 +37,34 @@ jobs:
     - name: Publish
       run: |
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION}  -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
-        mv src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publiísh/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publiísh/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
           files: |
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
-            src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
 
 
         
