@@ -47,7 +47,7 @@ jobs:
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publiísh/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
