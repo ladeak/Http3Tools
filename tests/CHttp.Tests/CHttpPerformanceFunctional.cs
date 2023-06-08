@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.Text.Json;
+using CHttp.Statitics;
 using Microsoft.AspNetCore.Http;
 
 namespace CHttp.Tests;
@@ -77,5 +79,25 @@ public class CHttpPerformanceFunctional
         // Each client does a preflight warnup request.
         Assert.Equal(requests + clients, requestCounter);
         Assert.Equal(clients, connectionIds.Count);
+    }
+
+
+    [Theory]
+    [InlineData("test message")]
+    public async Task TestPerformance_WritesToOutputFile(string response)
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2, port: Port);
+        await host.StartAsync();
+        var fileSystem = new TestFileSystem();
+        var console = new TestConsolePerWrite();
+        const int count = 2;
+        var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
+            .InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n {count} -v 2 -o file.json")
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        var data = fileSystem.GetFile("file.json");
+        var results = JsonSerializer.Deserialize<PerformanceMeasurementResults>(data);
+        Assert.Equal(count, results!.Summaries.Count);
+        Assert.True(results.TotalBytesRead > 0);
     }
 }

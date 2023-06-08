@@ -25,7 +25,7 @@ public record struct Summary
 
     public ErrorType ErrorCode { get; init; }
 
-    public long StartTime { get; }
+    public long StartTime { get; init; }
 
     private long _endTime;
     public long EndTime
@@ -41,9 +41,9 @@ public record struct Summary
 
     public TimeSpan Duration { get; private set; }
 
-    public long Length { get; private set; }
+    public long Length { get; set; }
 
-    public string Url { get; }
+    public string Url { get; init; }
 
     public int? HttpStatusCode { get; private set; }
 
@@ -51,11 +51,6 @@ public record struct Summary
     {
         EndTime = Stopwatch.GetTimestamp();
         HttpStatusCode = (int)statusCode;
-    }
-
-    public void SetSize(long length)
-    {
-        Length = length;
     }
 
     public override string ToString()

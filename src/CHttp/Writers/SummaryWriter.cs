@@ -28,7 +28,7 @@ internal sealed class SummaryWriter : IWriter
 
     public Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
     {
-        summary.SetSize(_buffer.Size);
+        summary.Length = _buffer.Size;
         _summaries.Add(summary);
         return Task.CompletedTask;
     }

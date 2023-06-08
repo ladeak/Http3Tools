@@ -56,7 +56,7 @@ internal sealed class ProgressingConsoleWriter : IWriter
         await _progressBarTask;
         foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
             _console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
-        summary.SetSize(_contentProcessor.Position);
+        summary.Length = _contentProcessor.Position;
         _console.WriteLine(summary.ToString());
     }
 

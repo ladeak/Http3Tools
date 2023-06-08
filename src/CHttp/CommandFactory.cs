@@ -2,13 +2,17 @@
 using System.CommandLine;
 using CHttp.Binders;
 using CHttp.Data;
+using CHttp.Statitics;
 using CHttp.Writers;
 
 namespace CHttp;
 
 internal static class CommandFactory
 {
-    public static Command CreateRootCommand(IWriter? writer = null, CHttp.Writers.IConsole? console = null)
+    public static Command CreateRootCommand(
+        IWriter? writer = null, 
+        CHttp.Writers.IConsole? console = null,
+        IFileSystem? fileSystem = null)
     {
         // kerberos auth
         // certificates
@@ -89,7 +93,7 @@ internal static class CommandFactory
         var outputFileOption = new Option<string>(
             name: "--output",
             getDefaultValue: () => string.Empty,
-            description: "Output response content to file.");
+            description: "Output to file.");
         outputFileOption.AddAlias("-o");
         outputFileOption.IsRequired = false;
 
@@ -116,6 +120,7 @@ internal static class CommandFactory
         rootCommand.AddGlobalOption(redirectOption);
         rootCommand.AddGlobalOption(validateCertificateOption);
         rootCommand.AddGlobalOption(logOption);
+        rootCommand.AddGlobalOption(outputFileOption);
 
         CreateFormsCommand(writer, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
@@ -123,7 +128,7 @@ internal static class CommandFactory
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateMeasureCommand(console, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, rootCommand);
+        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, rootCommand);
 
         return rootCommand;
     }
@@ -200,6 +205,7 @@ internal static class CommandFactory
     }
 
     private static void CreateMeasureCommand(Writers.IConsole? console,
+        IFileSystem? fileSystem,
         Option<string> versionOptions,
         Option<string> methodOptions,
         Option<IEnumerable<string>> headerOptions,
@@ -209,17 +215,20 @@ internal static class CommandFactory
         Option<string> uriOption,
         Option<int> nOption,
         Option<int> cOption,
+        Option<string> outputFileOption,
         RootCommand rootCommand)
     {
         var perfCommand = new Command("perf", "Performance Measure");
         rootCommand.Add(perfCommand);
         perfCommand.AddOption(nOption);
         perfCommand.AddOption(cOption);
-        perfCommand.SetHandler<HttpRequestDetails, HttpBehavior, PerformanceBehavior>(async (requestDetails, httpBehavior, performanceBehavior) =>
+        perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, outputFile) =>
         {
             httpBehavior = httpBehavior with { ToUtf8 = false };
             console ??= new CHttpConsole();
-            var orchestrator = new PerformanceMeasureOrchestrator(new StatisticsPrinter(console), console, new Awaiter(), performanceBehavior);
+            fileSystem ??= new FileSystem();
+            ISummaryPrinter printer = !string.IsNullOrWhiteSpace(outputFile) ? new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(outputFile, fileSystem)) : new StatisticsPrinter(console);
+            var orchestrator = new PerformanceMeasureOrchestrator(printer, console, new Awaiter(), performanceBehavior);
             await orchestrator.RunAsync(requestDetails, httpBehavior);
         },
         new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
@@ -230,7 +239,8 @@ internal static class CommandFactory
           new InvertBinder(redirectOption),
           new InvertBinder(validateCertificateOption),
           timeoutOption),
-         new PerformanceBehaviorBinder(nOption, cOption));
+         new PerformanceBehaviorBinder(nOption, cOption),
+         outputFileOption);
     }
 
 }

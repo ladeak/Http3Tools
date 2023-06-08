@@ -1,9 +1,9 @@
 ﻿using System.Numerics;
 using CHttp.Writers;
 
-namespace CHttp;
+namespace CHttp.Statitics;
 
-internal class StatisticsPrinter : IStatisticsPrinter
+internal class StatisticsPrinter : ISummaryPrinter
 {
     private readonly IConsole _console;
 
@@ -12,12 +12,12 @@ internal class StatisticsPrinter : IStatisticsPrinter
         _console = console ?? throw new ArgumentNullException(nameof(console));
     }
 
-    public void SummarizeResults(IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead)
     {
         if (summaries.Count == 0)
         {
             _console.WriteLine("No measurements available");
-            return;
+            return ValueTask.CompletedTask;
         }
 
         var durations = new long[summaries.Count];
@@ -33,7 +33,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
             totalTicks += item.Duration.Ticks;
             var statusCode = item.HttpStatusCode;
             if (statusCode.HasValue && statusCode.Value < 600)
-                statusCodes[(statusCode.Value / 100) - 1]++;
+                statusCodes[statusCode.Value / 100 - 1]++;
             if (item.ErrorCode != ErrorType.None)
                 statusCodes[5]++;
             if (item.StartTime < earliestStart)
@@ -78,6 +78,7 @@ internal class StatisticsPrinter : IStatisticsPrinter
         _console.WriteLine(separator);
         PrintStatusCodes(statusCodes);
         _console.WriteLine(separator);
+        return ValueTask.CompletedTask;
     }
 
     private double CalcSquaredStdDev(long[] durations, double mean)

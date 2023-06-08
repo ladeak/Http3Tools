@@ -1,13 +1,19 @@
 ﻿using System.Diagnostics;
 using System.Net;
 using CHttp.EventListeners;
+using CHttp.Statitics;
 using CHttp.Writers;
 
 namespace CHttp;
 
+//https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation
+// output to file
+// diff
+// output to everywhere
+
 internal class PerformanceMeasureOrchestrator
 {
-    private readonly IStatisticsPrinter _summaryPrinter;
+    private readonly ISummaryPrinter _summaryPrinter;
     private readonly int _requestCount;
     private readonly int _clientsCount;
     private readonly ProgressBar<Ratio<int>> _progressBar;
@@ -17,7 +23,7 @@ internal class PerformanceMeasureOrchestrator
     private int _requestStarting;
     private long _startTimestamp;
 
-    public PerformanceMeasureOrchestrator(IStatisticsPrinter summaryPrinter, IConsole console, IAwaiter awaiter, PerformanceBehavior behavior)
+    public PerformanceMeasureOrchestrator(ISummaryPrinter summaryPrinter, IConsole console, IAwaiter awaiter, PerformanceBehavior behavior)
     {
         _summaryPrinter = summaryPrinter ?? throw new ArgumentNullException(nameof(summaryPrinter));
         _requestCount = behavior.requestCount;
@@ -31,14 +37,14 @@ internal class PerformanceMeasureOrchestrator
         _startTimestamp = Stopwatch.GetTimestamp();
         _progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
         var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
-        INetEventListener readListner = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
+        INetEventListener readListener = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
         for (int i = 0; i < _clientsCount; i++)
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior));
         await Task.WhenAll(clientTasks);
-        await readListner.WaitUpdateAndStopAsync();
+        await readListener.WaitUpdateAndStopAsync();
         await CompleteProgressBarAsync();
 
-        _summaryPrinter.SummarizeResults(new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted), readListner.GetBytesRead());
+        await _summaryPrinter.SummarizeResultsAsync(new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted), readListener.GetBytesRead());
     }
 
     private async Task CompleteProgressBarAsync()
