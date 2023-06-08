@@ -120,7 +120,7 @@ public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInt
 
     public static string FormatSize(Ratio<T> value)
     {
-        return string.Create(CultureInfo.InvariantCulture, $"{value.Numerator,Alignment:D}/{value.Total:D} {value.Remaining.TotalSeconds,AlignmentSec:F1}s");
+        return string.Create(CultureInfo.InvariantCulture, $"{value.Numerator,Alignment:D}/{value.Total:D} {value.RelativeRemaining.TotalSeconds,AlignmentSec:F1}s");
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(Ratio<T> value)
