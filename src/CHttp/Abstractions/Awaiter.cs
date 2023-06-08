@@ -1,4 +1,4 @@
-﻿namespace CHttp.Writers;
+﻿namespace CHttp.Abstractions;
 
 internal sealed class Awaiter : IAwaiter
 {

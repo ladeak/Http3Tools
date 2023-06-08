@@ -1,4 +1,5 @@
-﻿using CHttp.Writers;
+﻿using CHttp.Abstractions;
+using CHttp.Writers;
 
 namespace CHttp.Tests;
 

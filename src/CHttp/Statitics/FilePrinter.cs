@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using CHttp.Abstractions;
 
 namespace CHttp.Statitics;
 

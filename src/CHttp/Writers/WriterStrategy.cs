@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using CHttp.Abstractions;
 using CHttp.Data;
 
 namespace CHttp.Writers;

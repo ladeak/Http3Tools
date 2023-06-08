@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using CHttp.Abstractions;
+using CHttp.Data;
 using CHttp.EventListeners;
 using CHttp.Statitics;
 using CHttp.Writers;

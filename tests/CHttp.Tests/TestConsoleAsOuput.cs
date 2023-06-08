@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using CHttp.Writers;
+using CHttp.Abstractions;
 
 namespace CHttp.Tests;
 

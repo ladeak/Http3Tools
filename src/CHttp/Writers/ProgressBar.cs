@@ -1,4 +1,6 @@
-﻿namespace CHttp.Writers;
+﻿using CHttp.Abstractions;
+
+namespace CHttp.Writers;
 
 internal sealed class ProgressBar<T> where T : struct
 {

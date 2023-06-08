@@ -1,5 +1,6 @@
 ﻿using System;
 using System.CommandLine;
+using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Statitics;
@@ -10,8 +11,8 @@ namespace CHttp;
 internal static class CommandFactory
 {
     public static Command CreateRootCommand(
-        IWriter? writer = null, 
-        CHttp.Writers.IConsole? console = null,
+        IWriter? writer = null,
+        Abstractions.IConsole? console = null,
         IFileSystem? fileSystem = null)
     {
         // kerberos auth
@@ -111,6 +112,12 @@ internal static class CommandFactory
         nOption.AddAlias("-n");
         nOption.IsRequired = false;
 
+        var diffFileOption = new Option<IEnumerable<string>>(
+            name: "--files",
+            getDefaultValue: () => Enumerable.Empty<string>(),
+            description: "List of 2 files to be compared.");
+        outputFileOption.IsRequired = false;
+
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
@@ -129,6 +136,8 @@ internal static class CommandFactory
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
         CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, rootCommand);
+
+        CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
         return rootCommand;
     }
@@ -204,7 +213,7 @@ internal static class CommandFactory
         bodyOptions);
     }
 
-    private static void CreateMeasureCommand(Writers.IConsole? console,
+    private static void CreateMeasureCommand(Abstractions.IConsole? console,
         IFileSystem? fileSystem,
         Option<string> versionOptions,
         Option<string> methodOptions,
@@ -241,6 +250,20 @@ internal static class CommandFactory
           timeoutOption),
          new PerformanceBehaviorBinder(nOption, cOption),
          outputFileOption);
+    }
+
+    private static void CreateDiffCommand(Abstractions.IConsole? console, IFileSystem? fileSystem, Option<IEnumerable<string>> diffFileOption, RootCommand rootCommand)
+    {
+        var diffCommand = new Command("Diff", "Compares to performance measurements files.");
+        diffCommand.AddOption(diffFileOption);
+        rootCommand.Add(diffCommand);
+        diffCommand.SetHandler(async (diffFiles) =>
+        {
+            console ??= new CHttpConsole();
+            fileSystem ??= new FileSystem();
+            //ISummaryPrinter printer = !string.IsNullOrWhiteSpace(outputFile) ? new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(outputFile, fileSystem)) : new StatisticsPrinter(console);
+        },
+        diffFileOption);
     }
 
 }

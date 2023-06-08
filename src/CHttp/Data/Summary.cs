@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using CHttp.Writers;
+using CHttp.Abstractions;
 
 public record struct Summary
 {

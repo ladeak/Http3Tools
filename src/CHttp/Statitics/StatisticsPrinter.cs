@@ -1,5 +1,5 @@
 ﻿using System.Numerics;
-using CHttp.Writers;
+using CHttp.Abstractions;
 
 namespace CHttp.Statitics;
 

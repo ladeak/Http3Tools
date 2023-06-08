@@ -1,7 +1,8 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using CHttp.Data;
 
-namespace CHttp.Writers;
+namespace CHttp.Abstractions;
 
 public interface INumberFormatter<T>
 {

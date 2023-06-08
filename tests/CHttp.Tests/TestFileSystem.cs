@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using CHttp.Statitics;
+using CHttp.Abstractions;
 
 namespace CHttp.Tests;
 

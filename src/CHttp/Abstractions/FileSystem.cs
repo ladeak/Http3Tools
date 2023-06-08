@@ -1,4 +1,4 @@
-﻿namespace CHttp.Statitics;
+﻿namespace CHttp.Abstractions;
 
 internal class FileSystem : IFileSystem
 {

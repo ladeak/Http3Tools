@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
 
-namespace CHttp.Writers;
+namespace CHttp.Data;
 
 public record struct Ratio<T> where T : IBinaryNumber<T>
 {
