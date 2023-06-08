@@ -6,10 +6,7 @@ using CHttp.Writers;
 
 namespace CHttp;
 
-//https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation
-// output to file
-// diff
-// output to everywhere
+// output everywhere https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation
 
 internal class PerformanceMeasureOrchestrator
 {
