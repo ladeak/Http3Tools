@@ -1,5 +1,6 @@
-﻿using System;
-using System.CommandLine;
+﻿using System.CommandLine;
+using System.Globalization;
+using System.Text.Json;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -15,6 +16,7 @@ internal static class CommandFactory
         Abstractions.IConsole? console = null,
         IFileSystem? fileSystem = null)
     {
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         // kerberos auth
         // certificates
         // TLS
@@ -122,7 +124,6 @@ internal static class CommandFactory
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
         rootCommand.AddGlobalOption(headerOptions);
-        rootCommand.AddGlobalOption(uriOption);
         rootCommand.AddGlobalOption(timeoutOption);
         rootCommand.AddGlobalOption(redirectOption);
         rootCommand.AddGlobalOption(validateCertificateOption);
@@ -146,6 +147,7 @@ internal static class CommandFactory
     {
         var formsCommand = new Command("forms", "Forms request");
         formsCommand.AddOption(formsOptions);
+        formsCommand.AddOption(uriOption);
         rootCommand.Add(formsCommand);
         formsCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, forms) =>
         {
@@ -170,6 +172,7 @@ internal static class CommandFactory
 
     private static void CreateDefaultCommand(IWriter? writer, Option<string> versionOptions, Option<string> methodOptions, Option<IEnumerable<string>> headerOptions, Option<double> timeoutOption, Option<bool> redirectOption, Option<bool> validateCertificateOption, Option<string> uriOption, Option<LogLevel> logOption, Option<string> outputFileOption, RootCommand rootCommand)
     {
+        rootCommand.AddOption(uriOption);
         rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior) =>
         {
             writer ??= new WriterStrategy(outputBehavior);
@@ -192,6 +195,7 @@ internal static class CommandFactory
     {
         var jsonCommand = new Command("json", "Json request");
         jsonCommand.AddOption(bodyOptions);
+        jsonCommand.AddOption(uriOption);
         rootCommand.Add(jsonCommand);
         jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body) =>
         {
@@ -231,6 +235,7 @@ internal static class CommandFactory
         rootCommand.Add(perfCommand);
         perfCommand.AddOption(nOption);
         perfCommand.AddOption(cOption);
+        perfCommand.AddOption(uriOption);
         perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, outputFile) =>
         {
             httpBehavior = httpBehavior with { ToUtf8 = false };
@@ -254,16 +259,33 @@ internal static class CommandFactory
 
     private static void CreateDiffCommand(Abstractions.IConsole? console, IFileSystem? fileSystem, Option<IEnumerable<string>> diffFileOption, RootCommand rootCommand)
     {
-        var diffCommand = new Command("Diff", "Compares to performance measurements files.");
+        var diffCommand = new Command("diff", "Compares to performance measurements files.");
         diffCommand.AddOption(diffFileOption);
         rootCommand.Add(diffCommand);
         diffCommand.SetHandler(async (diffFiles) =>
         {
             console ??= new CHttpConsole();
             fileSystem ??= new FileSystem();
-            //ISummaryPrinter printer = !string.IsNullOrWhiteSpace(outputFile) ? new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(outputFile, fileSystem)) : new StatisticsPrinter(console);
+            var filesCount = diffFiles.Count();
+            if (filesCount == 0)
+                return;
+            if (filesCount == 1)
+            {
+                var session = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.First());
+                await new StatisticsPrinter(console).SummarizeResultsAsync(session.Summaries, session.TotalBytesRead);
+                return;
+            }
+            if (filesCount > 1)
+            {
+                var session0 = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.First());
+                var session1 = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.Last());
+                var comparer = new DiffPrinter(console);
+                comparer.Compare(session0, session1);
+            }
         },
         diffFileOption);
     }
+
+
 
 }

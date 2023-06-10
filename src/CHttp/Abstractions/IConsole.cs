@@ -19,4 +19,6 @@ internal interface IConsole
     void WriteLine();
 
     void WriteLine(string value);
+
+    ConsoleColor ForegroundColor { get; set; } 
 }

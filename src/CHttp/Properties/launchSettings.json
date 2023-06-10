@@ -31,6 +31,18 @@
     "chttp perf": {
       "commandName": "Project",
       "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3"
+    },
+    "chttp perf output 0": {
+      "commandName": "Project",
+      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3 -o session0.json"
+    },
+    "chttp perf output 1": {
+      "commandName": "Project",
+      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3  -o session1.json"
+    },
+    "chttp diff": {
+      "commandName": "Project",
+      "commandLineArgs": "diff --files session0.json --files session1.json"
     }
   }
 }

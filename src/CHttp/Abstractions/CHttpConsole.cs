@@ -6,6 +6,8 @@ internal class CHttpConsole : IConsole
 
     public int WindowWidth => Console.WindowWidth;
 
+    public ConsoleColor ForegroundColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
+
     public (int Left, int Top) GetCursorPosition() => Console.GetCursorPosition();
 
     public void SetCursorPosition(int left, int top) => Console.SetCursorPosition(left, top);

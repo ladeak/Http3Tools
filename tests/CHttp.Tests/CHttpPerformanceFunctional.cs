@@ -21,7 +21,7 @@ public class CHttpPerformanceFunctional
             .WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Contains("[=-----]      0/0", console.Text);
         Assert.Contains("100%          2/2", console.Text);
-        Assert.Contains("1xx - 0, 2xx - 2, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0", console.Text);
+        Assert.Contains("1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
         Assert.Contains("Mean:", console.Text);
         Assert.Contains("Req/Sec:", console.Text);
 
@@ -48,7 +48,7 @@ public class CHttpPerformanceFunctional
         | Req/Sec:          43,7      |
         -----------------------------------------------------------
         HTTP status codes:
-        1xx - 0, 2xx - 2, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+        1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
         -----------------------------------------------------------
         */
     }

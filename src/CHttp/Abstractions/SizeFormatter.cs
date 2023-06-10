@@ -23,26 +23,28 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
 
     public static string FormatSize(T value)
     {
-        if (value >= TeraByte)
+        var absValue = T.Abs(value);
+        if (absValue >= TeraByte)
             return string.Create(CultureInfo.InvariantCulture, $"{value / TeraByte,Alignment:D} TB");
-        if (value >= GigaByte)
+        if (absValue >= GigaByte)
             return string.Create(CultureInfo.InvariantCulture, $"{value / GigaByte,Alignment:D} GB");
-        if (value >= MegaByte)
+        if (absValue >= MegaByte)
             return string.Create(CultureInfo.InvariantCulture, $"{value / MegaByte,Alignment:D} MB");
-        if (value >= KiloByte)
+        if (absValue >= KiloByte)
             return string.Create(CultureInfo.InvariantCulture, $"{value / KiloByte,Alignment:D} KB");
         return string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:D} B");
     }
 
     public static (string Formatted, string Qualifier) FormatSizeWithQualifier(T value)
     {
-        if (value >= TeraByte)
+        var absValue = T.Abs(value);
+        if (absValue >= TeraByte)
             return (string.Create(CultureInfo.InvariantCulture, $"{value / TeraByte,Alignment:F3}"), "T");
-        if (value >= GigaByte)
+        if (absValue >= GigaByte)
             return (string.Create(CultureInfo.InvariantCulture, $"{value / GigaByte,Alignment:F3}"), "G");
-        if (value >= MegaByte)
+        if (absValue >= MegaByte)
             return (string.Create(CultureInfo.InvariantCulture, $"{value / MegaByte,Alignment:F3}"), "M");
-        if (value >= KiloByte)
+        if (absValue >= KiloByte)
             return (string.Create(CultureInfo.InvariantCulture, $"{value / KiloByte,Alignment:F3}"), "K");
         return (string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:F3}"), " ");
     }
@@ -56,27 +58,28 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
         ReadOnlySpan<char> Size = "";
         ReadOnlySpan<char> Format = "###0";
         bool result = false;
-        if (value >= TeraByte)
+        var absValue = T.Abs(value);
+        if (absValue >= TeraByte)
         {
             result = (value / TeraByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "TB";
         }
-        if (value >= GigaByte)
+        if (absValue >= GigaByte)
         {
             result = (value / GigaByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "GB";
         }
-        if (value >= MegaByte)
+        if (absValue >= MegaByte)
         {
             result = (value / MegaByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "MB";
         }
-        if (value >= KiloByte)
+        if (absValue >= KiloByte)
         {
             result = (value / KiloByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "KB";
         }
-        if (value < KiloByte)
+        if (absValue < KiloByte)
         {
             result = value.TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = " B";

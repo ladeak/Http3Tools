@@ -2,6 +2,8 @@
 
 public class PerformanceMeasurementResults
 {
+    public static PerformanceMeasurementResults Default { get; } = new PerformanceMeasurementResults() { Summaries = Array.Empty<Summary>(), TotalBytesRead = 0 };
+
 #if NET7_0
     public IReadOnlyCollection<Summary> Summaries { get; set; } = new List<Summary>();
 

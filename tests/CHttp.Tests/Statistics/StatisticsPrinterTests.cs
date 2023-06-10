@@ -30,7 +30,7 @@ public class StatisticsPrinterTests
 | Req/Sec:             1      |
 -----------------------------------------------------------
 HTTP status codes:
-1xx - 0, 2xx - 1, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+1xx: 0, 2xx: 1, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
 -----------------------------------------------------------
 ", console.Text);
     }
@@ -65,7 +65,7 @@ HTTP status codes:
 | Req/Sec:      Infinity      |
 -----------------------------------------------------------
 HTTP status codes:
-1xx - 0, 2xx - 1, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+1xx: 0, 2xx: 1, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
 -----------------------------------------------------------
 ", console.Text);
     }
@@ -96,7 +96,7 @@ HTTP status codes:
 | Req/Sec:             1      |
 -----------------------------------------------------------
 HTTP status codes:
-1xx - 0, 2xx - 3, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+1xx: 0, 2xx: 3, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
 -----------------------------------------------------------
 ", console.Text);
     }
@@ -130,7 +130,7 @@ HTTP status codes:
 | Req/Sec:           {n,3}      |
 -----------------------------------------------------------
 HTTP status codes:
-1xx - 0, 2xx - {n}, 3xx - 0, 4xx - 0, 5xx - 0, Other - 0
+1xx: 0, 2xx: {n}, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
 -----------------------------------------------------------
 ", console.Text);
     }

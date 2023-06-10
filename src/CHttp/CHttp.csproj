@@ -23,8 +23,4 @@
     <InternalsVisibleTo Include="CHttp.Tests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Diff\" />
-  </ItemGroup>
-
 </Project>

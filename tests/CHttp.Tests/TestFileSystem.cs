@@ -9,9 +9,17 @@ internal class TestFileSystem : IFileSystem
 
     public byte[] GetFile(string path) => _files[path];
 
-    public Stream Open(string path, FileMode mode, FileAccess access) => new TestFileStream(this, path);
+    public Stream Open(string path, FileMode mode, FileAccess access)
+    {
+        if (access == FileAccess.Read)
+            return new MemoryStream(GetFile(path));
+        else if (access == FileAccess.Write)
+            return new TestFileStream(this, path);
 
-    private class TestFileStream : MemoryStream 
+        throw new NotImplementedException();
+    }
+
+    private class TestFileStream : MemoryStream
     {
         private readonly TestFileSystem _fileSystem;
         private readonly string _filePath;

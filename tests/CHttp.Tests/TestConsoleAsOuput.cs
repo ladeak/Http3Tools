@@ -22,6 +22,8 @@ public class TestConsoleAsOuput : IConsole
 
     public int WindowWidth { get; }
 
+    public ConsoleColor ForegroundColor { get; set; }
+
     public (int Left, int Top) GetCursorPosition() => (0, 0);
 
     public void SetCursorPosition(int left, int top)
