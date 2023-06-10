@@ -49,6 +49,20 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
         return (string.Create(CultureInfo.InvariantCulture, $"{value,Alignment:F3}"), " ");
     }
 
+    public static (string Formatted, string Qualifier) FormatSizeWithQualifierWithSign(T value)
+    {
+        var absValue = T.Abs(value);
+        if (absValue >= TeraByte)
+            return ($"{value / TeraByte,Alignment:+#0.000;-#0.000;0}", "T");
+        if (absValue >= GigaByte)
+            return ($"{value / GigaByte,Alignment:+#0.000;-#0.000;0}", "G");
+        if (absValue >= MegaByte)
+            return ($"{value / MegaByte,Alignment:+#0.000;-#0.000;0}", "M");
+        if (absValue >= KiloByte)
+            return ($"{value / KiloByte,Alignment:+#0.000;-#0.000;0}", "K");
+        return ($"{value,Alignment:+#0.000;-#0.000;0}", " ");
+    }
+
     public static bool TryFormatSize(T value, Span<char> destination, out int count)
     {
         count = 0;

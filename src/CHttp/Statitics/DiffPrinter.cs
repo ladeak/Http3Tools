@@ -6,7 +6,7 @@ namespace CHttp.Statitics;
 internal class DiffPrinter
 {
     private readonly IConsole _console;
-    
+
     internal DiffPrinter(IConsole console)
     {
         _console = console;
@@ -22,14 +22,14 @@ internal class DiffPrinter
         var stats0 = Statistics.GetStats(session0.Summaries, session0.TotalBytesRead);
         var stats1 = Statistics.GetStats(session1.Summaries, session1.TotalBytesRead);
 
-        PrintLine("Mean:", Statistics.Display(stats0.Mean), Statistics.Display(stats0.Mean - stats1.Mean));
-        PrintLine("StdDev:", Statistics.Display(stats0.StdDev), Statistics.Display(stats0.StdDev - stats1.StdDev));
-        PrintLine("Error:", Statistics.Display(stats0.Error), Statistics.Display(stats0.Error - stats1.Error));
-        PrintLine("Median:", Statistics.Display(stats0.Median), Statistics.Display(stats0.Median - stats1.Median));
-        PrintLine("Min:", Statistics.Display(stats0.Min), Statistics.Display(stats0.Min - stats1.Min));
-        PrintLine("Max:", Statistics.Display(stats0.Max), Statistics.Display(stats0.Max - stats1.Max));
-        PrintThroughput("Throughput:", SizeFormatter<double>.FormatSizeWithQualifier(stats0.Throughput), SizeFormatter<double>.FormatSizeWithQualifier(stats0.Throughput - stats1.Throughput), stats0.Throughput - stats1.Throughput);
-        PrintRequestSec("Req/Sec:", stats0.RequestSec, stats0.RequestSec - stats1.RequestSec);
+        PrintLine("Mean:", Statistics.Display(stats0.Mean), Statistics.Display(stats1.Mean - stats0.Mean));
+        PrintLine("StdDev:", Statistics.Display(stats0.StdDev), Statistics.Display(stats1.StdDev - stats0.StdDev));
+        PrintLine("Error:", Statistics.Display(stats0.Error), Statistics.Display(stats1.Error - stats0.Error));
+        PrintLine("Median:", Statistics.Display(stats0.Median), Statistics.Display(stats1.Median - stats0.Median));
+        PrintLine("Min:", Statistics.Display(stats0.Min), Statistics.Display(stats1.Min - stats0.Min));
+        PrintLine("Max:", Statistics.Display(stats0.Max), Statistics.Display(stats1.Max - stats0.Max));
+        PrintThroughput("Throughput:", SizeFormatter<double>.FormatSizeWithQualifier(stats0.Throughput), SizeFormatter<double>.FormatSizeWithQualifierWithSign(stats1.Throughput - stats0.Throughput));
+        PrintRequestSec("Req/Sec:", stats0.RequestSec, stats1.RequestSec - stats0.RequestSec);
 
         int lineLength = _console.WindowWidth;
         var scaleNormalize = (double)lineLength / (stats0.Durations.Length + stats0.Durations.Length);
@@ -54,21 +54,20 @@ internal class DiffPrinter
         _console.ForegroundColor = diff.DisplayValue > 0 ? ConsoleColor.Red : ConsoleColor.Green;
         _console.Write($"{diff.DisplayValue,10:+#0.000;-#0.000;0} {diff.Qualifier}");
         _console.ForegroundColor = oldColor;
-        _console.Write("   |");
-        _console.WriteLine(" |");
+        _console.WriteLine("   |");
     }
 
-    private void PrintThroughput(string name, (string DisplayValue, string Qualifier) baseValue, (string DisplayValue, string Qualifier) diff, double diffValue)
+    private void PrintThroughput(string name, (string DisplayValue, string Qualifier) baseValue, (string DisplayValue, string Qualifier) diff)
     {
         _console.WriteLine($"| {name,-12}{baseValue.DisplayValue,10} {baseValue.Qualifier}B/s {diff.DisplayValue,10} {diff.Qualifier}B/s |");
     }
 
     private void PrintRequestSec(string name, double baseValue, double diff)
     {
-        _console.Write($"| {name,-12}{baseValue,8:G3}       ");
+        _console.Write($"| {name,-12}{baseValue,10:G3}       ");
         var oldColor = _console.ForegroundColor;
         _console.ForegroundColor = diff >= 0 ? ConsoleColor.Green : ConsoleColor.Red;
-        _console.Write($"{diff,11:+#0.###;-#0.###;0}");
+        _console.Write($"{diff,9:+#0.###;-#0.###;0}");
         _console.ForegroundColor = oldColor;
         _console.WriteLine("      |");
     }
@@ -78,7 +77,7 @@ internal class DiffPrinter
         int[] diffStatusCodes = new int[stats0.StatusCodes.Length];
         for (int i = 0; i < diffStatusCodes.Length; i++)
         {
-            diffStatusCodes[i] = stats0.StatusCodes[i] - stats1.StatusCodes[i];
+            diffStatusCodes[i] = stats1.StatusCodes[i] - stats0.StatusCodes[i];
         }
         return diffStatusCodes;
     }
@@ -86,7 +85,7 @@ internal class DiffPrinter
     private void PrintStatusCodes(int[] statusCodes, int[] diff)
     {
         _console.WriteLine("HTTP status codes:");
-        _console.WriteLine($"1xx: {statusCodes[0]}{diff[0]:+0;-0}, 2xx: {statusCodes[1]}{diff[1]:+0;-0}, 3xx: {statusCodes[2]}{diff[2]:+0;-0}, 4xx: {statusCodes[3]}{diff[3]:+0;-0}, 5xx: {statusCodes[4]}{diff[4]:+0;-0}, Other: {statusCodes[5]}{diff[5]:+0;-0}");
+        _console.WriteLine($"1xx: {statusCodes[0]} {diff[0]:+0;-0}, 2xx: {statusCodes[1]} {diff[1]:+0;-0}, 3xx: {statusCodes[2]} {diff[2]:+0;-0}, 4xx: {statusCodes[3]} {diff[3]:+0;-0}, 5xx: {statusCodes[4]} {diff[4]:+0;-0}, Other: {statusCodes[5]} {diff[5]:+0;-0}");
     }
 
     private void PrintHistogram(Statistics.Stats stats0, Statistics.Stats stats1, double scaleNormalize)

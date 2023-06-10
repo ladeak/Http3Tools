@@ -271,14 +271,14 @@ internal static class CommandFactory
                 return;
             if (filesCount == 1)
             {
-                var session = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.First());
+                var session = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First());
                 await new StatisticsPrinter(console).SummarizeResultsAsync(session.Summaries, session.TotalBytesRead);
                 return;
             }
             if (filesCount > 1)
             {
-                var session0 = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.First());
-                var session1 = await PerformanceFileLoader.LoadAsync(fileSystem, diffFiles.Last());
+                var session0 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First());
+                var session1 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.Last());
                 var comparer = new DiffPrinter(console);
                 comparer.Compare(session0, session1);
             }

@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using CHttp.Abstractions;
+﻿using CHttp.Abstractions;
 
 namespace CHttp.Statitics;
 
@@ -14,11 +13,6 @@ internal class FilePrinter : ISummaryPrinter
         _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     }
 
-    public async ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead)
-    {
-        var data = new PerformanceMeasurementResults { Summaries = summaries, TotalBytesRead = bytesRead };
-        using var fileStream = _fileSystem.Open(_filePath, FileMode.Create, FileAccess.Write);
-        await JsonSerializer.SerializeAsync(fileStream, data, KnownJsonType.Default.PerformanceMeasurementResults);
-        await fileStream.FlushAsync();
-    }
+    public ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead) =>
+        PerformanceFileHandler.SaveAsync(_fileSystem, _filePath, summaries, bytesRead);
 }
