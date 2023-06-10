@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using CHttp.Abstractions;
 using CHttp.Statitics;
 
 namespace CHttp.Tests.Statistics;

@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace CHttp;
+namespace CHttp.Abstractions;
 
 internal class KnowSizeEnumerableCollection<T> : IReadOnlyCollection<T>
 {
