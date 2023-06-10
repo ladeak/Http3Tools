@@ -4,7 +4,7 @@ using CHttp.Statitics;
 
 namespace CHttp.Tests;
 
-public class CHttpDiffFunctional
+public class CHttpDiffFunctionalTests
 {
     [Fact]
     public async Task DisplayingSingleFile()
@@ -28,6 +28,7 @@ public class CHttpDiffFunctional
         Assert.Contains("| Median:          1.000 s    |", console.Text);
         Assert.Contains("| Min:             1.000 s    |", console.Text);
         Assert.Contains("| Max:             1.000 s    |", console.Text);
+        Assert.Contains("| 95th:            1.000 s    |", console.Text);
         Assert.Contains("| Throughput:    100.000  B/s |", console.Text);
         Assert.Contains("| Req/Sec:             1      |", console.Text);
         Assert.Contains("1xx: 0, 2xx: 1, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
@@ -82,6 +83,7 @@ public class CHttpDiffFunctional
         Assert.Contains("| Median:          1.000 s             0 ns   |", console.Text);
         Assert.Contains("| Min:             1.000 s             0 ns   |", console.Text);
         Assert.Contains("| Max:             1.000 s             0 ns   |", console.Text);
+        Assert.Contains("| 95th:            1.000 s             0 ns   |", console.Text);
         Assert.Contains("| Throughput:    100.000  B/s          0  B/s |", console.Text);
         Assert.Contains("| Req/Sec:             1               0      |", console.Text);
         Assert.Contains("1xx: 0 +0, 2xx: 1 +0, 3xx: 0 +0, 4xx: 0 +0, 5xx: 0 +0, Other: 0 +0", console.Text);
@@ -115,6 +117,7 @@ public class CHttpDiffFunctional
         Assert.Contains("| Median:          1.000 s        +1.000 s    |", console.Text);
         Assert.Contains("| Min:             1.000 s        +1.000 s    |", console.Text);
         Assert.Contains("| Max:             1.000 s        +1.000 s    |", console.Text);
+        Assert.Contains("| 95th:            1.000 s        +1.000 s    |", console.Text);
         Assert.Contains("| Throughput:    100.000  B/s   +100.000  B/s |", console.Text);
         Assert.Contains("| Req/Sec:             1            -0.5      |", console.Text);
         Assert.Contains("1xx: 0 +0, 2xx: 1 -1, 3xx: 0 +0, 4xx: 0 +1, 5xx: 0 +0, Other: 0 +0", console.Text);

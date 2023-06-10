@@ -27,6 +27,7 @@ internal class StatisticsPrinter : ISummaryPrinter
         (var displayMinResponseTime, var minResponseTimeQualifier) = Statistics.Display(stats.Min);
         (var displayMaxResponseTime, var maxResponseTimeQualifier) = Statistics.Display(stats.Max);
         (var displayMedian, var medianQualifier) = Statistics.Display(stats.Median);
+        (var displayPercentile95, var displayPercentile95Qualifier) = Statistics.Display(stats.Percentile95th);
         (var throughputFormatted, var throughputQualifier) = SizeFormatter<double>.FormatSizeWithQualifier(stats.Throughput);
 
         _console.WriteLine($"| Mean:       {displayMean,10:F3} {meanQualifier}   |");
@@ -35,6 +36,7 @@ internal class StatisticsPrinter : ISummaryPrinter
         _console.WriteLine($"| Median:     {displayMedian,10:F3} {medianQualifier}   |");
         _console.WriteLine($"| Min:        {displayMinResponseTime,10:F3} {minResponseTimeQualifier}   |");
         _console.WriteLine($"| Max:        {displayMaxResponseTime,10:F3} {maxResponseTimeQualifier}   |");
+        _console.WriteLine($"| 95th:       {displayPercentile95,10:F3} {displayPercentile95Qualifier}   |");
         _console.WriteLine($"| Throughput: {throughputFormatted,10} {throughputQualifier}B/s |");
         _console.WriteLine($"| Req/Sec:    {stats.RequestSec,10:G3}      |");
 

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace CHttp.Tests;
 
-public class CHttpPerformanceFunctional
+public class CHttpPerformanceFunctionalTests
 {
     private const int Port = 5015;
 
@@ -23,6 +23,7 @@ public class CHttpPerformanceFunctional
         Assert.Contains("100%          2/2", console.Text);
         Assert.Contains("1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
         Assert.Contains("Mean:", console.Text);
+        Assert.Contains("95th:", console.Text);
         Assert.Contains("Req/Sec:", console.Text);
 
         /* Expect something like this in the output, but actual details depend on the test run.

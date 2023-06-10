@@ -27,6 +27,7 @@ public class StatisticsPrinterTests
 | Median:          1.000 s    |
 | Min:             1.000 s    |
 | Max:             1.000 s    |
+| 95th:            1.000 s    |
 | Throughput:      1.000  B/s |
 | Req/Sec:             1      |
 -----------------------------------------------------------
@@ -62,6 +63,7 @@ HTTP status codes:
 | Median:          0.000 ns   |
 | Min:             0.000 ns   |
 | Max:             0.000 ns   |
+| 95th:            0.000 ns   |
 | Throughput:   Infinity TB/s |
 | Req/Sec:      Infinity      |
 -----------------------------------------------------------
@@ -93,6 +95,7 @@ HTTP status codes:
 | Median:          2.000 s    |
 | Min:             1.000 s    |
 | Max:             3.000 s    |
+| 95th:            2.000 s    |
 | Throughput:      0.500  B/s |
 | Req/Sec:             1      |
 -----------------------------------------------------------
@@ -127,6 +130,7 @@ HTTP status codes:
 | Median:          1.000 s    |
 | Min:             1.000 s    |
 | Max:             1.000 s    |
+| 95th:            1.000 s    |
 | Throughput:      1.000  B/s |
 | Req/Sec:           {n,3}      |
 -----------------------------------------------------------

@@ -28,6 +28,7 @@ internal class DiffPrinter
         PrintLine("Median:", Statistics.Display(stats0.Median), Statistics.Display(stats1.Median - stats0.Median));
         PrintLine("Min:", Statistics.Display(stats0.Min), Statistics.Display(stats1.Min - stats0.Min));
         PrintLine("Max:", Statistics.Display(stats0.Max), Statistics.Display(stats1.Max - stats0.Max));
+        PrintLine("95th:", Statistics.Display(stats0.Percentile95th), Statistics.Display(stats1.Percentile95th - stats0.Percentile95th));
         PrintThroughput("Throughput:", SizeFormatter<double>.FormatSizeWithQualifier(stats0.Throughput), SizeFormatter<double>.FormatSizeWithQualifierWithSign(stats1.Throughput - stats0.Throughput));
         PrintRequestSec("Req/Sec:", stats0.RequestSec, stats1.RequestSec - stats0.RequestSec);
 

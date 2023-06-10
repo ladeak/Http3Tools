@@ -4,11 +4,11 @@ namespace CHttp.Statitics;
 
 internal static class Statistics
 {
-    public record class Stats(double Mean, double StdDev, double Error, double RequestSec, double Throughput, long Min, long Max, long Median, long[] Durations, int[] StatusCodes)
+    public record class Stats(double Mean, double StdDev, double Error, double RequestSec, double Throughput, long Min, long Max, long Median, long Percentile95th, long[] Durations, int[] StatusCodes)
     {
         public static Stats SumHistogram(Stats a, Stats b)
         {
-            return new Stats(0, 0, Math.Min(a.Error, b.Error), 0, 0, Math.Min(a.Min, b.Min), Math.Max(a.Max, b.Max), 0, Array.Empty<long>(), Array.Empty<int>());
+            return new Stats(0, 0, Math.Min(a.Error, b.Error), 0, 0, Math.Min(a.Min, b.Min), Math.Max(a.Max, b.Max), 0, 0, Array.Empty<long>(), Array.Empty<int>());
         }
     }
 
@@ -45,7 +45,8 @@ internal static class Statistics
         var min = durations[0];
         var max = durations[^1];
         var median = durations[summaries.Count / 2];
-        return new Stats(mean, stdDev, error, requestSec, throughput, min, max, median, durations, statusCodes);
+        var percentile95 = durations[(int)((durations.Length - 1) * 0.95)];
+        return new Stats(mean, stdDev, error, requestSec, throughput, min, max, median, percentile95, durations, statusCodes);
     }
 
     private static double CalcSquaredStdDev(long[] durations, double mean)
