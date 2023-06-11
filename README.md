@@ -51,12 +51,14 @@ Options:
   -v, --http-version <1.0|1.1|2|3>                   The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3]
   -m, --method                                       HTTP Method [default: GET]
   <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>
-  -h, --header <header>                              Headers Key-Value pairs separated by ':' []
-  -u, --uri <uri> (REQUIRED)                         The URL of the resource
+  -h, --header <header>                              Headers Key-Value pairs separated by ':'. For example
+                                                     --header="key:myvalue"  []
   -t, --timeout <timeout>                            Timeout in seconds. [default: 30]
   --no-redirects                                     Disables following redirects on requests [default: False]
   --no-cert-validation, --no-certificate-validation  Disables certificate validation [default: False]
   -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
+  -o, --output <output>                              Output to file. []
+  -u, --uri <uri> (REQUIRED)                         The URL of the resource
   --version                                          Show version information
   -?, -h, --help                                     Show help and usage information
 
@@ -64,6 +66,7 @@ Commands:
   forms  Forms request
   json   Json request
   perf   Performance Measure
+  diff   Compares to performance measurement files
 ```
 
 ### Performance Measurements
