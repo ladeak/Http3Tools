@@ -32,6 +32,10 @@
       "commandName": "Project",
       "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3"
     },
+    "chttp perf appinsights": {
+      "commandName": "Project",
+      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3 --metrics=[replace]"
+    },
     "chttp perf output 0": {
       "commandName": "Project",
       "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3 -o session0.json"

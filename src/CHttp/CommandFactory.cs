@@ -1,11 +1,14 @@
 ﻿using System.CommandLine;
 using System.Globalization;
-using System.Text.Json;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Statitics;
 using CHttp.Writers;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 namespace CHttp;
 
@@ -120,6 +123,12 @@ internal static class CommandFactory
             description: "List of 2 files to be compared.");
         outputFileOption.IsRequired = false;
 
+        var metricsOption = new Option<string>(
+            name: "--metrics",
+            getDefaultValue: () => Environment.GetEnvironmentVariable("chttp_metrics", EnvironmentVariableTarget.Process) ?? string.Empty,
+            description: "When Application Insights connection string is set, it pushes performance metrics data.");
+        outputFileOption.IsRequired = false;
+
         var rootCommand = new RootCommand("Send HTTP request");
         rootCommand.AddGlobalOption(versionOptions);
         rootCommand.AddGlobalOption(methodOptions);
@@ -136,7 +145,7 @@ internal static class CommandFactory
 
         CreateDefaultCommand(writer, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, rootCommand);
 
-        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, rootCommand);
+        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, rootCommand);
 
         CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
@@ -229,6 +238,7 @@ internal static class CommandFactory
         Option<int> nOption,
         Option<int> cOption,
         Option<string> outputFileOption,
+        Option<string> metricsOption,
         RootCommand rootCommand)
     {
         var perfCommand = new Command("perf", "Performance Measure");
@@ -236,12 +246,17 @@ internal static class CommandFactory
         perfCommand.AddOption(nOption);
         perfCommand.AddOption(cOption);
         perfCommand.AddOption(uriOption);
-        perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, outputFile) =>
+        perfCommand.AddOption(metricsOption);
+        perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, outputFile, metricsConnectionString) =>
         {
             httpBehavior = httpBehavior with { ToUtf8 = false };
             console ??= new CHttpConsole();
             fileSystem ??= new FileSystem();
-            ISummaryPrinter printer = !string.IsNullOrWhiteSpace(outputFile) ? new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(outputFile, fileSystem)) : new StatisticsPrinter(console);
+            ISummaryPrinter printer = new StatisticsPrinter(console);
+            if (!string.IsNullOrWhiteSpace(outputFile))
+                printer = new CompositePrinter(printer, new FilePrinter(outputFile, fileSystem));
+            if (!string.IsNullOrWhiteSpace(metricsConnectionString))
+                printer = new CompositePrinter(printer, new AppInsightsPrinter(console, metricsConnectionString));
             var orchestrator = new PerformanceMeasureOrchestrator(printer, console, new Awaiter(), performanceBehavior);
             await orchestrator.RunAsync(requestDetails, httpBehavior);
         },
@@ -254,7 +269,8 @@ internal static class CommandFactory
           new InvertBinder(validateCertificateOption),
           timeoutOption),
          new PerformanceBehaviorBinder(nOption, cOption),
-         outputFileOption);
+         outputFileOption,
+         metricsOption);
     }
 
     private static void CreateDiffCommand(Abstractions.IConsole? console, IFileSystem? fileSystem, Option<IEnumerable<string>> diffFileOption, RootCommand rootCommand)

@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics.Metrics;
+using System.Numerics;
 
 namespace CHttp.Statitics;
 
@@ -11,6 +12,17 @@ internal static class Statistics
             return new Stats(0, 0, Math.Min(a.Error, b.Error), 0, 0, Math.Min(a.Min, b.Min), Math.Max(a.Max, b.Max), 0, 0, Array.Empty<long>(), Array.Empty<int>());
         }
     }
+
+    private static readonly Meter Meter = new("CHttp");
+    private static readonly Histogram<double> Mean = Meter.CreateHistogram<double>(nameof(Mean));
+    private static readonly Histogram<double> StdDev = Meter.CreateHistogram<double>(nameof(StdDev));
+    private static readonly Histogram<double> Error = Meter.CreateHistogram<double>(nameof(Error));
+    private static readonly Histogram<double> Median = Meter.CreateHistogram<double>(nameof(Median));
+    private static readonly Histogram<double> Min = Meter.CreateHistogram<double>(nameof(Min));
+    private static readonly Histogram<double> Max = Meter.CreateHistogram<double>(nameof(Max));
+    private static readonly Histogram<double> Percentile95 = Meter.CreateHistogram<double>(nameof(Percentile95));
+    private static readonly Histogram<double> Throughput = Meter.CreateHistogram<double>(nameof(Throughput));
+    private static readonly Histogram<double> RequestSec = Meter.CreateHistogram<double>("Req/Sec");
 
     public static Stats GetStats(IReadOnlyCollection<Summary> summaries, long bytesRead)
     {
@@ -46,7 +58,21 @@ internal static class Statistics
         var max = durations[^1];
         var median = durations[summaries.Count / 2];
         var percentile95 = durations[(int)((durations.Length - 1) * 0.95)];
-        return new Stats(mean, stdDev, error, requestSec, throughput, min, max, median, percentile95, durations, statusCodes);
+
+        var stats = new Stats(mean, stdDev, error, requestSec, throughput, min, max, median, percentile95, durations, statusCodes);
+
+        var url = new KeyValuePair<string, object?>("Url", summaries.First().Url);
+        Mean.Record(TimeSpan.FromTicks((int)stats.Mean).TotalMilliseconds, url);
+        StdDev.Record(TimeSpan.FromTicks((int)stats.StdDev).TotalMilliseconds, url);
+        Error.Record(TimeSpan.FromTicks((int)stats.Error).TotalMilliseconds, url);
+        Median.Record(TimeSpan.FromTicks(stats.Median).TotalMilliseconds, url);
+        Min.Record(TimeSpan.FromTicks(stats.Min).TotalMilliseconds, url);
+        Max.Record(TimeSpan.FromTicks(stats.Max).TotalMilliseconds, url);
+        Percentile95.Record(TimeSpan.FromTicks(stats.Percentile95th).TotalMilliseconds, url);
+        Throughput.Record(TimeSpan.FromTicks((int)stats.Throughput).TotalMilliseconds, url);
+        RequestSec.Record(TimeSpan.FromTicks((int)stats.RequestSec).TotalMilliseconds, url);
+
+        return stats;
     }
 
     private static double CalcSquaredStdDev(long[] durations, double mean)

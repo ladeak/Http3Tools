@@ -8,8 +8,6 @@ using CHttp.Writers;
 
 namespace CHttp;
 
-// output everywhere https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation
-
 internal class PerformanceMeasureOrchestrator
 {
     private readonly ISummaryPrinter _summaryPrinter;
