@@ -275,7 +275,7 @@ internal static class CommandFactory
 
     private static void CreateDiffCommand(Abstractions.IConsole? console, IFileSystem? fileSystem, Option<IEnumerable<string>> diffFileOption, RootCommand rootCommand)
     {
-        var diffCommand = new Command("diff", "Compares to performance measurements files.");
+        var diffCommand = new Command("diff", "Compares to performance measurement files");
         diffCommand.AddOption(diffFileOption);
         rootCommand.Add(diffCommand);
         diffCommand.SetHandler(async (diffFiles) =>
