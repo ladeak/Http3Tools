@@ -1,6 +1,6 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using CHttp.Abstractions;
+using CHttp.Data;
 
 namespace CHttp.Statitics;
 
@@ -64,7 +64,7 @@ internal class StatisticsPrinter : ISummaryPrinter
         _console.WriteLine($"1xx: {statusCodes[0]}, 2xx: {statusCodes[1]}, 3xx: {statusCodes[2]}, 4xx: {statusCodes[3]}, 5xx: {statusCodes[4]}, Other: {statusCodes[5]}");
     }
 
-    private void PrintHistogram(Statistics.Stats stats, double scaleNormalize)
+    private void PrintHistogram(Stats stats, double scaleNormalize)
     {
         (var bucketCount, var bSize) = Statistics.GetHistogramBuckets(stats);
         var bucketSize = new Vector<double>(bSize);

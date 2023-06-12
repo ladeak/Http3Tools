@@ -16,7 +16,7 @@ internal class AppInsightsPrinter : ISummaryPrinter
     private readonly IConsole _console;
     private MeterProvider? _metricsProvider;
 
-    public AppInsightsPrinter(IConsole console, string metricsConnectionString)
+    public AppInsightsPrinter(IConsole console, string? metricsConnectionString = null)
     {
         if (!string.IsNullOrWhiteSpace(metricsConnectionString))
         {
@@ -35,10 +35,10 @@ internal class AppInsightsPrinter : ISummaryPrinter
             return ValueTask.CompletedTask;
         _console.WriteLine("Sending metrics to AppInsights...");
         foreach (var summary in summaries)
-            Requests.Record((long)summary.Duration.TotalMilliseconds, 
+            Requests.Record((long)summary.Duration.TotalMilliseconds,
                 new("Url", summary.Url),
                 new("Error", summary.ErrorCode),
-                new("Length", summary.Length), 
+                new("Length", summary.Length),
                 new("HttpStatusCode", summary.HttpStatusCode),
                 new("RequestCount", session.Behavior.RequestCount),
                 new("ClientCount", session.Behavior.ClientsCount));

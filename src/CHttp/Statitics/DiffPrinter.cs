@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using CHttp.Abstractions;
+using CHttp.Data;
 
 namespace CHttp.Statitics;
 
@@ -100,7 +101,7 @@ internal class DiffPrinter
         _console.WriteLine("      |");
     }
 
-    private static int[] DiffStatusCodes(Statistics.Stats stats0, Statistics.Stats stats1)
+    private static int[] DiffStatusCodes(Stats stats0, Stats stats1)
     {
         int[] diffStatusCodes = new int[stats0.StatusCodes.Length];
         for (int i = 0; i < diffStatusCodes.Length; i++)
@@ -116,9 +117,9 @@ internal class DiffPrinter
         _console.WriteLine($"1xx: {statusCodes[0]} {diff[0]:+0;-0}, 2xx: {statusCodes[1]} {diff[1]:+0;-0}, 3xx: {statusCodes[2]} {diff[2]:+0;-0}, 4xx: {statusCodes[3]} {diff[3]:+0;-0}, 5xx: {statusCodes[4]} {diff[4]:+0;-0}, Other: {statusCodes[5]} {diff[5]:+0;-0}");
     }
 
-    private void PrintHistogram(Statistics.Stats stats0, Statistics.Stats stats1, double scaleNormalize)
+    private void PrintHistogram(Stats stats0, Stats stats1, double scaleNormalize)
     {
-        var sumStats = Statistics.Stats.SumHistogram(stats0, stats1);
+        var sumStats = Stats.SumHistogram(stats0, stats1);
         (var bucketCount, var bSize) = Statistics.GetHistogramBuckets(sumStats);
         var bucketSize = new Vector<double>(bSize);
 

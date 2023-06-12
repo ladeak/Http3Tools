@@ -1,4 +1,5 @@
 ﻿using CHttp.Abstractions;
+using CHttp.Data;
 using CHttp.EventListeners;
 using CHttp.Statitics;
 using CHttp.Writers;
@@ -7,7 +8,7 @@ namespace CHttp;
 
 public class PerformanceMeasureClient
 {
-    public record PerformanceOptions(int RequestCount, int ClientsCount, string AppInsightsConnectionString);
+    public record PerformanceOptions(int RequestCount, int ClientsCount, string? AppInsightsConnectionString = null);
 
     private readonly ISummaryPrinter _summaryPrinter;
     private readonly int _requestCount;
@@ -24,7 +25,7 @@ public class PerformanceMeasureClient
         _clientsCount = options.ClientsCount;
     }
 
-    public async Task RunAsync(HttpClient client, Func<HttpRequestMessage> requestFactory)
+    public async Task<Stats?> RunAsync(HttpClient client, Func<HttpRequestMessage> requestFactory)
     {
         var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
         INetEventListener readListener = new SocketEventListener();
@@ -32,12 +33,16 @@ public class PerformanceMeasureClient
             clientTasks[i] = Task.Run(() => RunClient(client, requestFactory));
         await Task.WhenAll(clientTasks);
         await readListener.WaitUpdateAndStopAsync();
-        await _summaryPrinter.SummarizeResultsAsync(new PerformanceMeasurementResults()
+        var session = new PerformanceMeasurementResults()
         {
             Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
             TotalBytesRead = readListener.GetBytesRead(),
             Behavior = new(_requestCount, _clientsCount)
-        });
+        };
+        await _summaryPrinter.SummarizeResultsAsync(session);
+        if (session.Summaries.Count == 0)
+            return null;
+        return Statistics.GetStats(session);
     }
 
     private async Task<IEnumerable<Summary>> RunClient(HttpClient httpClient, Func<HttpRequestMessage> requestFactory)
@@ -52,6 +57,7 @@ public class PerformanceMeasureClient
         while (Interlocked.Increment(ref _requestStarting) <= _requestCount)
         {
             await client.SendRequestAsync(requestFactory());
+            Interlocked.Increment(ref _requestCompleted);
         }
         await writer.CompleteAsync(CancellationToken.None);
 

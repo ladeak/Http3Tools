@@ -1,18 +1,11 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Numerics;
+using CHttp.Data;
 
 namespace CHttp.Statitics;
 
 internal static class Statistics
 {
-    public record class Stats(double Mean, double StdDev, double Error, double RequestSec, double Throughput, long Min, long Max, long Median, long Percentile95th, long[] Durations, int[] StatusCodes)
-    {
-        public static Stats SumHistogram(Stats a, Stats b)
-        {
-            return new Stats(0, 0, Math.Min(a.Error, b.Error), 0, 0, Math.Min(a.Min, b.Min), Math.Max(a.Max, b.Max), 0, 0, Array.Empty<long>(), Array.Empty<int>());
-        }
-    }
-
     private static readonly Meter Meter = new("CHttp");
     private static readonly Histogram<double> Mean = Meter.CreateHistogram<double>(nameof(Mean));
     private static readonly Histogram<double> StdDev = Meter.CreateHistogram<double>(nameof(StdDev));

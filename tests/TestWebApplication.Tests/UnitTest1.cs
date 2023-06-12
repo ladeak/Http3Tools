@@ -1,3 +1,4 @@
+using CHttp;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace TestWebApplication.Tests;
@@ -14,8 +15,7 @@ public class UnitTest1 : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task Test()
     {
-        var client = _webapp.CreateClient();
-        var response = await client.GetAsync("/delay");
-        response.EnsureSuccessStatusCode();
+        var session = new PerformanceMeasureClient(new PerformanceMeasureClient.PerformanceOptions(10, 1));
+        var stats = await session.RunAsync(_webapp.CreateClient(), () => new HttpRequestMessage(HttpMethod.Get, "/delay"));
     }
 }
