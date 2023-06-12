@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using CHttp.Abstractions;
 
 namespace CHttp.Statitics;
@@ -12,17 +13,18 @@ internal class StatisticsPrinter : ISummaryPrinter
         _console = console ?? throw new ArgumentNullException(nameof(console));
     }
 
-    public ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session)
     {
+        var summaries = session.Summaries;
         if (summaries.Count == 0)
         {
             _console.WriteLine("No measurements available");
             return ValueTask.CompletedTask;
         }
-        var stats = Statistics.GetStats(summaries, bytesRead);
-       
+        var stats = Statistics.GetStats(session);
+
         (var displayMean, var meanQualifier) = Statistics.Display(stats.Mean);
-        (var displayStdDev, var stdDevQualifier) = Statistics.  Display(stats.StdDev);
+        (var displayStdDev, var stdDevQualifier) = Statistics.Display(stats.StdDev);
         (var displayError, var errorQualifier) = Statistics.Display(stats.Error);
         (var displayMinResponseTime, var minResponseTimeQualifier) = Statistics.Display(stats.Min);
         (var displayMaxResponseTime, var maxResponseTimeQualifier) = Statistics.Display(stats.Max);
@@ -30,6 +32,7 @@ internal class StatisticsPrinter : ISummaryPrinter
         (var displayPercentile95, var displayPercentile95Qualifier) = Statistics.Display(stats.Percentile95th);
         (var throughputFormatted, var throughputQualifier) = SizeFormatter<double>.FormatSizeWithQualifier(stats.Throughput);
 
+        _console.WriteLine($"RequestCount: {session.Behavior.RequestCount}, Clients: {session.Behavior.ClientsCount}");
         _console.WriteLine($"| Mean:       {displayMean,10:F3} {meanQualifier}   |");
         _console.WriteLine($"| StdDev:     {displayStdDev,10:F3} {stdDevQualifier}   |");
         _console.WriteLine($"| Error:      {displayError,10:F3} {errorQualifier}   |");

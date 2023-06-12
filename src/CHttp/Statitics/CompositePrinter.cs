@@ -11,9 +11,9 @@ internal class CompositePrinter : ISummaryPrinter
         _printer1 = printer1 ?? throw new ArgumentNullException(nameof(printer1));
     }
 
-    public async ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public async ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session)
     {
-        await _printer0.SummarizeResultsAsync(summaries, bytesRead);
-        await _printer1.SummarizeResultsAsync(summaries, bytesRead);
+        await _printer0.SummarizeResultsAsync(session);
+        await _printer1.SummarizeResultsAsync(session);
     }
 }

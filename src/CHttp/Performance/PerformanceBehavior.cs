@@ -1,1 +1,1 @@
-﻿internal record PerformanceBehavior(int requestCount, int clientsCount);
+﻿internal record PerformanceBehavior(int RequestCount, int ClientsCount);

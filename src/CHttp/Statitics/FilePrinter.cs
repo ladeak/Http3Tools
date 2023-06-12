@@ -13,6 +13,6 @@ internal class FilePrinter : ISummaryPrinter
         _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     }
 
-    public ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead) =>
-        PerformanceFileHandler.SaveAsync(_fileSystem, _filePath, summaries, bytesRead);
+    public ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session) =>
+        PerformanceFileHandler.SaveAsync(_fileSystem, _filePath, session);
 }

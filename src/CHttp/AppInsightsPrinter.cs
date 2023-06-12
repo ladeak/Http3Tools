@@ -28,13 +28,20 @@ internal class AppInsightsPrinter : ISummaryPrinter
         _console = console ?? throw new ArgumentNullException(nameof(console));
     }
 
-    public ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session)
     {
+        var summaries = session.Summaries;
         if (_metricsProvider is null || summaries.Count == 0)
             return ValueTask.CompletedTask;
         _console.WriteLine("Sending metrics to AppInsights...");
         foreach (var summary in summaries)
-            Requests.Record((long)summary.Duration.TotalMilliseconds, new("Url", summary.Url), new("Error", summary.ErrorCode), new("Length", summary.Length), new("HttpStatusCode", summary.HttpStatusCode));
+            Requests.Record((long)summary.Duration.TotalMilliseconds, 
+                new("Url", summary.Url),
+                new("Error", summary.ErrorCode),
+                new("Length", summary.Length), 
+                new("HttpStatusCode", summary.HttpStatusCode),
+                new("RequestCount", session.Behavior.RequestCount),
+                new("ClientCount", session.Behavior.ClientsCount));
 
         _metricsProvider.ForceFlush();
         _metricsProvider.Dispose();

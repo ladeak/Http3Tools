@@ -2,5 +2,5 @@
 
 internal interface ISummaryPrinter
 {
-    ValueTask SummarizeResultsAsync(IReadOnlyCollection<Summary> summaries, long bytesRead);
+    ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session);
 }

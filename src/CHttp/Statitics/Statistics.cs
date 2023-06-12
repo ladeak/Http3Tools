@@ -24,8 +24,9 @@ internal static class Statistics
     private static readonly Histogram<double> Throughput = Meter.CreateHistogram<double>(nameof(Throughput));
     private static readonly Histogram<double> RequestSec = Meter.CreateHistogram<double>("Req/Sec");
 
-    public static Stats GetStats(IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public static Stats GetStats(PerformanceMeasurementResults session)
     {
+        var summaries = session.Summaries;
         var durations = new long[summaries.Count];
 
         long totalTicks = 0;
@@ -53,7 +54,7 @@ internal static class Statistics
         double stdDev = Math.Sqrt(CalcSquaredStdDev(durations, mean));
         double error = stdDev / Math.Sqrt(summaries.Count);
         double requestSec = (double)summaries.Count * TimeSpan.TicksPerSecond / (latestEnd - earliestStart);
-        double throughput = bytesRead / (mean / TimeSpan.TicksPerSecond);
+        double throughput = session.TotalBytesRead / (mean / TimeSpan.TicksPerSecond);
         var min = durations[0];
         var max = durations[^1];
         var median = durations[summaries.Count / 2];
@@ -62,15 +63,17 @@ internal static class Statistics
         var stats = new Stats(mean, stdDev, error, requestSec, throughput, min, max, median, percentile95, durations, statusCodes);
 
         var url = new KeyValuePair<string, object?>("Url", summaries.First().Url);
-        Mean.Record(TimeSpan.FromTicks((int)stats.Mean).TotalMilliseconds, url);
-        StdDev.Record(TimeSpan.FromTicks((int)stats.StdDev).TotalMilliseconds, url);
-        Error.Record(TimeSpan.FromTicks((int)stats.Error).TotalMilliseconds, url);
-        Median.Record(TimeSpan.FromTicks(stats.Median).TotalMilliseconds, url);
-        Min.Record(TimeSpan.FromTicks(stats.Min).TotalMilliseconds, url);
-        Max.Record(TimeSpan.FromTicks(stats.Max).TotalMilliseconds, url);
-        Percentile95.Record(TimeSpan.FromTicks(stats.Percentile95th).TotalMilliseconds, url);
-        Throughput.Record(TimeSpan.FromTicks((int)stats.Throughput).TotalMilliseconds, url);
-        RequestSec.Record(TimeSpan.FromTicks((int)stats.RequestSec).TotalMilliseconds, url);
+        var requestCount = new KeyValuePair<string, object?>("RequestCount", session.Behavior.RequestCount);
+        var clientCount = new KeyValuePair<string, object?>("ClientCount", session.Behavior.ClientsCount);
+        Mean.Record(TimeSpan.FromTicks((int)stats.Mean).TotalMilliseconds, url, requestCount, clientCount);
+        StdDev.Record(TimeSpan.FromTicks((int)stats.StdDev).TotalMilliseconds, url, requestCount, clientCount);
+        Error.Record(TimeSpan.FromTicks((int)stats.Error).TotalMilliseconds, url, requestCount, clientCount);
+        Median.Record(TimeSpan.FromTicks(stats.Median).TotalMilliseconds, url, requestCount, clientCount);
+        Min.Record(TimeSpan.FromTicks(stats.Min).TotalMilliseconds, url, requestCount, clientCount);
+        Max.Record(TimeSpan.FromTicks(stats.Max).TotalMilliseconds, url, requestCount, clientCount);
+        Percentile95.Record(TimeSpan.FromTicks(stats.Percentile95th).TotalMilliseconds, url, requestCount, clientCount);
+        Throughput.Record(TimeSpan.FromTicks((int)stats.Throughput).TotalMilliseconds, url, requestCount, clientCount);
+        RequestSec.Record(TimeSpan.FromTicks((int)stats.RequestSec).TotalMilliseconds, url, requestCount, clientCount);
 
         return stats;
     }

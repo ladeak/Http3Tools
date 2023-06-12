@@ -11,9 +11,9 @@ internal class PerformanceFileHandler
             return (await JsonSerializer.DeserializeAsync(file1, KnownJsonType.Default.PerformanceMeasurementResults)) ?? PerformanceMeasurementResults.Default;
     }
 
-    public static ValueTask SaveAsync(IFileSystem fileSystem, string filePath, IReadOnlyCollection<Summary> summaries, long bytesRead)
+    public static ValueTask SaveAsync(IFileSystem fileSystem, string filePath, PerformanceBehavior behavior, IReadOnlyCollection<Summary> summaries, long bytesRead)
     {
-        var session = new PerformanceMeasurementResults { Summaries = summaries, TotalBytesRead = bytesRead };
+        var session = new PerformanceMeasurementResults { Summaries = summaries, TotalBytesRead = bytesRead, Behavior = behavior };
         return SaveAsync(fileSystem, filePath, session);
     }
 

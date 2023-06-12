@@ -1,5 +1,4 @@
-﻿using System.Net;
-using CHttp.Abstractions;
+﻿using CHttp.Abstractions;
 using CHttp.EventListeners;
 using CHttp.Statitics;
 using CHttp.Writers;
@@ -33,7 +32,12 @@ public class PerformanceMeasureClient
             clientTasks[i] = Task.Run(() => RunClient(client, requestFactory));
         await Task.WhenAll(clientTasks);
         await readListener.WaitUpdateAndStopAsync();
-        await _summaryPrinter.SummarizeResultsAsync(new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted), readListener.GetBytesRead());
+        await _summaryPrinter.SummarizeResultsAsync(new PerformanceMeasurementResults()
+        {
+            Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
+            TotalBytesRead = readListener.GetBytesRead(),
+            Behavior = new(_requestCount, _clientsCount)
+        });
     }
 
     private async Task<IEnumerable<Summary>> RunClient(HttpClient httpClient, Func<HttpRequestMessage> requestFactory)

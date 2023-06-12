@@ -3,6 +3,6 @@
 namespace CHttp.Statitics;
 
 [JsonSerializable(typeof(PerformanceMeasurementResults))]
-public partial class KnownJsonType : JsonSerializerContext
+internal partial class KnownJsonType : JsonSerializerContext
 {
 }

@@ -288,7 +288,7 @@ internal static class CommandFactory
             if (filesCount == 1)
             {
                 var session = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First());
-                await new StatisticsPrinter(console).SummarizeResultsAsync(session.Summaries, session.TotalBytesRead);
+                await new StatisticsPrinter(console).SummarizeResultsAsync(session);
                 return;
             }
             if (filesCount > 1)

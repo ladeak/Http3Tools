@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.Metrics;
+using CHttp.Statitics;
 
 namespace CHttp.Tests.Statistics;
 
@@ -13,7 +14,7 @@ public class StatisticsTests
             new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(3)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 },
         };
 
-        var result = CHttp.Statitics.Statistics.GetStats(summaries, 100);
+        var result = CHttp.Statitics.Statistics.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, Behavior = new(3, 1) });
 
         Assert.NotNull(result);
         Assert.Equal(TimeSpan.FromSeconds(2).Ticks, result.Mean);
@@ -27,6 +28,7 @@ public class StatisticsTests
         Assert.Equal(50, result.Throughput);
     }
 
+    // Req/Sec may vary based on parallel tests in the assembly
     [Theory]
     [InlineData("Mean", 2000)]
     [InlineData("StdDev", 816.4965)]
@@ -35,9 +37,8 @@ public class StatisticsTests
     [InlineData("Min", 1000)]
     [InlineData("Max", 3000)]
     [InlineData("Percentile95", 2000)]
-    [InlineData("Req/Sec", 0.0001)]
     [InlineData("Throughput", 0.005)]
-    public async void TestMetrics(string instrumentName, double expected)
+    public async Task TestMetrics(string instrumentName, double expected)
     {
         using var listener = new MeterListener();
         TaskCompletionSource<double> tcs = new TaskCompletionSource<double>();
@@ -58,7 +59,7 @@ public class StatisticsTests
             new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(3)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 },
         };
 
-        CHttp.Statitics.Statistics.GetStats(summaries, 100);
+        CHttp.Statitics.Statistics.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, Behavior = new(3, 1) });
         var result = await tcs.Task;
         Assert.Equal(expected, result, 4);
     }

@@ -23,8 +23,8 @@ internal class PerformanceMeasureOrchestrator
     public PerformanceMeasureOrchestrator(ISummaryPrinter summaryPrinter, IConsole console, IAwaiter awaiter, PerformanceBehavior behavior)
     {
         _summaryPrinter = summaryPrinter ?? throw new ArgumentNullException(nameof(summaryPrinter));
-        _requestCount = behavior.requestCount;
-        _clientsCount = behavior.clientsCount;
+        _requestCount = behavior.RequestCount;
+        _clientsCount = behavior.ClientsCount;
         _progressBar = new ProgressBar<Ratio<int>>(console, awaiter);
         _cts = new();
     }
@@ -41,7 +41,12 @@ internal class PerformanceMeasureOrchestrator
         await readListener.WaitUpdateAndStopAsync();
         await CompleteProgressBarAsync();
 
-        await _summaryPrinter.SummarizeResultsAsync(new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted), readListener.GetBytesRead());
+        await _summaryPrinter.SummarizeResultsAsync(new PerformanceMeasurementResults()
+        {
+            Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
+            TotalBytesRead = readListener.GetBytesRead(),
+            Behavior = new(_requestCount, _clientsCount)
+        });
     }
 
     private async Task CompleteProgressBarAsync()

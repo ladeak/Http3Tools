@@ -19,9 +19,10 @@ internal class DiffPrinter
             _console.WriteLine("No measurements available");
             return;
         }
-        var stats0 = Statistics.GetStats(session0.Summaries, session0.TotalBytesRead);
-        var stats1 = Statistics.GetStats(session1.Summaries, session1.TotalBytesRead);
+        var stats0 = Statistics.GetStats(session0);
+        var stats1 = Statistics.GetStats(session1);
 
+        _console.WriteLine($"RequestCount: {session0.Behavior.RequestCount}, Clients: {session0.Behavior.ClientsCount}");
         PrintLine("Mean:", Statistics.Display(stats0.Mean), Statistics.Display(stats1.Mean - stats0.Mean));
         PrintLine("StdDev:", Statistics.Display(stats0.StdDev), Statistics.Display(stats1.StdDev - stats0.StdDev));
         PrintLine("Error:", Statistics.Display(stats0.Error), Statistics.Display(stats1.Error - stats0.Error));
@@ -46,6 +47,32 @@ internal class DiffPrinter
 
         PrintStatusCodes(stats0.StatusCodes, DiffStatusCodes(stats0, stats1));
         _console.WriteLine(separator);
+
+        if (PrintWarnings(session0, session1))
+            _console.WriteLine(separator);
+    }
+
+    private bool PrintWarnings(PerformanceMeasurementResults session0, PerformanceMeasurementResults session1)
+    {
+        bool writeSeparator = false;
+        if (session0.Behavior != session1.Behavior)
+        {
+            var oldColor = _console.ForegroundColor;
+            _console.ForegroundColor = ConsoleColor.DarkYellow;
+            _console.WriteLine($"*Warning: session files use different test parameters: {session0.Behavior} and {session1.Behavior}");
+            _console.ForegroundColor = oldColor;
+            writeSeparator = true;
+        }
+        var distinctUrls = session0.Summaries.Union(session1.Summaries).Select(x => x.Url).Distinct().ToList();
+        if (distinctUrls.Count > 1)
+        {
+            var oldColor = _console.ForegroundColor;
+            _console.ForegroundColor = ConsoleColor.DarkYellow;
+            _console.WriteLine($"*Warning: session files contain different urls: {string.Join(',', distinctUrls)}");
+            _console.ForegroundColor = oldColor;
+            writeSeparator = true;
+        }
+        return writeSeparator;
     }
 
     private void PrintLine(string name, (double DisplayValue, string Qualifier) baseValue, (double DisplayValue, string Qualifier) diff)
