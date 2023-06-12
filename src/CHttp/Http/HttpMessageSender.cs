@@ -29,6 +29,13 @@ internal sealed class HttpMessageSender
         _client.Timeout = TimeSpan.FromSeconds(behavior.Timeout);
     }
 
+    public HttpMessageSender(IWriter writer, HttpClient client)
+    {
+        _writer = writer ?? throw new ArgumentNullException(nameof(writer));
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _behavior = new(false, false, 0, ToUtf8: false);
+    }
+
     public async Task SendRequestAsync(HttpRequestDetails requestData)
     {
         var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
@@ -38,6 +45,8 @@ internal sealed class HttpMessageSender
         SetHeaders(requestData, request);
         await SendRequest(_client, request);
     }
+
+    public async Task SendRequestAsync(HttpRequestMessage request) => await SendRequest(_client, request);
 
     private async Task SendRequest(HttpClient client, HttpRequestMessage request)
     {

@@ -48,3 +48,5 @@ async IAsyncEnumerable<string> GenerateData()
         yield return $"hello {i}";
     }
 }
+
+public partial class Program { }

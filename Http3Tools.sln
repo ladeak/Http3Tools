@@ -13,7 +13,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp", "src\CHttp\CHttp.cs
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Tests", "tests\CHttp.Tests\CHttp.Tests.csproj", "{D5C74B2D-AD90-4A4B-80D7-584450753A5F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Benchmarks", "tests\CHttp.Benchmarks\CHttp.Benchmarks.csproj", "{F05F3667-9DC6-45B5-A008-EA0528E86323}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Benchmarks", "tests\CHttp.Benchmarks\CHttp.Benchmarks.csproj", "{F05F3667-9DC6-45B5-A008-EA0528E86323}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestWebApplication.Tests", "tests\TestWebApplication.Tests\TestWebApplication.Tests.csproj", "{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F05F3667-9DC6-45B5-A008-EA0528E86323}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
