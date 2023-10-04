@@ -8,7 +8,7 @@ on:
 env:
   CONFIGURATION: Release
   DOTNET_VERSION: 8.0.x
-  GH_PACKAGE_VERSION: net7.0
+  GH_PACKAGE_VERSION: net8.0
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
