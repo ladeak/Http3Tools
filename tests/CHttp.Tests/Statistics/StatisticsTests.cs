@@ -41,6 +41,8 @@ public class StatisticsTests
 	public async Task TestMetrics(string instrumentName, double expected)
 	{
 		// Retry as parallel tests may be also running in this assembly invoking GetStat that produces the metrics.
+		// Not using test parallelism, as the metrics is solely tested by this unit tests, and numerous other tests
+		// would not to synced. Alternatively use a bool flag to indicate the metrics to be published.
 		for (int i = 0; i < 3; i++)
 		{
 			using var listener = new MeterListener();
