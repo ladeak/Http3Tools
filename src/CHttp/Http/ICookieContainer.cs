@@ -2,7 +2,7 @@
 
 internal interface ICookieContainer
 {
-	Task<CookieContainer> GetContainerAsync();
+	CookieContainer Load();
 
-	Task PersistContainerAsync();
+	Task SaveAsync();
 }

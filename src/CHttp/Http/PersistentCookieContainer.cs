@@ -10,8 +10,8 @@ internal sealed class PersistentCookieContainer : ICookieContainer
 {
 	private CookieContainer _container = new CookieContainer();
 
-    public PersistentCookieContainer(IFileSystem fileSystem, string name)
-    {
+	public PersistentCookieContainer(IFileSystem fileSystem, string name)
+	{
 		FileSystem = fileSystem;
 		Name = name;
 	}
@@ -20,13 +20,13 @@ internal sealed class PersistentCookieContainer : ICookieContainer
 
 	private string Name { get; }
 
-	public async Task<CookieContainer> GetContainerAsync()
+	public CookieContainer Load()
 	{
 		if (string.IsNullOrWhiteSpace(Name) || !FileSystem.Exists(Name))
 			return _container;
 
 		using var stream = FileSystem.Open(Name, FileMode.Open, FileAccess.Read);
-		var cookieCollection = (await JsonSerializer.DeserializeAsync(stream, KnownJsonType.Default.PersistedCookies)) ?? PersistedCookies.Default;
+		var cookieCollection = JsonSerializer.Deserialize(stream, KnownJsonType.Default.PersistedCookies) ?? PersistedCookies.Default;
 
 		if (cookieCollection.Cookies.Count == 0)
 			return _container;
@@ -37,7 +37,7 @@ internal sealed class PersistentCookieContainer : ICookieContainer
 		return _container;
 	}
 
-	public async Task PersistContainerAsync()
+	public async Task SaveAsync()
 	{
 		if (string.IsNullOrWhiteSpace(Name))
 			return;

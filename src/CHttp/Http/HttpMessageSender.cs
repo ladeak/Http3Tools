@@ -25,8 +25,7 @@ internal sealed class HttpMessageSender
 			messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 
 		messageHandler.UseCookies = true;
-		messageHandler.CookieContainer = cookieContainer
-			.GetContainerAsync().GetAwaiter().GetResult();
+		messageHandler.CookieContainer = cookieContainer.Load();
 
 		_client = new HttpClient(messageHandler);
 		_client.Timeout = TimeSpan.FromSeconds(behavior.Timeout);

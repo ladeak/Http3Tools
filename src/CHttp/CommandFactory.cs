@@ -188,7 +188,7 @@ internal static class CommandFactory
 			requestDetails = requestDetails with { Content = formContent };
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);
-			await cookieContainer.PersistContainerAsync();
+			await cookieContainer.SaveAsync();
 		},
 		new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
 		  new UriBinder(uriOption),
@@ -225,7 +225,7 @@ internal static class CommandFactory
 			var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);
-			await cookieContainer.PersistContainerAsync();
+			await cookieContainer.SaveAsync();
 		},
 		new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
 		  new UriBinder(uriOption),
@@ -266,7 +266,7 @@ internal static class CommandFactory
 			requestDetails = requestDetails with { Content = new StringContent(body) };
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);
-			await cookieContainer.PersistContainerAsync();
+			await cookieContainer.SaveAsync();
 		},
 		new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
 		  new UriBinder(uriOption),

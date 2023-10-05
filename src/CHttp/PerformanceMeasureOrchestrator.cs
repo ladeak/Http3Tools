@@ -81,7 +81,7 @@ internal class PerformanceMeasureOrchestrator
 			_progressBar.Set(new Ratio<int>(completed, _requestCount, reaminingTime));
 		}
 		await writer.CompleteAsync(CancellationToken.None);
-		await _cookieContainer.PersistContainerAsync();
+		await _cookieContainer.SaveAsync();
 
 		// Skip the first request as that is warm up.
 		return writer.Summaries.Skip(1);
