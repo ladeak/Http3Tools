@@ -37,9 +37,11 @@ public class SyncedAwaiter : IAwaiter
         return Task.CompletedTask;
     }
 
-    public async Task WaitAsync()
+    public async Task WaitAsync(TimeSpan duration)
     {
         _semaphoreController.Release();
         await _semaphoreLoop.WaitAsync();
     }
+
+    public int RemainingCount => _semaphoreLoop.CurrentCount;
 }

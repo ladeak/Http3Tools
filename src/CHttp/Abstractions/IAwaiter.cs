@@ -2,5 +2,5 @@
 
 internal interface IAwaiter
 {
-    public Task WaitAsync();
+    public Task WaitAsync(TimeSpan duration);
 }

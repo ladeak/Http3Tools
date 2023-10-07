@@ -46,7 +46,7 @@ internal sealed class ProgressBar<T> where T : struct
             _console.Write(buffer);
             _console.Write(U.FormatSize(_value));
             state++;
-            await _awaiter.WaitAsync();
+            await _awaiter.WaitAsync(TimeSpan.FromMilliseconds(50));
         } while (!token.IsCancellationRequested);
         _console.SetCursorPosition(position.Left, position.Top);
         _console.Write(_complete);

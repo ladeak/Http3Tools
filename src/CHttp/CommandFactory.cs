@@ -124,6 +124,12 @@ internal static class CommandFactory
 		nOption.AddAlias("-n");
 		nOption.IsRequired = false;
 
+		var uploadThrottleOption = new Option<int?>(
+			name: "--upload-throttle",
+			getDefaultValue: () => null,
+			description: "Specify HTTP level throttling in kbyte/sec when sending the request");
+		nOption.IsRequired = false;
+
 		var diffFileOption = new Option<IEnumerable<string>>(
 			name: "--files",
 			getDefaultValue: () => Enumerable.Empty<string>(),
@@ -149,7 +155,7 @@ internal static class CommandFactory
 
 		CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
 
-		CreateJsonCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
+		CreateJsonCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, rootCommand);
 
 		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
 
@@ -252,18 +258,23 @@ internal static class CommandFactory
 		Option<LogLevel> logOption,
 		Option<string> outputFileOption,
 		Option<string> cookieContainerOption,
+		Option<int?> uploadThrottleOption,
 		RootCommand rootCommand)
 	{
 		var jsonCommand = new Command("json", "Json request");
 		jsonCommand.AddOption(bodyOptions);
 		jsonCommand.AddOption(uriOption);
+		jsonCommand.AddOption(uploadThrottleOption);
 		rootCommand.Add(jsonCommand);
-		jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body) =>
+		jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body, uploadThrottle) =>
 		{
 			writer ??= new WriterStrategy(outputBehavior);
 			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
 			var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
-			requestDetails = requestDetails with { Content = new StringContent(body) };
+			if (uploadThrottle.HasValue && uploadThrottle.Value > 0)
+				requestDetails = requestDetails with { Content = new UploadThrottledStringContent(body, uploadThrottle.Value, new Awaiter()) };
+			else
+				requestDetails = requestDetails with { Content = new StringContent(body) };
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);
 			await cookieContainer.SaveAsync();
@@ -278,7 +289,8 @@ internal static class CommandFactory
 		  timeoutOption,
 		  cookieContainerOption),
 		new OutputBehaviorBinder(logOption, outputFileOption),
-		bodyOptions);
+		bodyOptions,
+		uploadThrottleOption);
 	}
 
 	private static void CreateMeasureCommand(Abstractions.IConsole? console,

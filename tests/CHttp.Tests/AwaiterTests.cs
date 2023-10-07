@@ -10,7 +10,7 @@ public class AwaiterTests
 	{
 		var timeProvider = new FakeTimeProvider();
 		var sut = new Awaiter(timeProvider);
-		var waiting = sut.WaitAsync();
+		var waiting = sut.WaitAsync(TimeSpan.FromMilliseconds(50));
 		timeProvider.Advance(TimeSpan.FromMilliseconds(49));
 		Assert.False(waiting.IsCompleted);
 		timeProvider.Advance(TimeSpan.FromMilliseconds(1));

@@ -14,5 +14,5 @@ internal sealed class Awaiter : IAwaiter
 		_timeProvider = timeProvider ?? TimeProvider.System;
 	}
 
-	public Task WaitAsync() => Task.Delay(TimeSpan.FromMilliseconds(50), _timeProvider);
+	public Task WaitAsync(TimeSpan duration) => Task.Delay(duration, _timeProvider);
 }

@@ -1,7 +1,15 @@
 using System.CommandLine;
+using System.Diagnostics;
+using System.Net;
 using System.Text;
+using Azure.Core;
+using CHttp.Http;
 using CHttp.Writers;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Time.Testing;
+using Xunit.Abstractions;
 
 namespace CHttp.Tests;
 
@@ -124,5 +132,39 @@ public class CHttpFunctionalTests
 			.InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2");
 
 		Assert.False(cookieAttached);
+	}
+
+	[Fact]
+	public async Task ThrottledRequest_TestVanilaHttp2Request()
+	{
+		bool serverReadCompleted = false;
+		using var host = HttpServer.CreateHostBuilder(async context =>
+		{
+			await context.Request.BodyReader.AsStream().CopyToAsync(Stream.Null);
+			serverReadCompleted = true;
+			await context.Response.WriteAsync("response");
+		},
+		protocol: HttpProtocols.Http2,
+		configureKestrel: kestrelOptions =>
+		{
+			kestrelOptions.Limits.MinRequestBodyDataRate = new MinDataRate(1, TimeSpan.FromSeconds(20));
+		});
+		await host.StartAsync();
+
+		var console = new TestConsolePerWrite();
+		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
+
+		// 2 kbyte in UTF-8,should be 30 ms to complete with throttle speed of 1 kbyte/s
+		string largeValue = new string('1', 2000);
+		var client = CommandFactory.CreateRootCommand(writer).InvokeAsync($$"""json --method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --body {""test"":""{{largeValue}}""} --upload-throttle 1""");
+
+		// In 16 ms data is still being sent.
+		await Task.Delay(TimeSpan.FromMilliseconds(16));
+		Assert.False(serverReadCompleted);
+		await client;
+
+		await writer.CompleteAsync(CancellationToken.None);
+		Assert.True(serverReadCompleted);
+		Assert.Contains("100%       8 B", console.Text);
 	}
 }
