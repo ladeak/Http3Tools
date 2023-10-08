@@ -35,14 +35,14 @@ internal class PerformanceMeasureOrchestrator
 		_cts = new();
 	}
 
-	public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior)
+	public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
 	{
 		_startTimestamp = Stopwatch.GetTimestamp();
 		_progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
 		var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
 		INetEventListener readListener = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
 		for (int i = 0; i < _clientsCount; i++)
-			clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior));
+			clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior, token), token);
 		await Task.WhenAll(clientTasks);
 		await readListener.WaitUpdateAndStopAsync();
 		await CompleteProgressBarAsync();
@@ -63,7 +63,7 @@ internal class PerformanceMeasureOrchestrator
 			await _progressBarTask;
 	}
 
-	private async Task<IEnumerable<Summary>> RunClient(HttpRequestDetails requestDetails, HttpBehavior httpBehavior)
+	private async Task<IEnumerable<Summary>> RunClient(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
 	{
 		var writer = new SummaryWriter();
 		var client = new HttpMessageSender(writer, _cookieContainer, httpBehavior);
@@ -72,7 +72,7 @@ internal class PerformanceMeasureOrchestrator
 		await client.SendRequestAsync(requestDetails);
 
 		// Measured requests
-		while (Interlocked.Increment(ref _requestStarting) <= _requestCount)
+		while (Interlocked.Increment(ref _requestStarting) <= _requestCount && !token.IsCancellationRequested)
 		{
 			await client.SendRequestAsync(requestDetails);
 			var completed = Interlocked.Increment(ref _requestCompleted);
