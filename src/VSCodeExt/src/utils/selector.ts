@@ -244,7 +244,7 @@ export class Selector {
     }
 
     public static* getMarkdownRestSnippets(document: TextDocument): Generator<Range> {
-        const snippetStartRegx = new RegExp('^\`\`\`(' + ['http', 'rest'].join('|') + ')$');
+        const snippetStartRegx = new RegExp('^\`\`\`(' + ['chttp', 'rest'].join('|') + ')$');
         const snippetEndRegx = /^\`\`\`$/;
 
         let snippetStart: number | null = null;

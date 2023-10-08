@@ -20,7 +20,7 @@ export class HttpResponseTextDocumentView {
         if (true || this.documents.length === 0) {
             document = await workspace.openTextDocument({ language, content });
             this.documents.push(document);
-            await window.showTextDocument(document, { viewColumn: column, preserveFocus: true, preview: false });
+            await window.showTextDocument(document, { viewColumn: column, preserveFocus: true, preview: true });
         }
     }
 }

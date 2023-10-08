@@ -56,7 +56,7 @@ export class RequestController {
             performanceHttpRequest.content,
             performanceHttpRequest.requestCount,
             performanceHttpRequest.clientsCount,
-            (data:string) => this._requestStatusEntry.update(data));
+            (data:string) => this._requestStatusEntry.update(data, 'LaDeakCHttpVSCodeExt.cancelRequest'));
 
         try {
             const activeColumn = window.activeTextEditor!.viewColumn;

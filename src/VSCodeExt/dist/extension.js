@@ -51,7 +51,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.update(data));
+        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.update(data, 'LaDeakCHttpVSCodeExt.cancelRequest'));
         try {
             const activeColumn = vscode_1.window.activeTextEditor.viewColumn;
             const previewColumn = activeColumn == 1 ? (activeColumn + 1) : activeColumn;
@@ -125,10 +125,10 @@ class RequestStatusEntry {
     dispose() {
         this.currentStatusEntry.dispose();
     }
-    update(status) {
+    update(status, command) {
         if (status == null || status == "")
             this.currentStatusEntry.hide();
-        this.showStatusEntry(status);
+        this.showStatusEntry(status, command);
     }
     showStatusEntry(text, tooltip, command) {
         this.currentStatusEntry.text = text;
@@ -343,7 +343,7 @@ class Selector {
             .map(([index,]) => +index);
     }
     static *getMarkdownRestSnippets(document) {
-        const snippetStartRegx = new RegExp('^\`\`\`(' + ['http', 'rest'].join('|') + ')$');
+        const snippetStartRegx = new RegExp('^\`\`\`(' + ['chttp', 'rest'].join('|') + ')$');
         const snippetEndRegx = /^\`\`\`$/;
         let snippetStart = null;
         for (let i = 0; i < document.lineCount; i++) {
@@ -862,7 +862,7 @@ class HttpResponseTextDocumentView {
         if (true) {
             document = await vscode_1.workspace.openTextDocument({ language, content });
             this.documents.push(document);
-            await vscode_1.window.showTextDocument(document, { viewColumn: column, preserveFocus: true, preview: false });
+            await vscode_1.window.showTextDocument(document, { viewColumn: column, preserveFocus: true, preview: true });
         }
     }
 }

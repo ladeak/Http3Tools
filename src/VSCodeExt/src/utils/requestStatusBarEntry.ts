@@ -12,10 +12,10 @@ export class RequestStatusEntry {
         this.currentStatusEntry.dispose();
     }
 
-    public update(status: string) {
+    public update(status: string, command?: string) {
         if (status == null || status == "")
             this.currentStatusEntry.hide();
-        this.showStatusEntry(status);
+        this.showStatusEntry(status, command);
     }
 
     private showStatusEntry(text: string, tooltip?: string, command?: string) {

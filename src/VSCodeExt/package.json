@@ -1,7 +1,7 @@
 {
-  "name": "LaDeakCHttpVSCodeExt",
-  "displayName": "vsexttest",
-  "description": "",
+  "name": "LaDeak.CHttpVSCodeExt",
+  "displayName": "CHttp",
+  "description": "Performance Test HTTP client.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.83.0"
@@ -23,8 +23,7 @@
           "http"
         ],
         "extensions": [
-          ".http",
-          ".rest"
+          ".http"
         ],
         "firstLine": "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|LOCK|UNLOCK|PROPFIND|PROPPATCH|COPY|MOVE|MKCOL|MKCALENDAR|ACL|SEARCH)\\s+(.*?)HTTP/[0-9\\.]+$",
         "configuration": "./language-configuration.json"
@@ -41,6 +40,10 @@
       {
         "command": "LaDeakCHttpVSCodeExt.sendRequest",
         "title": "Send Request"
+      },
+      {
+        "command": "LaDeakCHttpVSCodeExt.cancelRequest",
+        "title": "Cancel Request"
       }
     ]
   },
