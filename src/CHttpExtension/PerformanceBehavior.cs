@@ -1,5 +1,8 @@
-﻿namespace CHttpExtension;
+﻿using Microsoft.JavaScript.NodeApi;
 
+namespace CHttpExtension;
+
+[JSExport]
 public class PerformanceBehavior
 {
 	public int RequestCount { get; set; }
