@@ -2,6 +2,8 @@
 using System.Net.Http.Headers;
 using System.Text;
 
+namespace CHttp;
+
 internal sealed class HttpMessageSender
 {
 	private readonly IWriter _writer;

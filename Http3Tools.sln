@@ -15,7 +15,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Tests", "tests\CHttp.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CHttp.Benchmarks", "tests\CHttp.Benchmarks\CHttp.Benchmarks.csproj", "{F05F3667-9DC6-45B5-A008-EA0528E86323}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestWebApplication.Tests", "tests\TestWebApplication.Tests\TestWebApplication.Tests.csproj", "{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestWebApplication.Tests", "tests\TestWebApplication.Tests\TestWebApplication.Tests.csproj", "{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttpExtension", "src\CHttpExtension\CHttpExtension.csproj", "{772FF08A-61F3-4C0B-9664-B4CF2C395597}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,10 @@ Global
 		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FD901B2-FACD-4A35-93EF-86B54F91FEE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{772FF08A-61F3-4C0B-9664-B4CF2C395597}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{772FF08A-61F3-4C0B-9664-B4CF2C395597}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{772FF08A-61F3-4C0B-9664-B4CF2C395597}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{772FF08A-61F3-4C0B-9664-B4CF2C395597}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

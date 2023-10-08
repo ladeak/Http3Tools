@@ -20,6 +20,5 @@ internal sealed class KeyValueBinder : Binder<IEnumerable<KeyValueDescriptor>>
         {
             yield return new KeyValueDescriptor(header);
         }
-
     }
 }

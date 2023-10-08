@@ -19,15 +19,20 @@ internal class VersionBinder : Binder<Version>
     }
 
     protected override Version GetBoundValue(BindingContext bindingContext)
-    {
-        var value = bindingContext.ParseResult.GetValueForOption(_option) ?? string.Empty;
-        return value switch
-        {
-            Version10 => HttpVersion.Version10,
-            Version11 => HttpVersion.Version11,
-            Version20 => HttpVersion.Version20,
-            Version30 => HttpVersion.Version30,
-            _ => throw new ArgumentException("Invalid version")
-        };
-    }
+	{
+		var value = bindingContext.ParseResult.GetValueForOption(_option) ?? string.Empty;
+		return Map(value);
+	}
+
+	internal static Version Map(string value)
+	{
+		return value switch
+		{
+			Version10 => HttpVersion.Version10,
+			Version11 => HttpVersion.Version11,
+			Version20 => HttpVersion.Version20,
+			Version30 => HttpVersion.Version30,
+			_ => throw new ArgumentException("Invalid version")
+		};
+	}
 }

@@ -1,4 +1,6 @@
-﻿internal record HttpBehavior(
+﻿namespace CHttp;
+
+internal record HttpBehavior(
 	bool EnableRedirects, 
 	bool EnableCertificateValidation, 
 	double Timeout,
