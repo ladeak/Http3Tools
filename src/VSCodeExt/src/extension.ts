@@ -5,11 +5,11 @@ import { HttpCodeLensProvider } from './providers/httpCodeLensProvider'
 export function activate(context: vscode.ExtensionContext) {
 
     const requestController = new RequestController(context);
-	let sendRequest = vscode.commands.registerCommand('LaDeakCHttpVSCodeExt.sendRequest', ((document: TextDocument, range: Range) => requestController.run(range)));
-	let cancelRequest = vscode.commands.registerCommand('LaDeakCHttpVSCodeExt.cancelRequest', ((document: TextDocument, range: Range) => 
+	let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document: TextDocument, range: Range) => requestController.run(range)));
+	let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document: TextDocument, range: Range) => 
 	{
 		requestController._requestStatusEntry.update("Canceling...");
-		const CHttpModule = require('../bin/CHttpExtension.node');
+		const CHttpModule = require('./bin/CHttpExtension.node');
         CHttpModule.CHttpExt.cancel();
 	}));
 

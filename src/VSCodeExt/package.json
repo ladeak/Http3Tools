@@ -1,5 +1,5 @@
 {
-  "name": "LaDeak.CHttpVSCodeExt",
+  "name": "LaDeak-CHttp",
   "displayName": "CHttp",
   "description": "Performance Test HTTP client.",
   "version": "0.0.1",
@@ -38,11 +38,11 @@
     ],
     "commands": [
       {
-        "command": "LaDeakCHttpVSCodeExt.sendRequest",
+        "command": "LaDeak-CHttp.sendRequest",
         "title": "Send Request"
       },
       {
-        "command": "LaDeakCHttpVSCodeExt.cancelRequest",
+        "command": "LaDeak-CHttp.cancelRequest",
         "title": "Cancel Request"
       }
     ]

@@ -51,7 +51,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.update(data, 'LaDeakCHttpVSCodeExt.cancelRequest'));
+        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.update(data, 'LaDeak-CHttp.cancelRequest'));
         try {
             const activeColumn = vscode_1.window.activeTextEditor.viewColumn;
             const previewColumn = activeColumn == 1 ? (activeColumn + 1) : activeColumn;
@@ -1490,7 +1490,7 @@ class HttpCodeLensProvider {
             const cmd = {
                 arguments: [document, range],
                 title: 'Send Request',
-                command: 'LaDeakCHttpVSCodeExt.sendRequest'
+                command: 'LaDeak-CHttp.sendRequest'
             };
             blocks.push(new vscode_1.CodeLens(range, cmd));
         }
@@ -1560,10 +1560,10 @@ const requestController_1 = __webpack_require__(2);
 const httpCodeLensProvider_1 = __webpack_require__(24);
 function activate(context) {
     const requestController = new requestController_1.RequestController(context);
-    let sendRequest = vscode.commands.registerCommand('LaDeakCHttpVSCodeExt.sendRequest', ((document, range) => requestController.run(range)));
-    let cancelRequest = vscode.commands.registerCommand('LaDeakCHttpVSCodeExt.cancelRequest', ((document, range) => {
+    let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
+    let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
         requestController._requestStatusEntry.update("Canceling...");
-        const CHttpModule = __webpack_require__(Object(function webpackMissingModule() { var e = new Error("Cannot find module '../bin/CHttpExtension.node'"); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
+        const CHttpModule = __webpack_require__(23);
         CHttpModule.CHttpExt.cancel();
     }));
     const documentSelector = [
