@@ -1,4 +1,4 @@
-import { ExtensionContext, Range, TextDocument, ViewColumn, window } from 'vscode';
+import { ExtensionContext, Range, TextDocument, ViewColumn, commands, window } from 'vscode';
 import { RequestMetadata } from '../models/requestMetadata';
 import { RequestStatusEntry } from '../utils/requestStatusBarEntry';
 import { Selector } from '../utils/selector';
@@ -16,7 +16,7 @@ export class RequestController {
     }
 
     public async run(range: Range) {
-        this._requestStatusEntry.update("Pending");
+        this._requestStatusEntry.updateStatus("Working...", 'LaDeak-CHttp.cancelRequest');
 
         const editor = window.activeTextEditor;
         const document = getCurrentTextDocument();
@@ -46,7 +46,9 @@ export class RequestController {
 
         const CHttpModule = require('../bin/CHttpExtension.node');
 
-        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects,
+        var response = await CHttpModule.CHttpExt.runAsync(
+            null,
+            performanceHttpRequest.enableRedirects,
             performanceHttpRequest.enableCertificateValidation,
             performanceHttpRequest.timeout,
             performanceHttpRequest.method,
@@ -56,14 +58,14 @@ export class RequestController {
             performanceHttpRequest.content,
             performanceHttpRequest.requestCount,
             performanceHttpRequest.clientsCount,
-            (data:string) => this._requestStatusEntry.update(data, 'LaDeak-CHttp.cancelRequest'));
-
+            (data: string) => this._requestStatusEntry.updateProgress(data));
+        if (response == "" || response == "Cancelled")
+            return;
         try {
-            const activeColumn = window.activeTextEditor!.viewColumn;
-            const previewColumn = activeColumn == 1 ? ((activeColumn as number) + 1) as ViewColumn : activeColumn;
-            this._textDocumentView.render(response, previewColumn);
+            this._textDocumentView.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
         } catch (reason) {
-            this._requestStatusEntry.update("Error");
+            this._requestStatusEntry.updateStatus("Error");
             window.showErrorMessage("Failed to render response");
         }
     }

@@ -9,9 +9,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onLanguage:http"
-  ],
+  "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -39,11 +37,13 @@
     "commands": [
       {
         "command": "LaDeak-CHttp.sendRequest",
-        "title": "Send Request"
+        "title": "Send Request",
+        "category": "CHttp"
       },
       {
         "command": "LaDeak-CHttp.cancelRequest",
-        "title": "Cancel Request"
+        "title": "Cancel Request",
+        "category": "CHttp"
       }
     ]
   },

@@ -28,7 +28,7 @@ class RequestController {
         this._textDocumentView = new httpResponseTextDocumentView_1.HttpResponseTextDocumentView();
     }
     async run(range) {
-        this._requestStatusEntry.update("Pending");
+        this._requestStatusEntry.updateStatus("Working...", 'LaDeak-CHttp.cancelRequest');
         const editor = vscode_1.window.activeTextEditor;
         const document = (0, workspaceUtility_1.getCurrentTextDocument)();
         if (!editor || !document) {
@@ -51,14 +51,15 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.run(performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.update(data, 'LaDeak-CHttp.cancelRequest'));
+        var response = await CHttpModule.CHttpExt.runAsync(null, performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.updateProgress(data));
+        if (response == "" || response == "Cancelled")
+            return;
         try {
-            const activeColumn = vscode_1.window.activeTextEditor.viewColumn;
-            const previewColumn = activeColumn == 1 ? (activeColumn + 1) : activeColumn;
-            this._textDocumentView.render(response, previewColumn);
+            this._textDocumentView.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
         }
         catch (reason) {
-            this._requestStatusEntry.update("Error");
+            this._requestStatusEntry.updateStatus("Error");
             vscode_1.window.showErrorMessage("Failed to render response");
         }
     }
@@ -121,20 +122,29 @@ class RequestStatusEntry {
     constructor() {
         this.currentStatusEntry = vscode_1.window.createStatusBarItem('status', vscode_1.StatusBarAlignment.Left);
         this.currentStatusEntry.name = 'Current State';
+        this.currentProgressEntry = vscode_1.window.createStatusBarItem('progress', vscode_1.StatusBarAlignment.Left);
+        this.currentProgressEntry.name = 'Progress';
     }
     dispose() {
         this.currentStatusEntry.dispose();
     }
-    update(status, command) {
+    updateStatus(status, command) {
         if (status == null || status == "")
             this.currentStatusEntry.hide();
-        this.showStatusEntry(status, command);
+        if (status == "Completed" || status == "Error")
+            this.currentProgressEntry.hide();
+        this.showStatusEntry(this.currentStatusEntry, status, command);
     }
-    showStatusEntry(text, tooltip, command) {
-        this.currentStatusEntry.text = text;
-        this.currentStatusEntry.tooltip = tooltip;
-        this.currentStatusEntry.command = command;
-        this.currentStatusEntry.show();
+    updateProgress(progress) {
+        if (progress == null || progress == "")
+            this.currentProgressEntry.hide();
+        this.showStatusEntry(this.currentProgressEntry, progress);
+    }
+    showStatusEntry(statusBar, text, command) {
+        statusBar.text = text;
+        statusBar.tooltip = command;
+        statusBar.command = command;
+        statusBar.show();
     }
 }
 exports.RequestStatusEntry = RequestStatusEntry;
@@ -846,24 +856,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.HttpResponseTextDocumentView = void 0;
 const vscode_1 = __webpack_require__(1);
 class HttpResponseTextDocumentView {
-    constructor() {
-        this.documents = [];
-        vscode_1.workspace.onDidCloseTextDocument(e => {
-            const index = this.documents.indexOf(e);
-            if (index !== -1) {
-                this.documents.splice(index, 1);
-            }
-        });
-    }
-    async render(response, column) {
+    async render(response) {
         const content = response;
         const language = 'markdown';
         let document;
-        if (true) {
-            document = await vscode_1.workspace.openTextDocument({ language, content });
-            this.documents.push(document);
-            await vscode_1.window.showTextDocument(document, { viewColumn: column, preserveFocus: true, preview: true });
-        }
+        document = await vscode_1.workspace.openTextDocument({ language, content });
+        await vscode_1.window.showTextDocument(document, { viewColumn: vscode_1.ViewColumn.Beside, preserveFocus: true, preview: true });
     }
 }
 exports.HttpResponseTextDocumentView = HttpResponseTextDocumentView;
@@ -1463,7 +1461,7 @@ exports.parseRequestHeaders = parseRequestHeaders;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "52e88027876513f5e30fff0ba9fe4f24.node");
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "267d9346ea98c62db32ee6f60a0c9cdd.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
@@ -1562,7 +1560,7 @@ function activate(context) {
     const requestController = new requestController_1.RequestController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
-        requestController._requestStatusEntry.update("Canceling...");
+        requestController._requestStatusEntry.updateStatus("Canceling...");
         const CHttpModule = __webpack_require__(23);
         CHttpModule.CHttpExt.cancel();
     }));

@@ -2,26 +2,37 @@ import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
 
 export class RequestStatusEntry {
     private readonly currentStatusEntry: StatusBarItem;
+    private readonly currentProgressEntry: StatusBarItem;
 
     public constructor() {
         this.currentStatusEntry = window.createStatusBarItem('status', StatusBarAlignment.Left);
         this.currentStatusEntry.name = 'Current State';
+        this.currentProgressEntry = window.createStatusBarItem('progress', StatusBarAlignment.Left);
+        this.currentProgressEntry.name = 'Progress';
     }
 
     public dispose() {
         this.currentStatusEntry.dispose();
     }
 
-    public update(status: string, command?: string) {
+    public updateStatus(status: string, command?: string) {
         if (status == null || status == "")
             this.currentStatusEntry.hide();
-        this.showStatusEntry(status, command);
+            if (status == "Completed" || status == "Error")
+            this.currentProgressEntry.hide();
+        this.showStatusEntry(this.currentStatusEntry, status, command);
     }
 
-    private showStatusEntry(text: string, tooltip?: string, command?: string) {
-        this.currentStatusEntry.text = text;
-        this.currentStatusEntry.tooltip = tooltip;
-        this.currentStatusEntry.command = command;
-        this.currentStatusEntry.show();
+    public updateProgress(progress: string) {
+        if (progress == null || progress == "")
+            this.currentProgressEntry.hide();
+        this.showStatusEntry(this.currentProgressEntry, progress);
+    }
+
+    private showStatusEntry(statusBar: StatusBarItem, text: string, command?: string) {
+        statusBar.text = text;
+        statusBar.tooltip = command;
+        statusBar.command = command;
+        statusBar.show();
     }
 }
