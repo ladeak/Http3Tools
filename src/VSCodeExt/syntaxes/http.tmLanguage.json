@@ -1,10 +1,10 @@
 {
-  "scopeName": "source.http",
+  "scopeName": "source.chttp",
   "fileTypes": [
-    "http"
+    "chttp"
   ],
-  "keyEquivalent": "^~H",
-  "name": "http",
+  "keyEquivalent": "^~C",
+  "name": "chttp",
   "patterns": [
     {
       "begin": "^\\s*(?=curl)",

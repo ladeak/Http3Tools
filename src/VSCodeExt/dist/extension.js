@@ -51,7 +51,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.runAsync(null, performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.updateProgress(data));
+        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.updateProgress(data));
         if (response == "" || response == "Cancelled")
             return;
         try {
@@ -193,7 +193,7 @@ class Selector {
         // convert request text into lines
         const lines = selectedText.split(Constants.LineSplitterRegex);
         // parse request metadata
-        const metadatas = this.parseReqMetadatas(lines);
+        const metadatas = await this.parseReqMetadatas(lines);
         // process #@prompt comment metadata
         const promptVariablesDefinitions = this.parsePromptMetadataForVariableDefinitions(metadatas.get(requestMetadata_1.RequestMetadata.Prompt));
         const promptVariables = await this.promptForInput(promptVariablesDefinitions);
@@ -214,7 +214,7 @@ class Selector {
             metadatas: metadatas
         };
     }
-    static parseReqMetadatas(lines) {
+    static async parseReqMetadatas(lines) {
         const metadatas = new Map();
         for (const line of lines) {
             if (this.isEmptyLine(line) || this.isFileVariableDefinitionLine(line)) {
@@ -237,7 +237,8 @@ class Selector {
                     this.handlePromptMetadata(metadatas, line);
                 }
                 else {
-                    metadatas.set(metadata, metaValue || undefined);
+                    var substitutedMetaValue = await variableProcessor_1.VariableProcessor.processRawRequest(metaValue);
+                    metadatas.set(metadata, substitutedMetaValue || undefined);
                 }
             }
         }
@@ -1565,7 +1566,7 @@ function activate(context) {
         CHttpModule.CHttpExt.cancel();
     }));
     const documentSelector = [
-        { language: 'http', scheme: '*' }
+        { language: 'chttp', scheme: '*' }
     ];
     context.subscriptions.push(vscode_1.languages.registerCodeLensProvider(documentSelector, new httpCodeLensProvider_1.HttpCodeLensProvider()));
     context.subscriptions.push(sendRequest);

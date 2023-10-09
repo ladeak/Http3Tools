@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	const documentSelector = [
-        { language: 'http', scheme: '*' }
+        { language: 'chttp', scheme: '*' }
     ];
 
 	context.subscriptions.push(languages.registerCodeLensProvider(documentSelector, new HttpCodeLensProvider()));

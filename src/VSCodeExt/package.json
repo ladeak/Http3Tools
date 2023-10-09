@@ -1,5 +1,5 @@
 {
-  "name": "LaDeak-CHttp",
+  "name": "ladeak.chttp",
   "displayName": "CHttp",
   "description": "Performance Test HTTP client.",
   "version": "0.0.1",
@@ -14,14 +14,14 @@
   "contributes": {
     "languages": [
       {
-        "id": "http",
+        "id": "chttp",
         "aliases": [
-          "HTTP",
-          "Http",
-          "http"
+          "CHTTP",
+          "CHttp",
+          "chttp"
         ],
         "extensions": [
-          ".http"
+          ".chttp"
         ],
         "firstLine": "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|LOCK|UNLOCK|PROPFIND|PROPPATCH|COPY|MOVE|MKCOL|MKCALENDAR|ACL|SEARCH)\\s+(.*?)HTTP/[0-9\\.]+$",
         "configuration": "./language-configuration.json"
@@ -29,8 +29,8 @@
     ],
     "grammars": [
       {
-        "language": "http",
-        "scopeName": "source.http",
+        "language": "chttp",
+        "scopeName": "source.chttp",
         "path": "./syntaxes/http.tmLanguage.json"
       }
     ],
@@ -43,6 +43,11 @@
       {
         "command": "LaDeak-CHttp.cancelRequest",
         "title": "Cancel Request",
+        "category": "CHttp"
+      },
+      {
+        "command": "LaDeak-CHttp.diff",
+        "title": "CHttp Diff",
         "category": "CHttp"
       }
     ]

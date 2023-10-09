@@ -53,7 +53,7 @@ export class Selector {
         const lines = selectedText.split(Constants.LineSplitterRegex);
 
         // parse request metadata
-        const metadatas = this.parseReqMetadatas(lines);
+        const metadatas = await this.parseReqMetadatas(lines);
 
         // process #@prompt comment metadata
         const promptVariablesDefinitions = this.parsePromptMetadataForVariableDefinitions(metadatas.get(RequestMetadata.Prompt));
@@ -80,7 +80,7 @@ export class Selector {
         };
     }
 
-    public static parseReqMetadatas(lines: string[]): Map<RequestMetadata, string | undefined> {
+    public static async parseReqMetadatas(lines: string[]): Promise<Map<RequestMetadata, string | undefined>> {
         const metadatas = new Map<RequestMetadata, string | undefined>();
         for (const line of lines) {
             if (this.isEmptyLine(line) || this.isFileVariableDefinitionLine(line)) {
@@ -105,7 +105,8 @@ export class Selector {
                 if (metadata === RequestMetadata.Prompt) {
                     this.handlePromptMetadata(metadatas, line);
                 } else {
-                    metadatas.set(metadata, metaValue || undefined);
+                    var substitutedMetaValue = await VariableProcessor.processRawRequest(metaValue);
+                    metadatas.set(metadata, substitutedMetaValue || undefined);
                 }
             }
         }

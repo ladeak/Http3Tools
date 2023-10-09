@@ -1,2 +1,12 @@
 ### Test
-GET https://localhost:5001/long
+@path = /
+@baseUrl = localhost:5001
+@custom = hello
+###
+
+# @name {{custom}}
+GET https://{{baseUrl}}{{path}}
+
+###
+# @name basePerformance
+GET https://{{baseUrl}}{{path}}

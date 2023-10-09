@@ -47,7 +47,7 @@ export class RequestController {
         const CHttpModule = require('../bin/CHttpExtension.node');
 
         var response = await CHttpModule.CHttpExt.runAsync(
-            null,
+            name ? name : null,
             performanceHttpRequest.enableRedirects,
             performanceHttpRequest.enableCertificateValidation,
             performanceHttpRequest.timeout,
