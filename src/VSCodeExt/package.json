@@ -64,7 +64,7 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "vsce-deploy": "vsce publish"
+    "vsce-deploy": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.2",
