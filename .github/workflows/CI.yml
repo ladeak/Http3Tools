@@ -35,7 +35,7 @@ jobs:
       run: dotnet test Http3Tools.sln --configuration ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
-        pushd /src/VSCodeExt/
+        pushd ./src/VSCodeExt/
         npm install
         vsce package ${VERSION}
         popd

@@ -57,7 +57,7 @@ jobs:
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
     - name: Publish VSCE
       run: |
-        pushd /src/VSCodeExt/
+        pushd ./src/VSCodeExt/
         npm install
         vsce package ${VERSION}
         popd
