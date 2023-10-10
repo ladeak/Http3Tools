@@ -37,6 +37,5 @@ jobs:
       run: |
         pushd ./src/VSCodeExt/
         npm install
-        npm install @vscode/vsce --save-dev
-        vsce package ${VERSION}
+        vsce-deploy ${VERSION}
         popd
