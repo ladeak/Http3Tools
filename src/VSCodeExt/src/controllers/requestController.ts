@@ -44,7 +44,7 @@ export class RequestController {
         var parser = new HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
 
-        const CHttpModule = require('../bin/CHttpExtension.node');
+        const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
 
         var response = await CHttpModule.CHttpExt.runAsync(
             name ? name : null,

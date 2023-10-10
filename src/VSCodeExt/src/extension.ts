@@ -9,7 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 	let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document: TextDocument, range: Range) => 
 	{
 		requestController._requestStatusEntry.updateStatus("Canceling...");
-		const CHttpModule = require('./bin/CHttpExtension.node');
+		const CHttpModule = require('./chttp-win-x86/CHttpExtension.node');
         CHttpModule.CHttpExt.cancel();
 	}));
 
