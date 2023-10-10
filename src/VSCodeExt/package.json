@@ -1,8 +1,9 @@
 {
-  "name": "ladeak.chttp",
+  "name": "ladeak-chttp",
   "displayName": "CHttp",
   "description": "Performance Test HTTP client.",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "repository": "https://github.com/ladeak/Http3Tools",
   "engines": {
     "vscode": "^1.83.0"
   },
@@ -70,6 +71,7 @@
     "@typescript-eslint/eslint-plugin": "^6.7.3",
     "@typescript-eslint/parser": "^6.7.3",
     "@vscode/test-electron": "^2.3.4",
+    "@vscode/vsce": "^2.21.1",
     "eslint": "^8.50.0",
     "glob": "^10.3.3",
     "mocha": "^10.2.0",
