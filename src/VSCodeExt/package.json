@@ -4,6 +4,7 @@
   "description": "Performance Test HTTP client.",
   "version": "1.0.0",
   "repository": "https://github.com/ladeak/Http3Tools",
+  "publisher": "ladeak",
   "engines": {
     "vscode": "^1.83.0"
   },
