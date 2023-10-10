@@ -20,6 +20,10 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16.x
     - name: Install Package libmsquic
       run: |
         sudo apt update
@@ -29,14 +33,6 @@ jobs:
       run: dotnet build Http3Tools.sln --configuration ${{ env.CONFIGURATION }}
     - name: Test
       run: dotnet test Http3Tools.sln --configuration ${{ env.CONFIGURATION }}
-    - name: Build CHttpExtensions
-      run: | 
-        dotnet publish src/CHttpExtension --configuration ${{ env.CONFIGURATION }} -r win-x64
-        cp -r src/CHttpExtension/bin/${{ env.CONFIGURATION }}/win-x64/publish/ src/VSCodeExt/src/bin/
-    - name: Install Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16.x
     - name: Publish VSCE
       run: |
         pushd /src/VSCodeExt/
