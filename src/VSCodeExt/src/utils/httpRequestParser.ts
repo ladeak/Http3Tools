@@ -13,16 +13,12 @@ enum ParseState {
 
 export class PerformanceBehavior {
     public constructor(
-    public enableRedirects: boolean,
-    public enableCertificateValidation: boolean,
-    public timeout: number,
-    public method: string,
-    public uri: string,
-    public version: string,
-    public headers: Iterable<string>,
-    public content: string,
-    public requestCount: number,
-    public clientsCount: number) { }
+        public timeout: number,
+        public method: string,
+        public uri: string,
+        public version: string,
+        public headers: Iterable<string>,
+        public content: string) { }
 }
 
 export class HttpRequestParser {
@@ -92,16 +88,17 @@ export class HttpRequestParser {
             requestLine.url = `${scheme}://${host}${requestLine.url}`;
         }
 
-        return new PerformanceBehavior(false, false, 10, requestLine.method, requestLine.url, '2', headersLines, bodyLines.join(EOL), 100, 10);
+        return new PerformanceBehavior(10, requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(EOL));
     }
 
-    private parseRequestLine(line: string): { method: string, url: string } {
+    private parseRequestLine(line: string): { method: string, url: string, httpVersion: string } {
         // Request-Line = Method SP Request-URI SP HTTP-Version CRLF
         let method: string;
         let url: string;
+        let httpVersion: string = '2';
 
         let match: RegExpExecArray | null;
-        if (match = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|LOCK|UNLOCK|PROPFIND|PROPPATCH|COPY|MOVE|MKCOL|MKCALENDAR|ACL|SEARCH)\s+/i.exec(line)) {
+        if (match = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE)\s+/i.exec(line)) {
             method = match[1];
             url = line.substr(match[0].length);
         } else {
@@ -113,10 +110,12 @@ export class HttpRequestParser {
         url = url.trim();
 
         if (match = /\s+HTTP\/.*$/i.exec(url)) {
+            if (url.length > match.index + 6)
+                httpVersion = url.substr(match.index + 6, url.length - match.index - 6)
             url = url.substr(0, match.index);
         }
 
-        return { method, url };
+        return { method, url, httpVersion };
     }
 
     private async parseBody(lines: string[], contentTypeHeader: string | undefined): Promise<string | Stream | undefined> {

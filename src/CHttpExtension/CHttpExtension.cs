@@ -1,4 +1,5 @@
-﻿using CHttp;
+﻿using System.Net;
+using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -71,6 +72,7 @@ public static class CHttpExt
 			new Uri(uri, UriKind.Absolute),
 			VersionBinder.Map(version),
 			parsedHeaders);
+
 		var performanceBehavior = new PerformanceBehavior(requestCount, clientsCount);
 		var console = new StringConsole();
 		var cookieContainer = new MemoryCookieContainer();

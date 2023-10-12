@@ -51,7 +51,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, performanceHttpRequest.enableRedirects, performanceHttpRequest.enableCertificateValidation, performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, performanceHttpRequest.requestCount, performanceHttpRequest.clientsCount, (data) => this._requestStatusEntry.updateProgress(data));
+        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => this._requestStatusEntry.updateProgress(data));
         if (response == "" || response == "Cancelled")
             return;
         try {
@@ -61,6 +61,18 @@ class RequestController {
         catch (reason) {
             this._requestStatusEntry.updateStatus("Error");
             vscode_1.window.showErrorMessage("Failed to render response");
+        }
+    }
+    tryParseInt(str, defaultValue) {
+        if (str == undefined) {
+            return defaultValue;
+        }
+        let num = parseInt(str);
+        if (isNaN(num)) {
+            return defaultValue;
+        }
+        else {
+            return num;
         }
     }
     dispose() {
@@ -80,26 +92,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.fromString = exports.RequestMetadata = void 0;
 var RequestMetadata;
 (function (RequestMetadata) {
-    /**
-     * Represents a request name and used to indicate that the request is a named request
-     */
     RequestMetadata["Name"] = "name";
-    /**
-     * Used for request confirmation, especially for critical request
-     */
     RequestMetadata["Note"] = "note";
-    /**
-     * Represents don't follow the 3XX response as redirects
-     */
     RequestMetadata["NoRedirect"] = "no-redirect";
-    /**
-     * Represents the cookie jar is disabled for this request
-     */
-    RequestMetadata["NoCookieJar"] = "no-cookie-jar";
-    /**
-     * Used to allow user to interactively input variables for this request
-     */
     RequestMetadata["Prompt"] = "prompt";
+    RequestMetadata["ClientsCount"] = "clientscount";
+    RequestMetadata["RequestCount"] = "requestcount";
+    RequestMetadata["NoCertificateValidation"] = "no-certificate-validation";
 })(RequestMetadata || (exports.RequestMetadata = RequestMetadata = {}));
 function fromString(value) {
     value = value.toLowerCase();
@@ -857,12 +856,32 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.HttpResponseTextDocumentView = void 0;
 const vscode_1 = __webpack_require__(1);
 class HttpResponseTextDocumentView {
+    constructor() {
+        this.doc = undefined;
+        vscode_1.workspace.onDidCloseTextDocument(e => {
+            if (e == this.doc) {
+                this.doc = undefined;
+            }
+        });
+    }
     async render(response) {
         const content = response;
         const language = 'markdown';
         let document;
-        document = await vscode_1.workspace.openTextDocument({ language, content });
-        await vscode_1.window.showTextDocument(document, { viewColumn: vscode_1.ViewColumn.Beside, preserveFocus: true, preview: true });
+        if (this.doc == undefined) {
+            document = await vscode_1.workspace.openTextDocument({ language, content });
+            this.doc = document;
+            await vscode_1.window.showTextDocument(document, { viewColumn: vscode_1.ViewColumn.Beside, preserveFocus: true, preview: true });
+        }
+        else {
+            document = this.doc;
+            const editor = await vscode_1.window.showTextDocument(this.doc, { viewColumn: vscode_1.ViewColumn.Beside, preserveFocus: true, preview: true });
+            editor.edit(edit => {
+                const startPosition = new vscode_1.Position(0, 0);
+                const endPosition = document.lineAt(document.lineCount - 1).range.end;
+                edit.replace(new vscode_1.Range(startPosition, endPosition), content);
+            });
+        }
     }
 }
 exports.HttpResponseTextDocumentView = HttpResponseTextDocumentView;
@@ -887,17 +906,13 @@ var ParseState;
     ParseState[ParseState["Body"] = 2] = "Body";
 })(ParseState || (ParseState = {}));
 class PerformanceBehavior {
-    constructor(enableRedirects, enableCertificateValidation, timeout, method, uri, version, headers, content, requestCount, clientsCount) {
-        this.enableRedirects = enableRedirects;
-        this.enableCertificateValidation = enableCertificateValidation;
+    constructor(timeout, method, uri, version, headers, content) {
         this.timeout = timeout;
         this.method = method;
         this.uri = uri;
         this.version = version;
         this.headers = headers;
         this.content = content;
-        this.requestCount = requestCount;
-        this.clientsCount = clientsCount;
     }
 }
 exports.PerformanceBehavior = PerformanceBehavior;
@@ -963,14 +978,15 @@ class HttpRequestParser {
             const scheme = port === '443' || port === '8443' ? 'https' : 'http';
             requestLine.url = `${scheme}://${host}${requestLine.url}`;
         }
-        return new PerformanceBehavior(false, false, 10, requestLine.method, requestLine.url, '2', headersLines, bodyLines.join(os_1.EOL), 100, 10);
+        return new PerformanceBehavior(10, requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(os_1.EOL));
     }
     parseRequestLine(line) {
         // Request-Line = Method SP Request-URI SP HTTP-Version CRLF
         let method;
         let url;
+        let httpVersion = '2';
         let match;
-        if (match = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|LOCK|UNLOCK|PROPFIND|PROPPATCH|COPY|MOVE|MKCOL|MKCALENDAR|ACL|SEARCH)\s+/i.exec(line)) {
+        if (match = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE)\s+/i.exec(line)) {
             method = match[1];
             url = line.substr(match[0].length);
         }
@@ -981,9 +997,11 @@ class HttpRequestParser {
         }
         url = url.trim();
         if (match = /\s+HTTP\/.*$/i.exec(url)) {
+            if (url.length > match.index + 6)
+                httpVersion = url.substr(match.index + 6, url.length - match.index - 6);
             url = url.substr(0, match.index);
         }
-        return { method, url };
+        return { method, url, httpVersion };
     }
     async parseBody(lines, contentTypeHeader) {
         if (lines.length === 0) {

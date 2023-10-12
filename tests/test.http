@@ -1,12 +1,14 @@
 ### Test
-@path = /
+@path = /delay
 @baseUrl = localhost:5001
 @custom = hello
 ###
 
 # @name {{custom}}
-GET https://{{baseUrl}}{{path}}
+# @clientsCount 10
+# @requestCount 100
+GET https://{{baseUrl}}{{path}} HTTP/2
 
 ###
-# @name basePerformance
+# @name basePerformance 
 GET https://{{baseUrl}}{{path}}

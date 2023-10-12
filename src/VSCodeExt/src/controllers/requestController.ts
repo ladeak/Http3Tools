@@ -48,16 +48,16 @@ export class RequestController {
 
         var response = await CHttpModule.CHttpExt.runAsync(
             name ? name : null,
-            performanceHttpRequest.enableRedirects,
-            performanceHttpRequest.enableCertificateValidation,
+            !metadatas.has(RequestMetadata.NoRedirect),
+            !metadatas.has(RequestMetadata.NoCertificateValidation),
             performanceHttpRequest.timeout,
             performanceHttpRequest.method,
             performanceHttpRequest.uri,
             performanceHttpRequest.version,
             performanceHttpRequest.headers,
             performanceHttpRequest.content,
-            performanceHttpRequest.requestCount,
-            performanceHttpRequest.clientsCount,
+            this.tryParseInt(metadatas.get(RequestMetadata.RequestCount), 100),
+            this.tryParseInt(metadatas.get(RequestMetadata.ClientsCount), 10),
             (data: string) => this._requestStatusEntry.updateProgress(data));
         if (response == "" || response == "Cancelled")
             return;
@@ -67,6 +67,19 @@ export class RequestController {
         } catch (reason) {
             this._requestStatusEntry.updateStatus("Error");
             window.showErrorMessage("Failed to render response");
+        }
+    }
+
+    public tryParseInt(str: string | undefined, defaultValue: number): number {
+        if(str == undefined)
+        {
+            return defaultValue;
+        }
+        let num = parseInt(str);
+        if (isNaN(num)) {
+            return defaultValue;
+        } else {
+            return num;
         }
     }
 
