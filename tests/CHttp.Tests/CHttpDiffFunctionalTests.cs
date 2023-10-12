@@ -10,7 +10,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingSingleFile()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session = new()
         {
             TotalBytesRead = 100,
@@ -54,7 +54,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingNoFile()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem).InvokeAsync($"diff")
             .WaitAsync(TimeSpan.FromSeconds(10));
@@ -66,7 +66,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingMultipleEqualFile()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session = new()
         {
             TotalBytesRead = 100,
@@ -95,7 +95,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingMultipleDifferentFile()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session0 = new()
         {
             TotalBytesRead = 100,
@@ -133,7 +133,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingDifferentEndpoints_ShowsWarnings()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session0 = new()
         {
             TotalBytesRead = 100,
@@ -160,7 +160,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingDifferent_RequestCount_ShowsWarnings()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session0 = new()
         {
             TotalBytesRead = 100,
@@ -190,7 +190,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingDifferent_ClientCount_ShowsWarnings()
     {
         var console = new TestConsoleAsOuput();
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         PerformanceMeasurementResults session0 = new()
         {
             TotalBytesRead = 100,
@@ -224,7 +224,7 @@ public class CHttpDiffFunctionalTests
     public async Task DisplayingMultipleHistogram()
     {
         var console = new TestConsoleAsOuput(windowWidth: 40);
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         var summaries0 = new List<Summary>();
         for (int i = 0; i < 100; i++)
             summaries0.Add(new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromMilliseconds(i)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 });

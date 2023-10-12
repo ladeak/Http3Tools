@@ -1,5 +1,4 @@
-﻿using System.Net;
-using CHttp;
+﻿using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -72,6 +71,8 @@ public static class CHttpExt
 			new Uri(uri, UriKind.Absolute),
 			VersionBinder.Map(version),
 			parsedHeaders);
+		if (!string.IsNullOrWhiteSpace(version))
+			requestDetails = requestDetails with { Content = new StringContent(content) };
 
 		var performanceBehavior = new PerformanceBehavior(requestCount, clientsCount);
 		var console = new StringConsole();

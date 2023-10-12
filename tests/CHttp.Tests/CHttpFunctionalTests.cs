@@ -1,15 +1,9 @@
 using System.CommandLine;
-using System.Diagnostics;
-using System.Net;
 using System.Text;
-using Azure.Core;
-using CHttp.Http;
+using CHttp.Abstractions;
 using CHttp.Writers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Time.Testing;
-using Xunit.Abstractions;
 
 namespace CHttp.Tests;
 
@@ -97,16 +91,16 @@ public class CHttpFunctionalTests
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
-		var testFileSystem = new TestFileSystem();
+		var MemoryFileSystem = new Abstractions.MemoryFileSystem();
 
-		var client = await CommandFactory.CreateRootCommand(writer, fileSystem: testFileSystem)
+		var client = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
 			.InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json");
 
-		var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: testFileSystem)
+		var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
 			.InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json");
 
 		Assert.True(cookieAttached);
-		Assert.True(testFileSystem.Exists("cookies.json"));
+		Assert.True(MemoryFileSystem.Exists("cookies.json"));
 	}
 
 	[Fact]
@@ -123,12 +117,12 @@ public class CHttpFunctionalTests
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
-		var testFileSystem = new TestFileSystem();
+		var memoryFileSystem = new MemoryFileSystem();
 
-		var client = await CommandFactory.CreateRootCommand(writer, fileSystem: testFileSystem)
+		var client = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
 			.InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2");
 
-		var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: testFileSystem)
+		var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
 			.InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2");
 
 		Assert.False(cookieAttached);

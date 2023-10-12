@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
-using CHttp.Abstractions;
 
-namespace CHttpExtension;
+namespace CHttp.Abstractions;
 
 internal class MemoryFileSystem : IFileSystem
 {

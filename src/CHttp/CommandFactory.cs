@@ -1,15 +1,11 @@
 ﻿using System.CommandLine;
 using System.Globalization;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Http;
 using CHttp.Statitics;
 using CHttp.Writers;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
 
 namespace CHttp;
 
@@ -64,7 +60,7 @@ internal static class CommandFactory
 			name: "--body",
 			description: "Request body");
 		bodyOptions.AddAlias("-b");
-		bodyOptions.IsRequired = true;
+		bodyOptions.IsRequired = false;
 
 		var timeoutOption = new Option<double>(
 			name: "--timeout",
@@ -159,7 +155,7 @@ internal static class CommandFactory
 
 		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
 
-		CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, rootCommand);
+		CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, rootCommand);
 
 		CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
@@ -167,7 +163,7 @@ internal static class CommandFactory
 	}
 
 	private static void CreateFormsCommand(IWriter? writer,
-		IFileSystem fileSystem,
+		IFileSystem? fileSystem,
 		Option<string> versionOptions,
 		Option<string> methodOptions,
 		Option<IEnumerable<string>> headerOptions,
@@ -210,7 +206,7 @@ internal static class CommandFactory
 	}
 
 	private static void CreateDefaultCommand(IWriter? writer,
-		IFileSystem fileSystem,
+		IFileSystem? fileSystem,
 		Option<string> versionOptions,
 		Option<string> methodOptions,
 		Option<IEnumerable<string>> headerOptions,
@@ -298,6 +294,7 @@ internal static class CommandFactory
 		Option<string> versionOptions,
 		Option<string> methodOptions,
 		Option<IEnumerable<string>> headerOptions,
+		Option<string> bodyOptions,
 		Option<double> timeoutOption,
 		Option<bool> redirectOption,
 		Option<bool> validateCertificateOption,
@@ -312,11 +309,14 @@ internal static class CommandFactory
 		var perfCommand = new Command("perf", "Performance Measure");
 		rootCommand.Add(perfCommand);
 		perfCommand.AddOption(nOption);
+		perfCommand.AddOption(bodyOptions);
 		perfCommand.AddOption(cOption);
 		perfCommand.AddOption(uriOption);
 		perfCommand.AddOption(metricsOption);
-		perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, outputFile, metricsConnectionString) =>
+		perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, body, outputFile, metricsConnectionString) =>
 		{
+			if (!string.IsNullOrWhiteSpace(body))
+				requestDetails = requestDetails with { Content = new StringContent(body) };
 			httpBehavior = httpBehavior with { ToUtf8 = false };
 			console ??= new CHttpConsole();
 			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
@@ -338,6 +338,7 @@ internal static class CommandFactory
 		  timeoutOption,
 		  cookieContainerOption),
 		 new PerformanceBehaviorBinder(nOption, cOption),
+		 bodyOptions,
 		 outputFileOption,
 		 metricsOption);
 	}

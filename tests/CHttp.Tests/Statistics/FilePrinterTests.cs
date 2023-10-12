@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using CHttp.Abstractions;
 using CHttp.Statitics;
 
 namespace CHttp.Tests.Statistics;
@@ -8,7 +9,7 @@ public class FilePrinterTests
     [Fact]
     public async Task SummarizeResultsAsync_Writes_File()
     {
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new MemoryFileSystem();
         var sut = new FilePrinter("somefile", fileSystem);
         var summary = new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.Timeout };
         summary.Length = 100;
