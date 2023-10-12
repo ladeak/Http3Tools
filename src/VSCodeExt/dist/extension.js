@@ -51,7 +51,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
         const CHttpModule = __webpack_require__(23);
-        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), performanceHttpRequest.timeout, performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => this._requestStatusEntry.updateProgress(data));
+        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 10), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => this._requestStatusEntry.updateProgress(data));
         if (response == "" || response == "Cancelled")
             return;
         try {
@@ -99,6 +99,7 @@ var RequestMetadata;
     RequestMetadata["ClientsCount"] = "clientscount";
     RequestMetadata["RequestCount"] = "requestcount";
     RequestMetadata["NoCertificateValidation"] = "no-certificate-validation";
+    RequestMetadata["Timeout"] = "timeout";
 })(RequestMetadata || (exports.RequestMetadata = RequestMetadata = {}));
 function fromString(value) {
     value = value.toLowerCase();
@@ -906,8 +907,7 @@ var ParseState;
     ParseState[ParseState["Body"] = 2] = "Body";
 })(ParseState || (ParseState = {}));
 class PerformanceBehavior {
-    constructor(timeout, method, uri, version, headers, content) {
-        this.timeout = timeout;
+    constructor(method, uri, version, headers, content) {
         this.method = method;
         this.uri = uri;
         this.version = version;
@@ -978,7 +978,7 @@ class HttpRequestParser {
             const scheme = port === '443' || port === '8443' ? 'https' : 'http';
             requestLine.url = `${scheme}://${host}${requestLine.url}`;
         }
-        return new PerformanceBehavior(10, requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(os_1.EOL));
+        return new PerformanceBehavior(requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(os_1.EOL));
     }
     parseRequestLine(line) {
         // Request-Line = Method SP Request-URI SP HTTP-Version CRLF

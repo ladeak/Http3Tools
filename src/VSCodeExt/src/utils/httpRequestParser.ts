@@ -13,7 +13,6 @@ enum ParseState {
 
 export class PerformanceBehavior {
     public constructor(
-        public timeout: number,
         public method: string,
         public uri: string,
         public version: string,
@@ -88,7 +87,7 @@ export class HttpRequestParser {
             requestLine.url = `${scheme}://${host}${requestLine.url}`;
         }
 
-        return new PerformanceBehavior(10, requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(EOL));
+        return new PerformanceBehavior(requestLine.method, requestLine.url, requestLine.httpVersion, headersLines, bodyLines.join(EOL));
     }
 
     private parseRequestLine(line: string): { method: string, url: string, httpVersion: string } {

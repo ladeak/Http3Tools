@@ -50,7 +50,7 @@ export class RequestController {
             name ? name : null,
             !metadatas.has(RequestMetadata.NoRedirect),
             !metadatas.has(RequestMetadata.NoCertificateValidation),
-            performanceHttpRequest.timeout,
+            this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 10),
             performanceHttpRequest.method,
             performanceHttpRequest.uri,
             performanceHttpRequest.version,

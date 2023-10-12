@@ -6,6 +6,7 @@ export enum RequestMetadata {
     ClientsCount = 'clientscount',
     RequestCount = 'requestcount',
     NoCertificateValidation = 'no-certificate-validation',
+    Timeout = 'timeout',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {
