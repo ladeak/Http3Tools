@@ -969,7 +969,7 @@ class HttpRequestParser {
         const requestLine = this.parseRequestLine(requestLines.map(l => l.trim()).join(''));
         // parse headers lines
         const headers = (0, requestParserUtil_1.parseRequestHeaders)(headersLines);
-        // let underlying node.js library recalculate the content length
+        // let underlying chttp recalculate the content length
         (0, misc_1.removeHeader)(headers, 'content-length');
         // if Host header provided and url is relative path, change to absolute url
         const host = (0, misc_1.getHeader)(headers, 'Host');
@@ -1480,7 +1480,7 @@ exports.parseRequestHeaders = parseRequestHeaders;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "cc781143e87dd99322506914e9fc75f7.node");
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "d7c856ef816f8c5a402de05b47ae6afb.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }

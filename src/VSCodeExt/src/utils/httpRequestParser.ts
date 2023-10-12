@@ -77,7 +77,7 @@ export class HttpRequestParser {
         // parse headers lines
         const headers = parseRequestHeaders(headersLines);
 
-        // let underlying node.js library recalculate the content length
+        // let underlying chttp recalculate the content length
         removeHeader(headers, 'content-length');
 
         // if Host header provided and url is relative path, change to absolute url

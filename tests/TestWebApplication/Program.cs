@@ -38,6 +38,11 @@ app.MapGet("/delay", async (HttpContext context) =>
 
 app.MapGet("/stream", GenerateData);
 
+app.MapPost("/post", context =>
+{
+	return context.Response.WriteAsync("Hello World " + context.Request.Protocol.ToString());
+});
+
 app.Run();
 
 async IAsyncEnumerable<string> GenerateData()
