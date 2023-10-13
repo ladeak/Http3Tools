@@ -111,7 +111,7 @@ public static class CHttpExt
 		}
 		if (!_fileSystem.Exists(fileName2))
 		{
-			error = string.Format(null, _fileNotExistsMessage, fileName1);
+			error = string.Format(null, _fileNotExistsMessage, fileName2);
 			return false;
 		}
 		error = string.Empty;

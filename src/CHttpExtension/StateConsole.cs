@@ -5,17 +5,16 @@ namespace CHttpExtension;
 
 public class StateConsole : IConsole
 {
-	private StringBuilder _sb = new StringBuilder();
 	private readonly Action<string> _callback;
 
 	public StateConsole(Action<string> callback)
-    {
+	{
 		_callback = callback ?? throw new ArgumentNullException(nameof(callback));
 	}
 
-    public bool CursorVisible { get; set; } = false;
+	public bool CursorVisible { get; set; } = false;
 
-	public string Text { get => _sb.ToString(); }
+	public string Text => string.Empty;
 
 	public int WindowWidth => 72;
 
@@ -25,17 +24,15 @@ public class StateConsole : IConsole
 
 	public void SetCursorPosition(int left, int top)
 	{
-		_callback(Text);
-		_sb.Clear();
 	}
 
-	public void Write(char[] buffer) => _sb.Append(buffer);
+	public void Write(char[] buffer) { }
 
-	public void Write(string buffer) => _sb.Append(buffer);
+	public void Write(string buffer) => _callback(buffer);
 
 	public void WriteLine() => _callback("Completed");
 
-	public void Write(char[] buffer, int index, int count) => _sb.Append(buffer, index, count);
+	public void Write(char[] buffer, int index, int count) { }
 
-	public void WriteLine(string value) => _sb.AppendLine(value);
+	public void WriteLine(string value) { }
 }

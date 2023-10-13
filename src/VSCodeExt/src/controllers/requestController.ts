@@ -58,31 +58,48 @@ export class RequestController {
         var parser = new HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
 
-        const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
+        window.withProgress({
+            location: ProgressLocation.Notification,
+            title: "Running Performance Tests",
+            cancellable: true
+        }, async (progress, token) => {
 
-        var response = await CHttpModule.CHttpExt.runAsync(
-            name ? name : null,
-            !metadatas.has(RequestMetadata.NoRedirect),
-            !metadatas.has(RequestMetadata.NoCertificateValidation),
-            this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 10),
-            performanceHttpRequest.method,
-            performanceHttpRequest.uri,
-            performanceHttpRequest.version,
-            performanceHttpRequest.headers,
-            performanceHttpRequest.content,
-            this.tryParseInt(metadatas.get(RequestMetadata.RequestCount), 100),
-            this.tryParseInt(metadatas.get(RequestMetadata.ClientsCount), 10),
-            (data: string) => this._requestStatusEntry.updateProgress(data));
+            try {
+                const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
+                token.onCancellationRequested(() => {
+                    CHttpModule.CHttpExt.cancel();
+                });
+                var response = await CHttpModule.CHttpExt.runAsync(
+                    name ? name : null,
+                    !metadatas.has(RequestMetadata.NoRedirect),
+                    !metadatas.has(RequestMetadata.NoCertificateValidation),
+                    this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 10),
+                    performanceHttpRequest.method,
+                    performanceHttpRequest.uri,
+                    performanceHttpRequest.version,
+                    performanceHttpRequest.headers,
+                    performanceHttpRequest.content,
+                    this.tryParseInt(metadatas.get(RequestMetadata.RequestCount), 100),
+                    this.tryParseInt(metadatas.get(RequestMetadata.ClientsCount), 10),
+                    (data: string) => progress.report({ message: data }));
 
-        if (response == "" || response == "Cancelled")
-            return;
-        try {
-            this._textDocumentView.render(response);
-            this._requestStatusEntry.updateStatus("Completed");
-        } catch (reason) {
-            this._requestStatusEntry.updateStatus("Error");
-            window.showErrorMessage("Failed to render response");
-        }
+
+                if (response == "" || response == "Cancelled")
+                {
+                    this._requestStatusEntry.updateStatus("Cancelled");
+                    return;
+                }
+
+                this._textDocumentView.render(response);
+                this._requestStatusEntry.updateStatus("Completed");
+            } catch (reason: any) {
+                this._requestStatusEntry.updateStatus("Error");
+                if ("message" in reason)
+                    window.showErrorMessage(reason.message);
+                else
+                    window.showErrorMessage("Command failed");
+            }
+        });
     }
 
     public async diffResults(selectedRequest: SelectedRequest) {
@@ -95,16 +112,16 @@ export class RequestController {
             return;
         }
 
-        try {
-            const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
-            var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
-            this._textDocumentView.render(response);
-            this._requestStatusEntry.updateStatus("Completed");
-        } catch (reason: any) {
-            this._requestStatusEntry.updateStatus("Error");
-            if ("message" in reason)
-                window.showErrorMessage(reason.message);
-        }
+        const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
+        var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
+        this._textDocumentView.render(response);
+        this._requestStatusEntry.updateStatus("Completed");
+    } catch(reason: any) {
+        this._requestStatusEntry.updateStatus("Error");
+        if ("message" in reason)
+            window.showErrorMessage(reason.message);
+        else
+            window.showErrorMessage("Command failed");
     }
 
     public tryParseInt(str: string | undefined, defaultValue: number): number {

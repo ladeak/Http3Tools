@@ -62,18 +62,32 @@ class RequestController {
         // parse http request
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
-        const CHttpModule = __webpack_require__(24);
-        var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 10), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => this._requestStatusEntry.updateProgress(data));
-        if (response == "" || response == "Cancelled")
-            return;
-        try {
-            this._textDocumentView.render(response);
-            this._requestStatusEntry.updateStatus("Completed");
-        }
-        catch (reason) {
-            this._requestStatusEntry.updateStatus("Error");
-            vscode_1.window.showErrorMessage("Failed to render response");
-        }
+        vscode_1.window.withProgress({
+            location: vscode_1.ProgressLocation.Notification,
+            title: "Running Performance Tests",
+            cancellable: true
+        }, async (progress, token) => {
+            try {
+                const CHttpModule = __webpack_require__(24);
+                token.onCancellationRequested(() => {
+                    CHttpModule.CHttpExt.cancel();
+                });
+                var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 10), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
+                if (response == "" || response == "Cancelled") {
+                    this._requestStatusEntry.updateStatus("Cancelled");
+                    return;
+                }
+                this._textDocumentView.render(response);
+                this._requestStatusEntry.updateStatus("Completed");
+            }
+            catch (reason) {
+                this._requestStatusEntry.updateStatus("Error");
+                if ("message" in reason)
+                    vscode_1.window.showErrorMessage(reason.message);
+                else
+                    vscode_1.window.showErrorMessage("Command failed");
+            }
+        });
     }
     async diffResults(selectedRequest) {
         const { text, metadatas } = selectedRequest;
@@ -83,17 +97,17 @@ class RequestController {
             vscode_1.window.showErrorMessage(diffRequest.error);
             return;
         }
-        try {
-            const CHttpModule = __webpack_require__(24);
-            var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
-            this._textDocumentView.render(response);
-            this._requestStatusEntry.updateStatus("Completed");
-        }
-        catch (reason) {
-            this._requestStatusEntry.updateStatus("Error");
-            if ("message" in reason)
-                vscode_1.window.showErrorMessage(reason.message);
-        }
+        const CHttpModule = __webpack_require__(24);
+        var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
+        this._textDocumentView.render(response);
+        this._requestStatusEntry.updateStatus("Completed");
+    }
+    catch(reason) {
+        this._requestStatusEntry.updateStatus("Error");
+        if ("message" in reason)
+            vscode_1.window.showErrorMessage(reason.message);
+        else
+            vscode_1.window.showErrorMessage("Command failed");
     }
     tryParseInt(str, defaultValue) {
         if (str == undefined) {
@@ -1544,7 +1558,7 @@ exports.DiffRequestParser = DiffRequestParser;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "d911fec0af59ca4d028ae9574757b19d.node");
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "3b3a57d327618105f5f0644e8cecc0b3.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
