@@ -12,6 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const CHttpModule = require('./chttp-win-x86/CHttpExtension.node');
         CHttpModule.CHttpExt.cancel();
 	}));
+	let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document: TextDocument, range: Range) => requestController.run(range)));
 
 	const documentSelector = [
         { language: 'chttp', scheme: '*' }
@@ -20,6 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(languages.registerCodeLensProvider(documentSelector, new HttpCodeLensProvider()));
 	context.subscriptions.push(sendRequest);
 	context.subscriptions.push(cancelRequest);
+	context.subscriptions.push(diff);
 }
 
 // This method is called when your extension is deactivated

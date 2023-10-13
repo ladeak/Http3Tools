@@ -10,11 +10,20 @@ export class HttpCodeLensProvider implements CodeLensProvider {
 
         for (const [blockStart, blockEnd] of requestRanges) {
             const range = new Range(blockStart, 0, blockEnd, 0);
-            const cmd: Command = {
-                arguments: [document, range],
-                title: 'Send Request',
-                command: 'LaDeak-CHttp.sendRequest'
-            };
+            let cmd: Command;
+            if (!lines[blockStart].startsWith("DIFF")) {
+                cmd = {
+                    arguments: [document, range],
+                    title: 'Send Request',
+                    command: 'LaDeak-CHttp.sendRequest'
+                };
+            } else {
+                cmd = {
+                    arguments: [document, range],
+                    title: 'Diff',
+                    command: 'LaDeak-CHttp.diff'
+                };
+            }
             blocks.push(new CodeLens(range, cmd));
         }
 

@@ -22,7 +22,6 @@ declare module 'node-api-dotnet' {
 		): Promise<string>;
 
 		export function getDiffAsync(
-			defaultColor: string,
 			file1: string,
 			file2: string,
 		): Promise<string>;

@@ -1,4 +1,5 @@
-﻿using CHttp;
+﻿using System.Text;
+using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -14,6 +15,8 @@ public static class CHttpExt
 	private static CancellationTokenSource _cancellationTokenSource = new();
 	private static SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 	private static MemoryFileSystem _fileSystem = new MemoryFileSystem();
+	private static string _fileNotExistsMessage = "Results for '{0}' are not available";
+
 
 	public static async Task<string> RunAsync(
 		string executionName,
@@ -87,14 +90,32 @@ public static class CHttpExt
 		return console.Text;
 	}
 
-	public static async Task<string> GetDiffAsync(string defaultColor, string file1, string file2)
+	public static async Task<string> GetDiffAsync(string file1, string file2)
 	{
-		var console = new StringConsole(defaultColor);
+		if (!FilesExist(file1, file2, out var validationMessage))
+			throw new ArgumentException(validationMessage);
+		var console = new StringConsole();
 		var session0 = await PerformanceFileHandler.LoadAsync(_fileSystem, file1);
 		var session1 = await PerformanceFileHandler.LoadAsync(_fileSystem, file2);
 		var comparer = new DiffPrinter(console);
 		comparer.Compare(session0, session1);
 		return console.Text;
+	}
+
+	private static bool FilesExist(string fileName1, string fileName2, out string error)
+	{
+		if (!_fileSystem.Exists(fileName1))
+		{
+			error = string.Format(null, _fileNotExistsMessage, fileName1);
+			return false;
+		}
+		if (!_fileSystem.Exists(fileName2))
+		{
+			error = string.Format(null, _fileNotExistsMessage, fileName1);
+			return false;
+		}
+		error = string.Empty;
+		return true;
 	}
 
 	public static void Cancel() => _cancellationTokenSource.Cancel();

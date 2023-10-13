@@ -10,10 +10,12 @@
 GET https://{{baseUrl}}/ HTTP/2
 
 ###
-# @name basePerformance 
+# @name basePerformance.json
 # @clientsCount 10
 # @requestCount 100
 POST https://{{baseUrl}}/post
 
 {"data":"hello world"}
 
+###
+DIFF hello basePerformance.json

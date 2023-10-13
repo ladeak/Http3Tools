@@ -22,6 +22,7 @@ const selector_1 = __webpack_require__(5);
 const workspaceUtility_1 = __webpack_require__(12);
 const httpResponseTextDocumentView_1 = __webpack_require__(14);
 const httpRequestParser_1 = __webpack_require__(15);
+const diffRequestParser_1 = __webpack_require__(23);
 class RequestController {
     constructor(context) {
         this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
@@ -39,18 +40,29 @@ class RequestController {
             return;
         }
         const { text, metadatas } = selectedRequest;
-        const name = metadatas.get(requestMetadata_1.RequestMetadata.Name);
         if (metadatas.has(requestMetadata_1.RequestMetadata.Note)) {
-            const note = name ? `Are you sure you want to send the request "${name}"?` : 'Are you sure you want to send this request?';
-            const userConfirmed = await vscode_1.window.showWarningMessage(note, 'Yes', 'No');
+            const userConfirmed = await vscode_1.window.showWarningMessage('Are you sure you want to send this request?', 'Yes', 'No');
             if (userConfirmed !== 'Yes') {
                 return;
             }
         }
+        if (selectedRequest.text.startsWith("DIFF ")) {
+            await this.diffResults(selectedRequest);
+        }
+        else if (metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount) || metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount)) {
+            await this.sendRequst(selectedRequest);
+        }
+        else {
+            await this.sendRequst(selectedRequest);
+        }
+    }
+    async sendRequst(selectedRequest) {
+        const { text, metadatas } = selectedRequest;
+        const name = metadatas.get(requestMetadata_1.RequestMetadata.Name);
         // parse http request
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const performanceHttpRequest = await parser.parseHttpRequest(name);
-        const CHttpModule = __webpack_require__(23);
+        const CHttpModule = __webpack_require__(24);
         var response = await CHttpModule.CHttpExt.runAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 10), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => this._requestStatusEntry.updateProgress(data));
         if (response == "" || response == "Cancelled")
             return;
@@ -61,6 +73,26 @@ class RequestController {
         catch (reason) {
             this._requestStatusEntry.updateStatus("Error");
             vscode_1.window.showErrorMessage("Failed to render response");
+        }
+    }
+    async diffResults(selectedRequest) {
+        const { text, metadatas } = selectedRequest;
+        var parser = new diffRequestParser_1.DiffRequestParser(text);
+        const diffRequest = await parser.parse(text);
+        if ("error" in diffRequest) {
+            vscode_1.window.showErrorMessage(diffRequest.error);
+            return;
+        }
+        try {
+            const CHttpModule = __webpack_require__(24);
+            var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
+            this._textDocumentView.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
+        }
+        catch (reason) {
+            this._requestStatusEntry.updateStatus("Error");
+            if ("message" in reason)
+                vscode_1.window.showErrorMessage(reason.message);
         }
     }
     tryParseInt(str, defaultValue) {
@@ -1475,19 +1507,51 @@ exports.parseRequestHeaders = parseRequestHeaders;
 
 /***/ }),
 /* 23 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DiffRequestParser = void 0;
+const os_1 = __webpack_require__(6);
+class DiffRequestParser {
+    constructor(requestRawText) {
+        this.requestRawText = requestRawText;
+        this.defaultMethod = 'GET';
+        this.queryStringLinePrefix = /^\s*[&\?]/;
+        this.inputFileSyntax = /^<(?:(?<processVariables>@)(?<encoding>\w+)?)?\s+(?<filepath>.+?)\s*$/;
+    }
+    async parse(name) {
+        // parse follows http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html
+        // split the request raw text into lines
+        const requestLine = this.requestRawText.split(os_1.EOL)[0];
+        const parts = requestLine.split(" ");
+        if (parts.length != 3 || parts[0] != "DIFF") {
+            const result = { error: "Command must contain two name requests" };
+            return result;
+        }
+        const parseResult = { file1: parts[1], file2: parts[2] };
+        return parseResult;
+    }
+}
+exports.DiffRequestParser = DiffRequestParser;
+
+
+/***/ }),
+/* 24 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "d7c856ef816f8c5a402de05b47ae6afb.node");
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "d911fec0af59ca4d028ae9574757b19d.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
 
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -1504,11 +1568,21 @@ class HttpCodeLensProvider {
         const requestRanges = selector_1.Selector.getRequestRanges(lines);
         for (const [blockStart, blockEnd] of requestRanges) {
             const range = new vscode_1.Range(blockStart, 0, blockEnd, 0);
-            const cmd = {
-                arguments: [document, range],
-                title: 'Send Request',
-                command: 'LaDeak-CHttp.sendRequest'
-            };
+            let cmd;
+            if (!lines[blockStart].startsWith("DIFF")) {
+                cmd = {
+                    arguments: [document, range],
+                    title: 'Send Request',
+                    command: 'LaDeak-CHttp.sendRequest'
+                };
+            }
+            else {
+                cmd = {
+                    arguments: [document, range],
+                    title: 'Diff',
+                    command: 'LaDeak-CHttp.diff'
+                };
+            }
             blocks.push(new vscode_1.CodeLens(range, cmd));
         }
         return Promise.resolve(blocks);
@@ -1574,21 +1648,23 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __webpack_require__(1);
 const vscode_1 = __webpack_require__(1);
 const requestController_1 = __webpack_require__(2);
-const httpCodeLensProvider_1 = __webpack_require__(24);
+const httpCodeLensProvider_1 = __webpack_require__(25);
 function activate(context) {
     const requestController = new requestController_1.RequestController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
         requestController._requestStatusEntry.updateStatus("Canceling...");
-        const CHttpModule = __webpack_require__(23);
+        const CHttpModule = __webpack_require__(24);
         CHttpModule.CHttpExt.cancel();
     }));
+    let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => requestController.run(range)));
     const documentSelector = [
         { language: 'chttp', scheme: '*' }
     ];
     context.subscriptions.push(vscode_1.languages.registerCodeLensProvider(documentSelector, new httpCodeLensProvider_1.HttpCodeLensProvider()));
     context.subscriptions.push(sendRequest);
     context.subscriptions.push(cancelRequest);
+    context.subscriptions.push(diff);
 }
 exports.activate = activate;
 // This method is called when your extension is deactivated
