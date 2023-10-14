@@ -8,10 +8,6 @@ export type DiffParameters = {
 export type FailedParse = {error: string}
 
 export class DiffRequestParser {
-    private readonly defaultMethod = 'GET';
-    private readonly queryStringLinePrefix = /^\s*[&\?]/;
-    private readonly inputFileSyntax = /^<(?:(?<processVariables>@)(?<encoding>\w+)?)?\s+(?<filepath>.+?)\s*$/;
-
     public constructor(private readonly requestRawText: string) {
     }
 

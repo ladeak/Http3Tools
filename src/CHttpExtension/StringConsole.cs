@@ -35,9 +35,9 @@ public class StringConsole : IConsole
 			_color = value;
 			_colorize = !_colorize;
 			if (_colorize)
-				Write($"<div style=\"color:{_color};\">");
+				Write($"<span style=\"color:{_color};\">");
 			else
-				Write("</div>");
+				Write("</span>");
 		}
 	}
 

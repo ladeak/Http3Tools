@@ -22,7 +22,6 @@ const selector_1 = __webpack_require__(5);
 const workspaceUtility_1 = __webpack_require__(12);
 const httpResponseTextDocumentView_1 = __webpack_require__(14);
 const httpRequestParser_1 = __webpack_require__(15);
-const diffRequestParser_1 = __webpack_require__(23);
 class RequestController {
     constructor(context) {
         this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
@@ -46,15 +45,10 @@ class RequestController {
                 return;
             }
         }
-        if (selectedRequest.text.startsWith("DIFF ")) {
-            await this.diffResults(selectedRequest);
-        }
-        else if (metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount) || metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount)) {
+        if (metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount) || metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount))
             await this.sendRequst(selectedRequest);
-        }
-        else {
+        else
             await this.sendRequst(selectedRequest);
-        }
     }
     async sendRequst(selectedRequest) {
         const { text, metadatas } = selectedRequest;
@@ -68,7 +62,7 @@ class RequestController {
             cancellable: true
         }, async (progress, token) => {
             try {
-                const CHttpModule = __webpack_require__(24);
+                const CHttpModule = __webpack_require__(23);
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
@@ -89,37 +83,14 @@ class RequestController {
             }
         });
     }
-    async diffResults(selectedRequest) {
-        const { text, metadatas } = selectedRequest;
-        var parser = new diffRequestParser_1.DiffRequestParser(text);
-        const diffRequest = await parser.parse(text);
-        if ("error" in diffRequest) {
-            vscode_1.window.showErrorMessage(diffRequest.error);
-            return;
-        }
-        const CHttpModule = __webpack_require__(24);
-        var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
-        this._textDocumentView.render(response);
-        this._requestStatusEntry.updateStatus("Completed");
-    }
-    catch(reason) {
-        this._requestStatusEntry.updateStatus("Error");
-        if ("message" in reason)
-            vscode_1.window.showErrorMessage(reason.message);
-        else
-            vscode_1.window.showErrorMessage("Command failed");
-    }
     tryParseInt(str, defaultValue) {
-        if (str == undefined) {
+        if (str == undefined)
             return defaultValue;
-        }
         let num = parseInt(str);
-        if (isNaN(num)) {
+        if (isNaN(num))
             return defaultValue;
-        }
-        else {
+        else
             return num;
-        }
     }
     dispose() {
         this._requestStatusEntry.dispose();
@@ -1521,6 +1492,129 @@ exports.parseRequestHeaders = parseRequestHeaders;
 
 /***/ }),
 /* 23 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "ce5f9e6eca44a2a7d8e8a6ca4146db29.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
+/***/ }),
+/* 24 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DiffController = void 0;
+const vscode_1 = __webpack_require__(1);
+const requestMetadata_1 = __webpack_require__(3);
+const requestStatusBarEntry_1 = __webpack_require__(4);
+const selector_1 = __webpack_require__(5);
+const workspaceUtility_1 = __webpack_require__(12);
+const responseWebView_1 = __webpack_require__(25);
+const diffRequestParser_1 = __webpack_require__(26);
+class DiffController {
+    constructor(context) {
+        this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
+        this._view = new responseWebView_1.ResponseWebView();
+    }
+    async run(range) {
+        this._requestStatusEntry.updateStatus("Working...", 'LaDeak-CHttp.cancelRequest');
+        const editor = vscode_1.window.activeTextEditor;
+        const document = (0, workspaceUtility_1.getCurrentTextDocument)();
+        if (!editor || !document) {
+            return;
+        }
+        const selectedRequest = await selector_1.Selector.getRequest(editor, range);
+        if (!selectedRequest) {
+            return;
+        }
+        const { text, metadatas } = selectedRequest;
+        if (metadatas.has(requestMetadata_1.RequestMetadata.Note)) {
+            const userConfirmed = await vscode_1.window.showWarningMessage('Are you sure you want to send this request?', 'Yes', 'No');
+            if (userConfirmed !== 'Yes') {
+                return;
+            }
+        }
+        await this.diffResults(selectedRequest);
+    }
+    async diffResults(selectedRequest) {
+        const { text, metadatas } = selectedRequest;
+        var parser = new diffRequestParser_1.DiffRequestParser(text);
+        const diffRequest = await parser.parse(text);
+        if ("error" in diffRequest) {
+            vscode_1.window.showErrorMessage(diffRequest.error);
+            return;
+        }
+        try {
+            const CHttpModule = __webpack_require__(23);
+            var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
+            this._view.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
+        }
+        catch (reason) {
+            this._requestStatusEntry.updateStatus("Error");
+            if ("message" in reason)
+                vscode_1.window.showErrorMessage(reason.message);
+            else
+                vscode_1.window.showErrorMessage("Command failed");
+        }
+    }
+    dispose() {
+        this._requestStatusEntry.dispose();
+    }
+}
+exports.DiffController = DiffController;
+
+
+/***/ }),
+/* 25 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ResponseWebView = void 0;
+const vscode_1 = __webpack_require__(1);
+class ResponseWebView {
+    constructor() {
+        this.panel = undefined;
+    }
+    async render(response) {
+        if (this.panel == undefined) {
+            this.panel = vscode_1.window.createWebviewPanel("chttp-diff-response", "diff", { viewColumn: vscode_1.ViewColumn.Beside, preserveFocus: true }, {
+                enableFindWidget: false,
+                enableScripts: false,
+                retainContextWhenHidden: false
+            });
+        }
+        this.panel.webview.html = this.getWebviewContent(response);
+        this.panel.reveal();
+    }
+    getWebviewContent(response) {
+        return `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>diff</title>
+      </head>
+      <body><pre style="max-width: 580px;white-space: pre-wrap;word-wrap: break-word;"><code>
+        ${response}</code></pre>
+      </body>
+      </html>`;
+    }
+}
+exports.ResponseWebView = ResponseWebView;
+
+
+/***/ }),
+/* 26 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -1531,9 +1625,6 @@ const os_1 = __webpack_require__(6);
 class DiffRequestParser {
     constructor(requestRawText) {
         this.requestRawText = requestRawText;
-        this.defaultMethod = 'GET';
-        this.queryStringLinePrefix = /^\s*[&\?]/;
-        this.inputFileSyntax = /^<(?:(?<processVariables>@)(?<encoding>\w+)?)?\s+(?<filepath>.+?)\s*$/;
     }
     async parse(name) {
         // parse follows http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html
@@ -1552,20 +1643,7 @@ exports.DiffRequestParser = DiffRequestParser;
 
 
 /***/ }),
-/* 24 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-/* module decorator */ module = __webpack_require__.nmd(module);
-
-try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "3b3a57d327618105f5f0644e8cecc0b3.node");
-} catch (error) {
-  throw new Error('node-loader:\n' + error);
-}
-
-
-/***/ }),
-/* 25 */
+/* 27 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -1662,16 +1740,18 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __webpack_require__(1);
 const vscode_1 = __webpack_require__(1);
 const requestController_1 = __webpack_require__(2);
-const httpCodeLensProvider_1 = __webpack_require__(25);
+const diffController_1 = __webpack_require__(24);
+const httpCodeLensProvider_1 = __webpack_require__(27);
 function activate(context) {
     const requestController = new requestController_1.RequestController(context);
+    const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
         requestController._requestStatusEntry.updateStatus("Canceling...");
-        const CHttpModule = __webpack_require__(24);
+        const CHttpModule = __webpack_require__(23);
         CHttpModule.CHttpExt.cancel();
     }));
-    let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => requestController.run(range)));
+    let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => diffController.run(range)));
     const documentSelector = [
         { language: 'chttp', scheme: '*' }
     ];

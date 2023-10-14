@@ -7,7 +7,7 @@
 # @name {{custom}}
 # @clientsCount 10
 # @requestCount 100
-GET https://{{baseUrl}}/long HTTP/2
+GET https://{{baseUrl}} HTTP/2
 
 ###
 # @name basePerformance.json
