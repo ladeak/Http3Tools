@@ -40,12 +40,12 @@ export class RequestController {
         }
 
         if (metadatas.has(RequestMetadata.ClientsCount) || metadatas.has(RequestMetadata.ClientsCount))
-            await this.sendRequst(selectedRequest);
+            await this.performanceMeasurementRequest(selectedRequest);
         else
-            await this.sendRequst(selectedRequest);
+            await this.sendRequest(selectedRequest);
     }
 
-    public async sendRequst(selectedRequest: SelectedRequest) {
+    public async performanceMeasurementRequest(selectedRequest: SelectedRequest) {
         const { text, metadatas } = selectedRequest;
         const name = metadatas.get(RequestMetadata.Name);
 
@@ -60,15 +60,15 @@ export class RequestController {
         }, async (progress, token) => {
 
             try {
-                const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
+                const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(
                     name ? name : null,
                     !metadatas.has(RequestMetadata.NoRedirect),
                     !metadatas.has(RequestMetadata.NoCertificateValidation),
-                    this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 10),
+                    this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
                     performanceHttpRequest.method,
                     performanceHttpRequest.uri,
                     performanceHttpRequest.version,
@@ -94,6 +94,42 @@ export class RequestController {
                     window.showErrorMessage("Command failed");
             }
         });
+    }
+
+    public async sendRequest(selectedRequest: SelectedRequest) {
+        const { text, metadatas } = selectedRequest;
+        const name = metadatas.get(RequestMetadata.Name);
+
+        // parse http request
+        var parser = new HttpRequestParser(text);
+        const httpRequest = await parser.parseHttpRequest(name);
+
+        try {
+            const CHttpModule = require('../chttp-win-x86/CHttpExtension.node');
+            var response = await CHttpModule.CHttpExt.sendRequestAsync(
+                !metadatas.has(RequestMetadata.NoRedirect),
+                !metadatas.has(RequestMetadata.NoCertificateValidation),
+                this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
+                httpRequest.method,
+                httpRequest.uri,
+                httpRequest.version,
+                httpRequest.headers,
+                httpRequest.content);
+
+            if (response == "" || response == "Cancelled") {
+                this._requestStatusEntry.updateStatus("Cancelled");
+                return;
+            }
+
+            this._textDocumentView.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
+        } catch (reason: any) {
+            this._requestStatusEntry.updateStatus("Error");
+            if ("message" in reason)
+                window.showErrorMessage(reason.message);
+            else
+                window.showErrorMessage("Command failed");
+        }
     }
 
     public tryParseInt(str: string | undefined, defaultValue: number): number {

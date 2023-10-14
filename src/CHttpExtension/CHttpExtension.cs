@@ -70,7 +70,7 @@ public static class CHttpExt
 		var outputBehavior = new OutputBehavior(LogLevel.Verbose, string.Empty);
 		var console = new StringConsole();
 		var cookieContainer = new MemoryCookieContainer();
-		var writer = new WriterStrategy(outputBehavior);
+		var writer = new WriterStrategy(outputBehavior, console: console);
 		var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
 		await client.SendRequestAsync(requestDetails);
 		await writer.CompleteAsync(CancellationToken.None);

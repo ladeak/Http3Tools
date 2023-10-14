@@ -46,11 +46,11 @@ class RequestController {
             }
         }
         if (metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount) || metadatas.has(requestMetadata_1.RequestMetadata.ClientsCount))
-            await this.sendRequst(selectedRequest);
+            await this.performanceMeasurementRequest(selectedRequest);
         else
-            await this.sendRequst(selectedRequest);
+            await this.sendRequest(selectedRequest);
     }
-    async sendRequst(selectedRequest) {
+    async performanceMeasurementRequest(selectedRequest) {
         const { text, metadatas } = selectedRequest;
         const name = metadatas.get(requestMetadata_1.RequestMetadata.Name);
         // parse http request
@@ -62,11 +62,11 @@ class RequestController {
             cancellable: true
         }, async (progress, token) => {
             try {
-                const CHttpModule = __webpack_require__(23);
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 10), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
+                const CHttpModule = __webpack_require__(23);
+                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
                     return;
@@ -82,6 +82,30 @@ class RequestController {
                     vscode_1.window.showErrorMessage("Command failed");
             }
         });
+    }
+    async sendRequest(selectedRequest) {
+        const { text, metadatas } = selectedRequest;
+        const name = metadatas.get(requestMetadata_1.RequestMetadata.Name);
+        // parse http request
+        var parser = new httpRequestParser_1.HttpRequestParser(text);
+        const httpRequest = await parser.parseHttpRequest(name);
+        try {
+            const CHttpModule = __webpack_require__(23);
+            var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
+            if (response == "" || response == "Cancelled") {
+                this._requestStatusEntry.updateStatus("Cancelled");
+                return;
+            }
+            this._textDocumentView.render(response);
+            this._requestStatusEntry.updateStatus("Completed");
+        }
+        catch (reason) {
+            this._requestStatusEntry.updateStatus("Error");
+            if ("message" in reason)
+                vscode_1.window.showErrorMessage(reason.message);
+            else
+                vscode_1.window.showErrorMessage("Command failed");
+        }
     }
     tryParseInt(str, defaultValue) {
         if (str == undefined)
@@ -1497,7 +1521,7 @@ exports.parseRequestHeaders = parseRequestHeaders;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "f5f67d275ee382a1c9abd0eff9e68383.node");
+  process.dlopen(module, __dirname + (__webpack_require__(13).sep) + __webpack_require__.p + "0d46770fcfd7a561adc2640c0666d5a7.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
@@ -1747,7 +1771,6 @@ function activate(context) {
     const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
-        requestController._requestStatusEntry.updateStatus("Canceling...");
         const CHttpModule = __webpack_require__(23);
         CHttpModule.CHttpExt.cancel();
     }));

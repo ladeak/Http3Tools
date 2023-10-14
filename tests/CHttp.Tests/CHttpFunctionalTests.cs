@@ -12,7 +12,7 @@ public class CHttpFunctionalTests
 	[Fact]
 	public async Task VerboseWriter_TestVanilaHttp3Request()
 	{
-		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http3);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
@@ -24,9 +24,23 @@ public class CHttpFunctionalTests
 	}
 
 	[Fact]
+	public async Task VerboseWriter_TestVanilaHttp2Request()
+	{
+		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
+		await host.StartAsync();
+		var console = new TestConsolePerWrite();
+		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+		var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
+
+		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+		Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+	}
+
+	[Fact]
 	public async Task ProgressingWriter_TestVanilaHttp3Request()
 	{
-		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http3);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
@@ -43,7 +57,7 @@ public class CHttpFunctionalTests
 	public async Task StreamWriter_TestVanilaHttp3Request(string response)
 	{
 		using var output = new MemoryStream();
-		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+		using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), HttpProtocols.Http3);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new StreamBufferedProcessor(output), console);
@@ -65,7 +79,7 @@ public class CHttpFunctionalTests
 				await context.Response.WriteAsync("test");
 			else
 				context.Response.StatusCode = StatusCodes.Status400BadRequest;
-		}, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3);
+		}, HttpProtocols.Http3);
 
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
@@ -87,7 +101,7 @@ public class CHttpFunctionalTests
 				cookieAttached = true;
 			context.Response.Cookies.Append("testKey", "someValue");
 			await context.Response.WriteAsync("test");
-		}, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2);
+		}, HttpProtocols.Http2);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
@@ -113,7 +127,7 @@ public class CHttpFunctionalTests
 				cookieAttached = true;
 			context.Response.Cookies.Append("testKey", "someValue");
 			await context.Response.WriteAsync("test");
-		}, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2);
+		}, HttpProtocols.Http2);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);

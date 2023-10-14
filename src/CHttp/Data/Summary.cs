@@ -85,7 +85,9 @@ public record struct Summary
                 ThrowInvalidOperationException();
             buffer = buffer.Slice(count);
             buffer[0] = 's';
-        });
+			buffer = buffer.Slice(1);
+            buffer.Fill(' ');
+		});
     }
 
     private static void ThrowInvalidOperationException() => throw new InvalidOperationException("Formatting results failed.");
