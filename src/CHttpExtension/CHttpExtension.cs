@@ -1,10 +1,10 @@
-﻿using System.Text;
-using CHttp;
+﻿using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Http;
 using CHttp.Statitics;
+using CHttp.Writers;
 using Microsoft.JavaScript.NodeApi;
 
 namespace CHttpExtension;
@@ -17,8 +17,70 @@ public static class CHttpExt
 	private static MemoryFileSystem _fileSystem = new MemoryFileSystem();
 	private static string _fileNotExistsMessage = "Results for '{0}' are not available";
 
+	public static async Task<string> SendRequestAsync(
+		bool enableRedirects,
+		bool enableCertificateValidation,
+		double timeout,
+		string method,
+		string uri,
+		string version,
+		IEnumerable<string> headers,
+		string body
+)
+	{
+		_cancellationTokenSource.Cancel();
+		if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+			return "Cancelled";
+		try
+		{
+			_cancellationTokenSource = new();
+			return await SendRequestImplAsync(enableRedirects, enableCertificateValidation,
+				timeout, method, uri, version, headers, body);
+		}
+		finally
+		{
+			_semaphore.Release();
+		}
+	}
 
-	public static async Task<string> RunAsync(
+	private static async Task<string> SendRequestImplAsync(
+		bool enableRedirects,
+		bool enableCertificateValidation,
+		double timeout,
+		string method,
+		string uri,
+		string version,
+		IEnumerable<string> headers,
+		string body
+	)
+	{
+		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty);
+		var parsedHeaders = new List<KeyValueDescriptor>();
+		foreach (string header in headers ?? Enumerable.Empty<string>())
+		{
+			parsedHeaders.Add(new KeyValueDescriptor(header));
+		}
+		var requestDetails = new HttpRequestDetails(
+			new HttpMethod(method),
+			new Uri(uri, UriKind.Absolute),
+			VersionBinder.Map(version),
+			parsedHeaders);
+		if (!string.IsNullOrWhiteSpace(body))
+			requestDetails = requestDetails with { Content = new StringContent(body) };
+		var outputBehavior = new OutputBehavior(LogLevel.Verbose, string.Empty);
+		var console = new StringConsole();
+		var cookieContainer = new MemoryCookieContainer();
+		var writer = new WriterStrategy(outputBehavior);
+		var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
+		await client.SendRequestAsync(requestDetails);
+		await writer.CompleteAsync(CancellationToken.None);
+		await cookieContainer.SaveAsync();
+
+		return console.Text;
+	}
+
+
+	public static async Task<string> PerfMeasureAsync(
 		string executionName,
 		bool enableRedirects,
 		bool enableCertificateValidation,
@@ -27,7 +89,7 @@ public static class CHttpExt
 		string uri,
 		string version,
 		IEnumerable<string> headers,
-		string content,
+		string body,
 		int requestCount,
 		int clientsCount,
 		Action<string> callback
@@ -39,8 +101,8 @@ public static class CHttpExt
 		try
 		{
 			_cancellationTokenSource = new();
-			return await RunImplAsync(executionName, enableRedirects, enableCertificateValidation,
-				timeout, method, uri, version, headers, content, requestCount, clientsCount, callback);
+			return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation,
+				timeout, method, uri, version, headers, body, requestCount, clientsCount, callback);
 		}
 		finally
 		{
@@ -48,7 +110,7 @@ public static class CHttpExt
 		}
 	}
 
-	private static async Task<string> RunImplAsync(
+	private static async Task<string> PerfMeasureImplAsync(
 		string? executionName,
 		bool enableRedirects,
 		bool enableCertificateValidation,
@@ -57,7 +119,7 @@ public static class CHttpExt
 		string uri,
 		string version,
 		IEnumerable<string> headers,
-		string content,
+		string body,
 		int requestCount,
 		int clientsCount,
 		Action<string> callback
@@ -74,8 +136,8 @@ public static class CHttpExt
 			new Uri(uri, UriKind.Absolute),
 			VersionBinder.Map(version),
 			parsedHeaders);
-		if (!string.IsNullOrWhiteSpace(version))
-			requestDetails = requestDetails with { Content = new StringContent(content) };
+		if (!string.IsNullOrWhiteSpace(body))
+			requestDetails = requestDetails with { Content = new StringContent(body) };
 
 		var performanceBehavior = new PerformanceBehavior(requestCount, clientsCount);
 		var console = new StringConsole();

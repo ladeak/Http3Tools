@@ -64,7 +64,7 @@ export class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                var response = await CHttpModule.CHttpExt.runAsync(
+                var response = await CHttpModule.CHttpExt.perfMeasureAsync(
                     name ? name : null,
                     !metadatas.has(RequestMetadata.NoRedirect),
                     !metadatas.has(RequestMetadata.NoCertificateValidation),

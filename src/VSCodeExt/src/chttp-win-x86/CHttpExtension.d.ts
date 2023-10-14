@@ -6,7 +6,18 @@
 declare module 'node-api-dotnet' {
 
 	export namespace CHttpExt {
-		export function runAsync(
+		export function sendRequestAsync(
+			enableRedirects: boolean,
+			enableCertificateValidation: boolean,
+			timeout: number,
+			method: string,
+			uri: string,
+			version: string,
+			headers: Iterable<string>,
+			body: string,
+		): Promise<string>;
+
+		export function perfMeasureAsync(
 			executionName: string,
 			enableRedirects: boolean,
 			enableCertificateValidation: boolean,
@@ -15,7 +26,7 @@ declare module 'node-api-dotnet' {
 			uri: string,
 			version: string,
 			headers: Iterable<string>,
-			content: string,
+			body: string,
 			requestCount: number,
 			clientsCount: number,
 			callback: (arg1: string) => void,

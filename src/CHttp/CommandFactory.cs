@@ -151,9 +151,7 @@ internal static class CommandFactory
 
 		CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
 
-		CreateJsonCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, rootCommand);
-
-		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
+		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, rootCommand);
 
 		CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, rootCommand);
 
@@ -210,42 +208,6 @@ internal static class CommandFactory
 		Option<string> versionOptions,
 		Option<string> methodOptions,
 		Option<IEnumerable<string>> headerOptions,
-		Option<double> timeoutOption,
-		Option<bool> redirectOption,
-		Option<bool> validateCertificateOption,
-		Option<string> uriOption,
-		Option<LogLevel> logOption,
-		Option<string> outputFileOption,
-		Option<string> cookieContainerOption,
-		RootCommand rootCommand)
-	{
-		rootCommand.AddOption(uriOption);
-		rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior) =>
-		{
-			writer ??= new WriterStrategy(outputBehavior);
-			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
-			var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
-			await client.SendRequestAsync(requestDetails);
-			await writer.CompleteAsync(CancellationToken.None);
-			await cookieContainer.SaveAsync();
-		},
-		new HttpRequestDetailsBinder(new HttpMethodBinder(methodOptions),
-		  new UriBinder(uriOption),
-		  new VersionBinder(versionOptions),
-		  new KeyValueBinder(headerOptions)),
-		new HttpBehaviorBinder(
-		  new InvertBinder(redirectOption),
-		  new InvertBinder(validateCertificateOption),
-		  timeoutOption,
-		  cookieContainerOption),
-		 new OutputBehaviorBinder(logOption, outputFileOption));
-	}
-
-	private static void CreateJsonCommand(IWriter? writer,
-		IFileSystem? fileSystem,
-		Option<string> versionOptions,
-		Option<string> methodOptions,
-		Option<IEnumerable<string>> headerOptions,
 		Option<string> bodyOptions,
 		Option<double> timeoutOption,
 		Option<bool> redirectOption,
@@ -257,19 +219,18 @@ internal static class CommandFactory
 		Option<int?> uploadThrottleOption,
 		RootCommand rootCommand)
 	{
-		var jsonCommand = new Command("json", "Json request");
-		jsonCommand.AddOption(bodyOptions);
-		jsonCommand.AddOption(uriOption);
-		jsonCommand.AddOption(uploadThrottleOption);
-		rootCommand.Add(jsonCommand);
-		jsonCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body, uploadThrottle) =>
+		rootCommand.AddOption(bodyOptions);
+		rootCommand.AddOption(uriOption);
+		rootCommand.AddOption(uploadThrottleOption);
+
+		rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body, uploadThrottle) =>
 		{
 			writer ??= new WriterStrategy(outputBehavior);
 			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
 			var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
 			if (uploadThrottle.HasValue && uploadThrottle.Value > 0)
 				requestDetails = requestDetails with { Content = new UploadThrottledStringContent(body, uploadThrottle.Value, new Awaiter()) };
-			else
+			else if (!string.IsNullOrEmpty(body))
 				requestDetails = requestDetails with { Content = new StringContent(body) };
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);

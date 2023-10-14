@@ -150,7 +150,7 @@ public class CHttpFunctionalTests
 
 		// 2 kbyte in UTF-8,should be 30 ms to complete with throttle speed of 1 kbyte/s
 		string largeValue = new string('1', 2000);
-		var client = CommandFactory.CreateRootCommand(writer).InvokeAsync($$"""json --method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --body {""test"":""{{largeValue}}""} --upload-throttle 1""");
+		var client = CommandFactory.CreateRootCommand(writer).InvokeAsync($$"""--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --body {""test"":""{{largeValue}}""} --upload-throttle 1""");
 
 		// In 16 ms data is still being sent.
 		await Task.Delay(TimeSpan.FromMilliseconds(16));
