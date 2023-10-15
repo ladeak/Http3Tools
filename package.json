@@ -1,5 +1,0 @@
-{
-  "dependencies": {
-    "ladeak-chttp": "file:src/VSCodeExt"
-  }
-}
