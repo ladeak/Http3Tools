@@ -2,7 +2,7 @@
   "name": "ladeak-chttp",
   "displayName": "CHttp",
   "description": "Performance Testing HTTP client.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": "https://github.com/ladeak/Http3Tools",
   "publisher": "ladeak",
   "engines": {
@@ -67,7 +67,7 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "vsce-deploy": "vsce package",
+    "vsce-deploy": "vsce package --out chttp-vsce.vsix --target win32-x64",
     "vsce-publish": "vsce publish"
   },
   "devDependencies": {
