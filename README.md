@@ -1,6 +1,6 @@
 # Http3Tools
 
-Tools to send HTTP requests. The tool is based on .NET7, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
+Tools to send HTTP requests. The tool is based on .NET8, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
 ## Getting Started
 
@@ -14,7 +14,11 @@ dotnet tool install -g LaDeak.CHttp
 
 ### Install Executable
 
-Download latest executables from this GitHub repository's Releases page.
+Download latest executables from this GitHub repository's [Releases page](https://github.com/ladeak/Http3Tools/releases).
+
+### Install as Visual Studio Code Extension
+
+Download from Visual Studio Code marketplace as [CHttp](https://marketplace.visualstudio.com/items?itemName=ladeak-net.ladeak-chttp).
 
 ### Run the Tool
 
@@ -58,20 +62,29 @@ Options:
   --no-cert-validation, --no-certificate-validation  Disables certificate validation [default: False]
   -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
   -o, --output <output>                              Output to file. []
+  --cookie-container <cookie-container>              A file to share cookies among requests. []
+  -b, --body <body>                                  Request body
   -u, --uri <uri> (REQUIRED)                         The URL of the resource
+  --upload-throttle <upload-throttle>                Specify HTTP level throttling in kbyte/sec when sending the
+                                                     request []
   --version                                          Show version information
   -?, -h, --help                                     Show help and usage information
 
 Commands:
   forms  Forms request
-  json   Json request
   perf   Performance Measure
   diff   Compares to performance measurement files
 ```
 
+#### Log Levels
+
+#### Cookie Containers
+
+#### Upload Throttle
+
 ### Performance Measurements
 
-Set the number of *clients* used to send the number of *requestCount* requests. The tool executes the test and writes out basic statistical information about the collected data.
+Set the number of *clients* (`-c`) used to send the number of *requestCount* (`-n`) requests. The tool executes the test and writes out basic statistical information about the collected data.
 
 ```
 chttp perf --help
@@ -86,15 +99,106 @@ Usage:
 
 Options:
   -n, --requestCount <requestCount>                  Number of total requests sent. [default: 100]
+  -b, --body <body>                                  Request body
   -c, --clients <clients>                            Number of parallel clients. [default: 20]
+  -u, --uri <uri> (REQUIRED)                         The URL of the resource
+  --metrics <metrics>                                When Application Insights connection string is set, it pushes
+                                                     performance metrics data. []
   -v, --http-version <1.0|1.1|2|3>                   The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3]
   -m, --method                                       HTTP Method [default: GET]
   <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>
-  -h, --header <header>                              Headers Key-Value pairs separated by ':' []
-  -u, --uri <uri> (REQUIRED)                         The URL of the resource
+  -h, --header <header>                              Headers Key-Value pairs separated by ':'. For example
+                                                     --header="key:myvalue"  []
   -t, --timeout <timeout>                            Timeout in seconds. [default: 30]
   --no-redirects                                     Disables following redirects on requests [default: False]
   --no-cert-validation, --no-certificate-validation  Disables certificate validation [default: False]
   -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
+  -o, --output <output>                              Output to file. []
+  --cookie-container <cookie-container>              A file to share cookies among requests. []
   -?, -h, --help                                     Show help and usage information
 ```
+
+Performance measurements yields results such as:
+
+```
+RequestCount: 100, Clients: 10
+| Mean:          322,698 us   |
+| StdDev:         80,236 us   |
+| Error:           8,024 us   |
+| Median:        310,700 us   |
+| Min:           198,700 us   |
+| Max:           652,700 us   |
+| 95th:          473,700 us   |
+| Throughput:      0.000  B/s |
+| Req/Sec:      2,82E+04      |
+------------------------------------------------------------------------
+   244,100 us #########
+   289,500 us ###################
+   334,900 us ###################
+   380,300 us ##############
+   425,700 us ####
+   471,100 us ##
+   516,500 us ##
+   561,900 us #
+   607,300 us 
+   652,700 us #
+------------------------------------------------------------------------
+HTTP status codes:
+1xx: 0, 2xx: 100, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0
+------------------------------------------------------------------------
+```
+
+The top section details standard statistical values. The middle section draws a distribution of the requests. The distribution is only rendered for performance measurements with at least 100 requests. The last section shows the response HTTP status codes of these results.
+
+When results are persisted using the `-o` or `--output` parameters, the `diff` command can be used to compare results.
+
+### Diff
+
+```
+Description:
+  Compares to performance measurement files
+
+Usage:
+  CHttp diff [options]
+
+Options:
+ --files <files>                                    List of 2 files to be compared. []
+```
+
+Such as: 
+
+```
+diff --files session0.json --files session1.json
+```
+
+The command show the results of `session0.json` as the base and the results of `session1.json` as the difference to the base.
+
+```
+RequestCount: 100, Clients: 10
+| Mean:          183.910 ms       -1.847 ms   |
+| StdDev:        181.972 ms       +6.523 ms   |
+| Error:          18.197 ms     +652.321 us   |
+| Median:        114.454 ms       +1.057 ms   |
+| Min:           102.744 ms     -575.000 us   |
+| Max:           815.822 ms      +19.062 ms   |
+| 95th:          735.611 ms       +7.440 ms   |
+| Throughput:    114.016 KB/s     +3.903 KB/s |
+| Req/Sec:          52.3          +0.826      |
+------------------------------------------------------------------------------------------------------------------------
+   175.441 ms ====================================================
+   248.712 ms ==
+   321.983 ms
+   395.255 ms
+   468.526 ms
+   541.798 ms
+   615.069 ms =+
+   688.341 ms #
+   761.612 ms =
+   834.883 ms ===
+------------------------------------------------------------------------------------------------------------------------
+HTTP status codes:
+1xx: 0 +0, 2xx: 100 +0, 3xx: 0 +0, 4xx: 0 +0, 5xx: 0 +0, Other: 0 +0
+------------------------------------------------------------------------------------------------------------------------
+```
+
+The distribution section uses `=` sign to indicate that both sessions have results in a given bucket; `#` where the base session have more results and `+` where the comparison sesoion has more results in the bucket.
