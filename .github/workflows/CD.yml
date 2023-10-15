@@ -59,7 +59,7 @@ jobs:
       run: |
         pushd ./src/VSCodeExt/
         npm install
-        npm run vsce-deploy ${VERSION} --target win32-x64
+        npm run vsce-deploy ${VERSION} --target win32-x64 --out chttp-vsce.vsix
         popd
     - name: Release
       uses: softprops/action-gh-release@v1
@@ -76,7 +76,7 @@ jobs:
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
-            src/VSCodeExt/ladeak-chttp-${VERSION}.vsix
+            src/VSCodeExt/chttp-vsce.vsix
 
 
 
