@@ -116,32 +116,4 @@ export class HttpRequestParser {
 
         return { method, url, httpVersion };
     }
-
-    private async parseBody(lines: string[], contentTypeHeader: string | undefined): Promise<string | Stream | undefined> {
-        if (lines.length === 0) {
-            return undefined;
-        }
-
-        // Check if needed to upload file
-        if (lines.every(line => !this.inputFileSyntax.test(line))) {
-            if (MimeUtility.isFormUrlEncoded(contentTypeHeader)) {
-                return lines.reduce((p, c, i) => {
-                    p += `${(i === 0 || c.startsWith('&') ? '' : EOL)}${c}`;
-                    return p;
-                }, '');
-            } else {
-                const lineEnding = this.getLineEnding(contentTypeHeader);
-                let result = lines.join(lineEnding);
-                if (MimeUtility.isNewlineDelimitedJSON(contentTypeHeader)) {
-                    result += lineEnding;
-                }
-                return result;
-            }
-        }
-        return undefined;
-    }
-
-    private getLineEnding(contentTypeHeader: string | undefined) {
-        return MimeUtility.isMultiPartFormData(contentTypeHeader) ? '\r\n' : EOL;
-    }
 }

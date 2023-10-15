@@ -2528,7 +2528,6 @@ exports.HttpResponseTextDocumentView = HttpResponseTextDocumentView;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.HttpRequestParser = exports.PerformanceBehavior = void 0;
 const os_1 = __webpack_require__(6);
-const mimeUtility_1 = __webpack_require__(14);
 const misc_1 = __webpack_require__(19);
 const requestParserUtil_1 = __webpack_require__(21);
 var ParseState;
@@ -2633,32 +2632,6 @@ class HttpRequestParser {
             url = url.substr(0, match.index);
         }
         return { method, url, httpVersion };
-    }
-    async parseBody(lines, contentTypeHeader) {
-        if (lines.length === 0) {
-            return undefined;
-        }
-        // Check if needed to upload file
-        if (lines.every(line => !this.inputFileSyntax.test(line))) {
-            if (mimeUtility_1.MimeUtility.isFormUrlEncoded(contentTypeHeader)) {
-                return lines.reduce((p, c, i) => {
-                    p += `${(i === 0 || c.startsWith('&') ? '' : os_1.EOL)}${c}`;
-                    return p;
-                }, '');
-            }
-            else {
-                const lineEnding = this.getLineEnding(contentTypeHeader);
-                let result = lines.join(lineEnding);
-                if (mimeUtility_1.MimeUtility.isNewlineDelimitedJSON(contentTypeHeader)) {
-                    result += lineEnding;
-                }
-                return result;
-            }
-        }
-        return undefined;
-    }
-    getLineEnding(contentTypeHeader) {
-        return mimeUtility_1.MimeUtility.isMultiPartFormData(contentTypeHeader) ? '\r\n' : os_1.EOL;
     }
 }
 exports.HttpRequestParser = HttpRequestParser;
