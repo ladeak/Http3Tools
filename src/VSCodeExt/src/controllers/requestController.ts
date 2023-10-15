@@ -1,4 +1,4 @@
-import { ExtensionContext, Range, TextDocument, ViewColumn, commands, window, ProgressLocation } from 'vscode';
+import { ExtensionContext, Range, TextDocument, ViewColumn, commands, window, ProgressLocation, workspace } from 'vscode';
 import { RequestMetadata } from '../models/requestMetadata';
 import { RequestStatusEntry } from '../utils/requestStatusBarEntry';
 import { Selector } from '../utils/selector';
@@ -6,6 +6,7 @@ import { getCurrentTextDocument } from '../utils/workspaceUtility';
 import { HttpResponseTextDocumentView } from '../views/httpResponseTextDocumentView';
 import { HttpRequestParser } from '../utils/httpRequestParser';
 import { SelectedRequest } from '../models/SelectedRequest';
+import { RequestVariableCache } from '../utils/requestVariableCache';
 
 export class RequestController {
     private _requestStatusEntry: RequestStatusEntry;
@@ -42,7 +43,7 @@ export class RequestController {
         if (metadatas.has(RequestMetadata.ClientsCount) || metadatas.has(RequestMetadata.ClientsCount))
             await this.performanceMeasurementRequest(selectedRequest);
         else
-            await this.sendRequest(selectedRequest);
+            await this.sendRequest(selectedRequest, document);
     }
 
     public async performanceMeasurementRequest(selectedRequest: SelectedRequest) {
@@ -96,7 +97,7 @@ export class RequestController {
         });
     }
 
-    public async sendRequest(selectedRequest: SelectedRequest) {
+    public async sendRequest(selectedRequest: SelectedRequest, document: TextDocument) {
         const { text, metadatas } = selectedRequest;
         const name = metadatas.get(RequestMetadata.Name);
 
@@ -121,6 +122,8 @@ export class RequestController {
                 return;
             }
 
+            if(metadatas.has(RequestMetadata.Name))
+            RequestVariableCache.add(document, metadatas.get(RequestMetadata.Name)!, response);
             this._textDocumentView.render(response);
             this._requestStatusEntry.updateStatus("Completed");
         } catch (reason: any) {

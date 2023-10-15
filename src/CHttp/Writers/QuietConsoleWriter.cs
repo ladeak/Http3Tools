@@ -1,8 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using CHttp.Abstractions;
 
 namespace CHttp.Writers;
@@ -20,20 +18,22 @@ internal sealed class QuietConsoleWriter : IWriter
         _console = console;
     }
 
-    public async Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
+    public async Task InitializeResponseAsync(HttpResponseInitials initials)
     {
         _contentProcessor.Cancel();
         await CompleteAsync(CancellationToken.None);
-        PrintResponse(responseStatus, headers, httpVersion, encoding);
+        PrintResponse(initials);
         _ = _contentProcessor.RunAsync(ProcessLine);
     }
 
-    private void PrintResponse(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding)
+    private void PrintResponse(HttpResponseInitials initials)
     {
-        _console.WriteLine($"Status: {responseStatus} Version: {httpVersion} Encoding: {encoding.WebName}");
-        foreach (var header in headers)
+        _console.WriteLine($"Status: {initials.ResponseStatus} Version: {initials.HttpVersion} Encoding: {initials.Encoding.WebName}");
+        foreach (var header in initials.Headers)
             _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
-    }
+		foreach (var header in initials.ContentHeaders)
+			_console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
+	}
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
     {

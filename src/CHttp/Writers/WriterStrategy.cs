@@ -1,7 +1,5 @@
 ﻿using System.IO.Pipelines;
-using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using CHttp.Abstractions;
 using CHttp.Data;
 
@@ -34,7 +32,7 @@ internal sealed class WriterStrategy : IWriter
 
     public ValueTask DisposeAsync() => _strategy.DisposeAsync();
 
-    public Task InitializeResponseAsync(HttpStatusCode responseStatus, HttpResponseHeaders headers, Version httpVersion, Encoding encoding) => _strategy.InitializeResponseAsync(responseStatus, headers, httpVersion, encoding);
+    public Task InitializeResponseAsync(HttpResponseInitials initials) => _strategy.InitializeResponseAsync(initials);
 
     public Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary) => _strategy.WriteSummaryAsync(trailers, summary);
 }

@@ -86,6 +86,7 @@
   },
   "dependencies": {
     "mime-types": "^2.1.14",
+    "jsonpath-plus": "^0.20.1",
     "node-api-dotnet": "^0.4.4"
   }
 }

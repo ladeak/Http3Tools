@@ -43,7 +43,9 @@ app.MapPost("/post", context =>
 	return context.Response.WriteAsync("Hello World " + context.Request.Protocol.ToString());
 });
 
-app.MapGet("/jsonresponse", context => context.Response.WriteAsync("""{"message":"Hello World"}"""));
+app.MapGet("/jsonresponse", context => context.Response.WriteAsJsonAsync("""{"message":"Hello World"}"""));
+
+app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
 
 app.Run();
 
@@ -54,6 +56,11 @@ async IAsyncEnumerable<string> GenerateData()
 		await Task.Delay(1000);
 		yield return $"hello {i}";
 	}
+}
+
+public class Data
+{
+	public string Message { get; set; }
 }
 
 public partial class Program { }

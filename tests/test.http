@@ -4,6 +4,16 @@
 @custom = hello
 
 ###
+# @name jsonSample
+GET https://{{baseUrl}}/jsonresponse HTTP/2
+
+###
+# echo
+GET https://{{baseUrl}}/echo HTTP/2
+
+{{jsonSample.response.body.message}}
+
+###
 # @name {{custom}}
 GET https://{{baseUrl}} HTTP/2
 

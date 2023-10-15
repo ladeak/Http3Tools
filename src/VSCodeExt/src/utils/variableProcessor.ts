@@ -1,13 +1,15 @@
 import { TextDocument } from 'vscode';
 import { VariableType } from "../models/variableType";
 import { HttpVariableProvider } from './httpVariableProviders/httpVariableProvider';
+import { RequestVariableProvider } from './httpVariableProviders/requestVariableProvider';
 import { FileVariableProvider } from './httpVariableProviders/fileVariableProvider';
 import { getCurrentTextDocument } from './workspaceUtility';
 
 export class VariableProcessor {
 
     private static readonly providers: [HttpVariableProvider, boolean][] = [
-        [FileVariableProvider.Instance, true],
+        [RequestVariableProvider.Instance, true],
+        [FileVariableProvider.Instance, true]
     ];
 
     public static async processRawRequest(request: string, resolvedVariables: Map<string, string> = new Map<string, string>()) {
@@ -48,10 +50,20 @@ export class VariableProcessor {
     }
 
     public static async getAllVariablesDefinitions(document: TextDocument): Promise<Map<string, VariableType[]>> {
-        const [, [requestProvider], [fileProvider], [environmentProvider]] = this.providers;
+        const [, [requestProvider], [fileProvider]] = this.providers;
+        const requestVariables = await (requestProvider as RequestVariableProvider).getAll(document);
         const fileVariables = await (fileProvider as FileVariableProvider).getAll(document);
 
         const variableDefinitions = new Map<string, VariableType[]>();
+
+        // Request variables in file
+        requestVariables.forEach(({ name }) => {
+            if (variableDefinitions.has(name)) {
+                variableDefinitions.get(name)!.push(VariableType.Request);
+            } else {
+                variableDefinitions.set(name, [VariableType.Request]);
+            }
+        });
 
         // Normal file variables
         fileVariables.forEach(({ name }) => {

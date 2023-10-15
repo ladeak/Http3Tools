@@ -20,7 +20,7 @@ public class CHttpFunctionalTests
 		var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
 
 		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-		Assert.Contains($"Status: OK Version: 3.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+		Assert.Contains($"Status: OK Version: 3.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
 	}
 
 	[Fact]
@@ -34,7 +34,22 @@ public class CHttpFunctionalTests
 		var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
 
 		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-		Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+		Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+	}
+
+	[Fact]
+	public async Task ContentTypeHeader_WrittenToConsole()
+	{
+		using var host = HttpServer.CreateHostBuilder(context => 
+		    context.Response.WriteAsJsonAsync("""{"message":"Hello World"}"""), HttpProtocols.Http2);
+		await host.StartAsync();
+		var console = new TestConsolePerWrite();
+		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+		var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
+
+		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+		Assert.Contains("Content-Type: application/json", console.Text);
 	}
 
 	[Fact]
