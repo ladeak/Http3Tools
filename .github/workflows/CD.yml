@@ -59,7 +59,7 @@ jobs:
       run: |
         pushd ./src/VSCodeExt/
         npm install
-        npm run vsce-deploy ${{VERSION}}
+        npm run vsce-deploy ${VERSION}
         popd
     - name: Release
       uses: softprops/action-gh-release@v1
