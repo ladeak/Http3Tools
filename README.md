@@ -78,7 +78,7 @@ Commands:
 
 ### HTTP Version
 
-The tool supports HTTP/1.0, HTTP/1.1, HTTP/2 and HTTP/3. For HTTP/3 requires support from the OS. On Windows this is available with recent Windows version and on Linux install the `libmsquic` package.
+The tool supports HTTP/1.0, HTTP/1.1, HTTP/2 and HTTP/3. Specify `1.0`, `1.1`, `2`, `3` values accordingly. For HTTP/3 requires support from the OS. On Windows this is available with recent Windows version and on Linux install the `libmsquic` package.
 
 #### Log Levels
 
@@ -88,10 +88,11 @@ The tool supports HTTP/1.0, HTTP/1.1, HTTP/2 and HTTP/3. For HTTP/3 requires sup
 
 #### Cookie Containers
 
-When multiple coherent requests would share a cookies, use a cookie containar.
+When multiple coherent requests would share a cookies, use a cookie containar. This cookie container will persist all cookies to a file, and updating this file after each request.
 
 #### Upload Throttle
 
+It is possible to throttle request content. Note, that this is only throttling HTTP level traffic. Specify the values in *kbyte/sec*.
 ### Performance Measurements
 
 Set the number of *clients* (`-c`) used to send the number of *requestCount* (`-n`) requests. The tool executes the test and writes out basic statistical information about the collected data.
