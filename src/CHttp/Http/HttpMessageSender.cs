@@ -100,7 +100,11 @@ internal sealed class HttpMessageSender
 		foreach (var header in requestData.Headers)
 		{
 			if (!request.Headers.TryAddWithoutValidation(header.GetKey().ToString(), header.GetValue().ToString()) && requestData.Content is { })
+			{
+				// Removing the header when overriden by the user.
+				requestData.Content.Headers.Remove(header.GetKey().ToString());
 				requestData.Content.Headers.TryAddWithoutValidation(header.GetKey().ToString(), header.GetValue().ToString());
+			}
 		}
 	}
 }

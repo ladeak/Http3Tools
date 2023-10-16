@@ -9,10 +9,11 @@ namespace CHttp.Tests;
 
 internal static class HttpServer
 {
-	public static WebApplication CreateHostBuilder(RequestDelegate requestDelegate,
+	public static WebApplication CreateHostBuilder(RequestDelegate? requestDelegate = null,
 		HttpProtocols? protocol = null,
 		Action<KestrelServerOptions>? configureKestrel = null,
 		Action<IServiceCollection>? configureServices = null,
+		Action<WebApplication>? configureApp = null,
 		int port = 5011,
 		string path = "/")
 	{
@@ -30,7 +31,10 @@ internal static class HttpServer
 		configureServices?.Invoke(builder.Services);
 		var app = builder.Build();
 
-		app.Map(path, requestDelegate);
+		if (requestDelegate != null)
+			app.Map(path, requestDelegate);
+		else if (configureApp != null)
+			configureApp.Invoke(app);
 		return app;
 	}
 }

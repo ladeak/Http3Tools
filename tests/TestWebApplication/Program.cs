@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -50,6 +51,13 @@ app.MapGet("/jsonresponse", context =>
 });
 
 app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
+
+app.MapPost("/forms", ([FromForm] string name, [FromForm] string title) =>
+{
+	if (name == "Alice" && title == "Software Engineer")
+		return Results.NoContent();
+	return Results.BadRequest();
+}).DisableAntiforgery();
 
 app.Run();
 

@@ -2,7 +2,9 @@ using System.CommandLine;
 using System.Text;
 using CHttp.Abstractions;
 using CHttp.Writers;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace CHttp.Tests;
@@ -40,8 +42,8 @@ public class CHttpFunctionalTests
 	[Fact]
 	public async Task ContentTypeHeader_WrittenToConsole()
 	{
-		using var host = HttpServer.CreateHostBuilder(context => 
-		    context.Response.WriteAsJsonAsync("""{"message":"Hello World"}"""), HttpProtocols.Http2);
+		using var host = HttpServer.CreateHostBuilder(context =>
+			context.Response.WriteAsJsonAsync("""{"message":"Hello World"}"""), HttpProtocols.Http2);
 		await host.StartAsync();
 		var console = new TestConsolePerWrite();
 		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
@@ -189,5 +191,28 @@ public class CHttpFunctionalTests
 		await writer.CompleteAsync(CancellationToken.None);
 		Assert.True(serverReadCompleted);
 		Assert.Contains("100%       8 B", console.Text);
+	}
+
+	[Fact]
+	public async Task CustomContentType_TestVanilaHttp2Request()
+	{
+		bool valuesSet = false;
+		using var host = HttpServer.CreateHostBuilder(configureApp: app =>
+		{
+			app.MapPost("/", ([FromForm] string name, [FromForm] string title) =>
+			{
+				if (name == "Alice" && title == "Software Engineer")
+					valuesSet = true;
+				return "done";
+			}).DisableAntiforgery();
+		}, protocol: HttpProtocols.Http2);
+		await host.StartAsync();
+		var console = new TestConsolePerWrite();
+		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+		var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --header=\"Content-Type:application/x-www-form-urlencoded\" --body \"name=Alice&title=Software%20Engineer\"");
+
+		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+		Assert.True(valuesSet);
 	}
 }
