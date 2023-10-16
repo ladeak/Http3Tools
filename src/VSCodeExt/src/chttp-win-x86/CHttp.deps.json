@@ -11,7 +11,7 @@
         "dependencies": {
           "Azure.Monitor.OpenTelemetry.Exporter": "1.0.0",
           "System.CommandLine": "2.0.0-beta4.22272.1",
-          "System.IO.Pipelines": "8.0.0-rc.1.23419.4"
+          "System.IO.Pipelines": "8.0.0-rc.2.23479.6"
         },
         "runtime": {
           "CHttp.dll": {}
@@ -280,11 +280,11 @@
         }
       },
       "System.Diagnostics.DiagnosticSource/7.0.2": {},
-      "System.IO.Pipelines/8.0.0-rc.1.23419.4": {
+      "System.IO.Pipelines/8.0.0-rc.2.23479.6": {
         "runtime": {
           "lib/net8.0/System.IO.Pipelines.dll": {
             "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.41904"
+            "fileVersion": "8.0.23.47906"
           }
         }
       },
@@ -459,12 +459,12 @@
       "path": "system.diagnostics.diagnosticsource/7.0.2",
       "hashPath": "system.diagnostics.diagnosticsource.7.0.2.nupkg.sha512"
     },
-    "System.IO.Pipelines/8.0.0-rc.1.23419.4": {
+    "System.IO.Pipelines/8.0.0-rc.2.23479.6": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Xha7Ev45lonwHcDCBUM52ps6dqI8p83mn/OjpBEiqW8dcmdw3lIqPLPj1pdDJOoBnznoEzXagA5nEw9WiEvEkg==",
-      "path": "system.io.pipelines/8.0.0-rc.1.23419.4",
-      "hashPath": "system.io.pipelines.8.0.0-rc.1.23419.4.nupkg.sha512"
+      "sha512": "sha512-4bqn2Kj0keumJ0x3wdZtO1Ex/5Ppu01fP7Rtmn1uJBR08WWRKeKSX6U9a/BiEieE9JjhzapvhjPtFypE7ZIAyQ==",
+      "path": "system.io.pipelines/8.0.0-rc.2.23479.6",
+      "hashPath": "system.io.pipelines.8.0.0-rc.2.23479.6.nupkg.sha512"
     },
     "System.Memory.Data/1.0.2": {
       "type": "package",

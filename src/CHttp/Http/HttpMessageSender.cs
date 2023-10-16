@@ -99,11 +99,20 @@ internal sealed class HttpMessageSender
 	{
 		foreach (var header in requestData.Headers)
 		{
-			if (!request.Headers.TryAddWithoutValidation(header.GetKey().ToString(), header.GetValue().ToString()) && requestData.Content is { })
+			var headerKey = header.GetKey().ToString();
+			var headerValue = header.GetValue().ToString();
+			if (!request.Headers.TryAddWithoutValidation(headerKey, headerValue) && request.Content is { })
 			{
-				// Removing the header when overriden by the user.
-				requestData.Content.Headers.Remove(header.GetKey().ToString());
-				requestData.Content.Headers.TryAddWithoutValidation(header.GetKey().ToString(), header.GetValue().ToString());
+				if (string.Equals(headerKey, "Content-Type", StringComparison.OrdinalIgnoreCase))
+				{
+					request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(headerValue);
+				}
+				else
+				{
+					// Removing the header when overriden by the user.
+					request.Content.Headers.Remove(headerKey);
+					request.Content.Headers.TryAddWithoutValidation(headerKey, headerValue);
+				}
 			}
 		}
 	}

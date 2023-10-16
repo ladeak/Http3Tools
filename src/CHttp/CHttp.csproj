@@ -17,7 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageReference Include="System.IO.Pipelines" Version="8.0.0-rc.1.23419.4" />
+    <PackageReference Include="System.IO.Pipelines" Version="8.0.0-rc.2.23479.6" />
   </ItemGroup>
 
   <ItemGroup>

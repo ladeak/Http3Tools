@@ -50,6 +50,8 @@ app.MapGet("/jsonresponse", context =>
 	return context.Response.WriteAsync("""{"message":"Hello World"}""");
 });
 
+app.MapPost("/jsonrequest", (Data input) => Results.Ok(input.Message.Length));
+
 app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
 
 app.MapPost("/forms", ([FromForm] string name, [FromForm] string title) =>
