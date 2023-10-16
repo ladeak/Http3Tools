@@ -76,9 +76,19 @@ Commands:
   diff   Compares to performance measurement files
 ```
 
+### HTTP Version
+
+The tool supports HTTP/1.0, HTTP/1.1, HTTP/2 and HTTP/3. For HTTP/3 requires support from the OS. On Windows this is available with recent Windows version and on Linux install the `libmsquic` package.
+
 #### Log Levels
 
+- Quiet: only a summary of the HTTP response is displayed.
+- Normal: response headers and summary of the HTTP request is displayed.
+- Verbose: response headers, content and summary of the HTTP request is displayed.
+
 #### Cookie Containers
+
+When multiple coherent requests would share a cookies, use a cookie containar.
 
 #### Upload Throttle
 
