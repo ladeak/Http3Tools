@@ -93,6 +93,13 @@ When multiple coherent requests would share a cookies, use a cookie containar. T
 #### Upload Throttle
 
 It is possible to throttle request content. Note, that this is only throttling HTTP level traffic. Specify the values in *kbyte/sec*.
+
+#### Body
+
+Use simple string bodies or a filepath as the input for the request.
+
+> Note, that the current version of the tool does not allow sending JSON string in the body parameter. For more details see the linked [issue](https://github.com/dotnet/command-line-api/issues/1758). For sending JSON content, save the data to file and pass the filename as the argument of the body parameter.
+
 ### Performance Measurements
 
 Set the number of *clients* (`-c`) used to send the number of *requestCount* (`-n`) requests. The tool executes the test and writes out basic statistical information about the collected data.
@@ -213,3 +220,13 @@ HTTP status codes:
 ```
 
 The distribution section uses `=` sign to indicate that both sessions have results in a given bucket; `#` where the base session have more results and `+` where the comparison sesoion has more results in the bucket.
+
+
+## Develop
+
+Run the following commands to publish the native dependencis of the VS Code Extension and to copy them to the extension's dependencies:
+
+```$
+dotnet publish src/CHttpExtension -r win-x64
+cp src/CHttpExtension/bin/Release/net8.0/win-x64/publish\* src/VSCodeExt/src/chttp-win-x86/
+```

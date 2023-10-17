@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+﻿using System.Buffers;
+using System.CommandLine;
 using System.Globalization;
 using CHttp.Abstractions;
 using CHttp.Binders;
@@ -148,6 +149,9 @@ internal static class CommandFactory
 		rootCommand.AddGlobalOption(logOption);
 		rootCommand.AddGlobalOption(outputFileOption);
 		rootCommand.AddGlobalOption(cookieContainer);
+		rootCommand.AddOption(bodyOptions);
+		rootCommand.AddOption(uriOption);
+		rootCommand.AddOption(uploadThrottleOption);
 
 		CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
 
@@ -219,19 +223,16 @@ internal static class CommandFactory
 		Option<int?> uploadThrottleOption,
 		RootCommand rootCommand)
 	{
-		rootCommand.AddOption(bodyOptions);
-		rootCommand.AddOption(uriOption);
-		rootCommand.AddOption(uploadThrottleOption);
-
 		rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body, uploadThrottle) =>
 		{
+			fileSystem ??= new FileSystem();
 			writer ??= new WriterStrategy(outputBehavior);
-			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
+			var cookieContainer = new PersistentCookieContainer(fileSystem, httpBehavior.CookieContainer);
 			var client = new HttpMessageSender(writer, cookieContainer, httpBehavior);
 			if (uploadThrottle.HasValue && uploadThrottle.Value > 0)
 				requestDetails = requestDetails with { Content = new UploadThrottledStringContent(body, uploadThrottle.Value, new Awaiter()) };
 			else if (!string.IsNullOrEmpty(body))
-				requestDetails = requestDetails with { Content = new StringContent(body) };
+				requestDetails = requestDetails with { Content = LoadBody(fileSystem, body) };
 			await client.SendRequestAsync(requestDetails);
 			await writer.CompleteAsync(CancellationToken.None);
 			await cookieContainer.SaveAsync();
@@ -276,11 +277,12 @@ internal static class CommandFactory
 		perfCommand.AddOption(metricsOption);
 		perfCommand.SetHandler(async (requestDetails, httpBehavior, performanceBehavior, body, outputFile, metricsConnectionString) =>
 		{
+			fileSystem ??= new FileSystem();
 			if (!string.IsNullOrWhiteSpace(body))
-				requestDetails = requestDetails with { Content = new StringContent(body) };
+				requestDetails = requestDetails with { Content = LoadBody(fileSystem, body) };
 			httpBehavior = httpBehavior with { ToUtf8 = false };
 			console ??= new CHttpConsole();
-			var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
+			var cookieContainer = new PersistentCookieContainer(fileSystem, httpBehavior.CookieContainer);
 			ISummaryPrinter printer = new StatisticsPrinter(console);
 			if (!string.IsNullOrWhiteSpace(outputFile))
 				printer = new CompositePrinter(printer, new FilePrinter(outputFile, fileSystem));
@@ -333,6 +335,14 @@ internal static class CommandFactory
 		diffFileOption);
 	}
 
-
-
+	private static HttpContent LoadBody(IFileSystem fileSystem, string input)
+	{
+		if (!fileSystem.Exists(input))
+			return new StringContent(input);
+		var contentStream = fileSystem.Open(input, FileMode.Open, FileAccess.Read);
+		var memoryStream = new MemoryStream();
+		contentStream.CopyTo(memoryStream);
+		memoryStream.Seek(0, SeekOrigin.Begin);
+		return new ByteArrayContent(memoryStream.ToArray());
+	}
 }

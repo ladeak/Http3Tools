@@ -1,9 +1,14 @@
 ﻿using System.Buffers;
 using System.CommandLine;
 using System.Text.Json;
+using Azure.Core;
 using CHttp.Abstractions;
 using CHttp.Statitics;
+using CHttp.Writers;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace CHttp.Tests;
 
@@ -125,5 +130,43 @@ public class CHttpPerformanceFunctionalTests
 
 		Assert.Contains("2xx: 4", console.Text);
 		Assert.True(received);
+	}
+
+	[Fact]
+	public async Task JsonContentType()
+	{
+		string fileName = "mycontent.json";
+		var fileSystem = new MemoryFileSystem();
+		CreateInputFile(fileSystem, fileName);
+		using var host = HttpServer.CreateHostBuilder(configureApp: app =>
+		{
+			app.MapPost("/", ([FromBody] Request input) =>
+			{
+				if (input.Data != "Alice")
+					return Results.BadRequest();
+				return Results.NoContent();
+			}).DisableAntiforgery();
+		}, protocol: HttpProtocols.Http2);
+		await host.StartAsync();
+
+		var console = new TestConsolePerWrite();
+		var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
+			.InvokeAsync($"""perf --method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
+			.WaitAsync(TimeSpan.FromSeconds(10));
+
+		Assert.Contains("2xx: 4", console.Text);
+
+		static void CreateInputFile(MemoryFileSystem fileSystem, string fileName)
+		{
+			var file = fileSystem.Open(fileName, FileMode.CreateNew, FileAccess.Write);
+			ReadOnlySpan<byte> content = """{"Data":"Alice"}"""u8;
+			file.Write(content);
+			file.Close();
+		}
+	}
+
+	private class Request
+	{
+		public string? Data { get; set; }
 	}
 }

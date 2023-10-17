@@ -4,6 +4,7 @@ using CHttp.Abstractions;
 using CHttp.Writers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -214,5 +215,44 @@ public class CHttpFunctionalTests
 
 		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
 		Assert.True(valuesSet);
+	}
+
+	[Fact]
+	public async Task JsonContentType_TestVanilaHttp2Request()
+	{
+		string fileName = "mycontent.json";
+		var fileSystem = new MemoryFileSystem();
+		CreateInputFile(fileSystem, fileName);
+		using var host = HttpServer.CreateHostBuilder(configureApp: app =>
+		{
+			app.MapPost("/", ([FromBody] Request input) =>
+			{
+				if (input.Data != "Alice")
+					return Results.BadRequest();
+				return Results.NoContent();
+			}).DisableAntiforgery();
+		}, protocol: HttpProtocols.Http2);
+		await host.StartAsync();
+
+		var console = new TestConsolePerWrite();
+		var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+		var client = await CommandFactory.CreateRootCommand(writer, fileSystem: fileSystem)
+			.InvokeAsync($"""--method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" """);
+
+		await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+		Assert.Contains("Status: NoContent", console.Text);
+
+		static void CreateInputFile(MemoryFileSystem fileSystem, string fileName)
+		{
+			var file = fileSystem.Open(fileName, FileMode.CreateNew, FileAccess.Write);
+			ReadOnlySpan<byte> content = """{"Data":"Alice"}"""u8;
+			file.Write(content);
+			file.Close();
+		}
+	}
+
+	private class Request
+	{
+		public string? Data { get; set; }
 	}
 }
