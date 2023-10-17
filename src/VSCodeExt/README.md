@@ -69,12 +69,14 @@ GET https://{{baseUrl}}/echo HTTP/2
 
 ## Performance Measurements
 
-Set at least one of the following arguments for performance measurments:
+Add one of the following arguments for performance measurments:
 
 ```
 # @clientsCount 10
 # @requestCount 100
 ```
+
+Samples:
 
 ```
 ### Test
@@ -110,6 +112,15 @@ POST https://{{baseUrl}}/post
 
 {"data":"hello world"}
 ```
+
+Custom variables:
+
+- clientscount
+- requestcount
+- timeout (in seconds)
+- no-certificate-validation
+- no-redirect
+- name
 
 ### Sample performance measurement Output:
 
