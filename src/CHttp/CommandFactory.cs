@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.CommandLine;
+﻿using System.CommandLine;
 using System.Globalization;
 using CHttp.Abstractions;
 using CHttp.Binders;
@@ -343,6 +342,8 @@ internal static class CommandFactory
 		var memoryStream = new MemoryStream();
 		contentStream.CopyTo(memoryStream);
 		memoryStream.Seek(0, SeekOrigin.Begin);
+		if (memoryStream.TryGetBuffer(out var segment))
+			return new MemoryArrayContent(segment.AsMemory());
 		return new ByteArrayContent(memoryStream.ToArray());
 	}
 }
