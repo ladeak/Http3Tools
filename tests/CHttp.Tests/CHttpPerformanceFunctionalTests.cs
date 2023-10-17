@@ -1,10 +1,8 @@
 ﻿using System.Buffers;
 using System.CommandLine;
 using System.Text.Json;
-using Azure.Core;
 using CHttp.Abstractions;
 using CHttp.Statitics;
-using CHttp.Writers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

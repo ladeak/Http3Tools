@@ -59,7 +59,7 @@ internal static class CommandFactory
 
 		var bodyOptions = new Option<string>(
 			name: "--body",
-			description: "Request body");
+			description: "Request body or a file path containing the request");
 		bodyOptions.AddAlias("-b");
 		bodyOptions.IsRequired = false;
 

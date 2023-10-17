@@ -63,7 +63,7 @@ Options:
   -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
   -o, --output <output>                              Output to file. []
   --cookie-container <cookie-container>              A file to share cookies among requests. []
-  -b, --body <body>                                  Request body
+  -b, --body <body>                                  Request body or a file path containing the request
   -u, --uri <uri> (REQUIRED)                         The URL of the resource
   --upload-throttle <upload-throttle>                Specify HTTP level throttling in kbyte/sec when sending the
                                                      request []
@@ -117,7 +117,7 @@ Usage:
 
 Options:
   -n, --requestCount <requestCount>                  Number of total requests sent. [default: 100]
-  -b, --body <body>                                  Request body
+  -b, --body <body>                                  Request body or a file path containing the request
   -c, --clients <clients>                            Number of parallel clients. [default: 20]
   -u, --uri <uri> (REQUIRED)                         The URL of the resource
   --metrics <metrics>                                When Application Insights connection string is set, it pushes
