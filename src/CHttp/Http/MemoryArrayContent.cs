@@ -4,7 +4,7 @@ namespace CHttp.Http;
 
 public class MemoryArrayContent : HttpContent
 {
-    private readonly Memory<byte> _content;
+    public readonly Memory<byte> _content;
 
     public MemoryArrayContent(Memory<byte> content)
     {
@@ -12,7 +12,13 @@ public class MemoryArrayContent : HttpContent
         _content = content;
     }
 
-    protected override void SerializeToStream(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+	public MemoryArrayContent(MemoryArrayContent input)
+	{
+		ArgumentNullException.ThrowIfNull(input);
+        _content = input._content;
+	}
+
+	protected override void SerializeToStream(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
         stream.Write(_content.Span);
 
     protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>

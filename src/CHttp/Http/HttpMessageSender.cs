@@ -1,6 +1,7 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
+using CHttp.Http;
 
 namespace CHttp;
 
@@ -45,7 +46,10 @@ internal sealed class HttpMessageSender
 		var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
 		request.Version = requestData.Version;
 		request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
-		request.Content = requestData.Content;
+		if (requestData.Content is MemoryArrayContent source)
+			request.Content = new MemoryArrayContent(source);
+		else
+			request.Content = requestData.Content;
 		SetHeaders(requestData, request);
 		await SendRequestAsync(_client, request);
 	}
@@ -69,7 +73,7 @@ internal sealed class HttpMessageSender
 			}
 			catch (HttpRequestException requestException)
 			{
-				summary = summary with { Error = $"Request Error {requestException.Message}", ErrorCode = ErrorType.HttpRequestException };
+				summary = summary with { Error = $"Request Error {requestException}", ErrorCode = ErrorType.HttpRequestException };
 			}
 			catch (HttpProtocolException protocolException)
 			{

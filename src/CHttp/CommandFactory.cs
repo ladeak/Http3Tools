@@ -344,6 +344,6 @@ internal static class CommandFactory
 		memoryStream.Seek(0, SeekOrigin.Begin);
 		if (memoryStream.TryGetBuffer(out var segment))
 			return new MemoryArrayContent(segment.AsMemory());
-		return new ByteArrayContent(memoryStream.ToArray());
+		return new MemoryArrayContent(memoryStream.ToArray());
 	}
 }

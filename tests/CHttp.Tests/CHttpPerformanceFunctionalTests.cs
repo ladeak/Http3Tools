@@ -151,8 +151,8 @@ public class CHttpPerformanceFunctionalTests
 		var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
 			.InvokeAsync($"""perf --method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
 			.WaitAsync(TimeSpan.FromSeconds(10));
-
-		Assert.Contains("2xx: 4", console.Text);
+		var start = console.Text.IndexOf("2xx");
+		Assert.Contains("2xx: 4", console.Text.Substring(start, 30));
 
 		static void CreateInputFile(MemoryFileSystem fileSystem, string fileName)
 		{
@@ -161,6 +161,7 @@ public class CHttpPerformanceFunctionalTests
 			file.Write(content);
 			file.Close();
 		}
+		GC.KeepAlive(fileSystem);
 	}
 
 	private class Request
