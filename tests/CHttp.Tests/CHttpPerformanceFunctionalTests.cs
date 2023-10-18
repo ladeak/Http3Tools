@@ -149,7 +149,7 @@ public class CHttpPerformanceFunctionalTests
 
 		var console = new TestConsolePerWrite();
 		var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
-			.InvokeAsync($"""perf --method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
+			.InvokeAsync($"""perf --method POST --no-certificate-validation --uri https://localhost:{Port} -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
 			.WaitAsync(TimeSpan.FromSeconds(10));
 		var start = console.Text.IndexOf("2xx");
 		Assert.Contains("2xx: 4", console.Text.Substring(start, 30));
