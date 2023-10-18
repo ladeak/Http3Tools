@@ -1,6 +1,6 @@
 # Http3Tools
 
-Tools to send HTTP requests. The tool is based on .NET8, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
+CHttp is a tool to send HTTP requests. The tool is based on .NET8, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
 ## Getting Started
 
