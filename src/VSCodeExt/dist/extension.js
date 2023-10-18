@@ -67,7 +67,7 @@ class RequestController {
                     CHttpModule.CHttpExt.cancel();
                 });
                 const CHttpModule = __webpack_require__(28);
-                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
+                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
                     return;
@@ -92,7 +92,7 @@ class RequestController {
         const httpRequest = await parser.parseHttpRequest(name);
         try {
             const CHttpModule = __webpack_require__(28);
-            var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
+            var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
                 return;
@@ -144,6 +144,7 @@ var RequestMetadata;
     RequestMetadata["RequestCount"] = "requestcount";
     RequestMetadata["NoCertificateValidation"] = "no-certificate-validation";
     RequestMetadata["Timeout"] = "timeout";
+    RequestMetadata["KerberosAuth"] = "kerberos-auth";
 })(RequestMetadata || (exports.RequestMetadata = RequestMetadata = {}));
 function fromString(value) {
     value = value.toLowerCase();
@@ -2647,7 +2648,7 @@ exports.HttpRequestParser = HttpRequestParser;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "10f891d2aa08e57fa2f9292bf8a41a65.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "f901ce7e54d4057210ef11a3b801dc52.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }

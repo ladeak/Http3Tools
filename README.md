@@ -34,6 +34,8 @@ or
 chttp.exe --method GET --uri https://localhost:5001
 ```
 
+When no HTTP version is specified explicitly HTTP/3 is used by default.
+
 ## Options
 
 For available commands and options run the tool with the `--help` switch:

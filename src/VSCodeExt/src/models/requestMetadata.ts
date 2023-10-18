@@ -7,6 +7,7 @@ export enum RequestMetadata {
     RequestCount = 'requestcount',
     NoCertificateValidation = 'no-certificate-validation',
     Timeout = 'timeout',
+    KerberosAuth = 'kerberos-auth',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

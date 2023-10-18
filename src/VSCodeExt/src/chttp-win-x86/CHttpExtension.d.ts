@@ -9,6 +9,7 @@ declare module 'node-api-dotnet' {
 		export function sendRequestAsync(
 			enableRedirects: boolean,
 			enableCertificateValidation: boolean,
+			useKerberosAuth: boolean,
 			timeout: number,
 			method: string,
 			uri: string,
@@ -21,6 +22,7 @@ declare module 'node-api-dotnet' {
 			executionName: string,
 			enableRedirects: boolean,
 			enableCertificateValidation: boolean,
+			useKerberosAuth: boolean,
 			timeout: number,
 			method: string,
 			uri: string,

@@ -20,6 +20,7 @@ public static class CHttpExt
 	public static async Task<string> SendRequestAsync(
 		bool enableRedirects,
 		bool enableCertificateValidation,
+		bool useKerberosAuth,
 		double timeout,
 		string method,
 		string uri,
@@ -34,7 +35,7 @@ public static class CHttpExt
 		try
 		{
 			_cancellationTokenSource = new();
-			return await SendRequestImplAsync(enableRedirects, enableCertificateValidation,
+			return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
 				timeout, method, uri, version, headers, body);
 		}
 		finally
@@ -46,6 +47,7 @@ public static class CHttpExt
 	private static async Task<string> SendRequestImplAsync(
 		bool enableRedirects,
 		bool enableCertificateValidation,
+		bool useKerberosAuth,
 		double timeout,
 		string method,
 		string uri,
@@ -54,7 +56,7 @@ public static class CHttpExt
 		string body
 	)
 	{
-		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty);
+		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty, useKerberosAuth);
 		var parsedHeaders = new List<KeyValueDescriptor>();
 		foreach (string header in headers ?? Enumerable.Empty<string>())
 		{
@@ -84,6 +86,7 @@ public static class CHttpExt
 		string executionName,
 		bool enableRedirects,
 		bool enableCertificateValidation,
+		bool useKerberosAuth,
 		double timeout,
 		string method,
 		string uri,
@@ -101,7 +104,7 @@ public static class CHttpExt
 		try
 		{
 			_cancellationTokenSource = new();
-			return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation,
+			return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth,
 				timeout, method, uri, version, headers, body, requestCount, clientsCount, callback);
 		}
 		finally
@@ -114,6 +117,7 @@ public static class CHttpExt
 		string? executionName,
 		bool enableRedirects,
 		bool enableCertificateValidation,
+		bool useKerberosAuth,
 		double timeout,
 		string method,
 		string uri,
@@ -125,7 +129,7 @@ public static class CHttpExt
 		Action<string> callback
 	)
 	{
-		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty);
+		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty, useKerberosAuth);
 		var parsedHeaders = new List<KeyValueDescriptor>();
 		foreach (string header in headers ?? Enumerable.Empty<string>())
 		{

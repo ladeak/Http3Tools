@@ -69,6 +69,7 @@ export class RequestController {
                     name ? name : null,
                     !metadatas.has(RequestMetadata.NoRedirect),
                     !metadatas.has(RequestMetadata.NoCertificateValidation),
+                    metadatas.has(RequestMetadata.KerberosAuth),
                     this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
                     performanceHttpRequest.method,
                     performanceHttpRequest.uri,
@@ -110,6 +111,7 @@ export class RequestController {
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
                 !metadatas.has(RequestMetadata.NoCertificateValidation),
+                metadatas.has(RequestMetadata.KerberosAuth),
                 this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
                 httpRequest.method,
                 httpRequest.uri,

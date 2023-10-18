@@ -18,10 +18,10 @@ VSCode Extension for CHttp command line tool. It allows to send and performance 
 
 ## Getting Started
 
-Send a simple HTTP/2 request GET request:
+Send a simple HTTP/2 request GET request. When no HTTP version is specified HTTP/2 is used by default.
 
 ```http
-GET https://{{baseUrl}} HTTP/2
+GET https://{{baseUrl}}
 ```
 
 Add headers and content:
