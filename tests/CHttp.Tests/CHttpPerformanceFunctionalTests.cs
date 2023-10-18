@@ -144,7 +144,7 @@ public class CHttpPerformanceFunctionalTests
 					return Results.BadRequest();
 				return Results.NoContent();
 			}).DisableAntiforgery();
-		}, protocol: HttpProtocols.Http2);
+		}, protocol: HttpProtocols.Http2, port: Port);
 		await host.StartAsync();
 
 		var console = new TestConsolePerWrite();
