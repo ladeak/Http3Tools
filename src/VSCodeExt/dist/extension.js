@@ -2273,6 +2273,7 @@ exports.FileVariableProvider = void 0;
 const Constants = __webpack_require__(7);
 const documentCache_1 = __webpack_require__(11);
 const variableType_1 = __webpack_require__(9);
+const requestVariableProvider_1 = __webpack_require__(10);
 class FileVariableProvider {
     static get Instance() {
         if (!this._instance) {
@@ -2286,7 +2287,9 @@ class FileVariableProvider {
             ['r', '\r'],
             ['t', '\t']
         ]);
-        this.innerVariableProviders = [];
+        this.innerVariableProviders = [
+            requestVariableProvider_1.RequestVariableProvider.Instance
+        ];
         this.fileVariableCache = new documentCache_1.DocumentCache();
         this.type = variableType_1.VariableType.File;
     }
@@ -2644,7 +2647,7 @@ exports.HttpRequestParser = HttpRequestParser;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "574ddfcb84d2cedfa12133bae19d638c.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "10f891d2aa08e57fa2f9292bf8a41a65.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
@@ -2830,6 +2833,51 @@ class HttpCodeLensProvider {
 exports.HttpCodeLensProvider = HttpCodeLensProvider;
 
 
+/***/ }),
+/* 33 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RequestVariableHoverProvider = void 0;
+const vscode_1 = __webpack_require__(1);
+const requestVariableProvider_1 = __webpack_require__(10);
+class RequestVariableHoverProvider {
+    constructor() {
+        this.requestVariableReferenceRegex = /\{{2}(\w+)\.(response|request)?(\.body(\..*?)?|\.headers(\.[\w-]+)?)?\}{2}/;
+    }
+    async provideHover(document, position, token) {
+        const wordRange = this.getRequestVariableReferencePathRange(document, position);
+        if (!wordRange) {
+            return undefined;
+        }
+        const fullPath = document.getText(wordRange);
+        const { name, value, warning, error } = await requestVariableProvider_1.RequestVariableProvider.Instance.get(fullPath, document);
+        if (!error && !warning) {
+            const contents = [];
+            if (value) {
+                contents.push(typeof value === 'string' ? value : { language: 'json', value: JSON.stringify(value, null, 2) });
+            }
+            contents.push('Request Variable');
+            return new vscode_1.Hover(contents, wordRange);
+        }
+        return undefined;
+    }
+    getRequestVariableReferencePathRange(document, position) {
+        const wordRange = document.getWordRangeAtPosition(position, this.requestVariableReferenceRegex);
+        if (!wordRange) {
+            return undefined;
+        }
+        // Remove leading and trailing curly braces
+        const start = wordRange.start.with({ character: wordRange.start.character + 2 });
+        const end = wordRange.end.with({ character: wordRange.end.character - 2 });
+        return wordRange.with(start, end);
+    }
+}
+exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
+
+
 /***/ })
 /******/ 	]);
 /************************************************************************/
@@ -2932,6 +2980,7 @@ const vscode_1 = __webpack_require__(1);
 const requestController_1 = __webpack_require__(2);
 const diffController_1 = __webpack_require__(29);
 const httpCodeLensProvider_1 = __webpack_require__(32);
+const requestVariableHoverProvider_1 = __webpack_require__(33);
 function activate(context) {
     const requestController = new requestController_1.RequestController(context);
     const diffController = new diffController_1.DiffController(context);
@@ -2945,6 +2994,7 @@ function activate(context) {
         { language: 'chttp', scheme: '*' }
     ];
     context.subscriptions.push(vscode_1.languages.registerCodeLensProvider(documentSelector, new httpCodeLensProvider_1.HttpCodeLensProvider()));
+    context.subscriptions.push(vscode_1.languages.registerHoverProvider(documentSelector, new requestVariableHoverProvider_1.RequestVariableHoverProvider()));
     context.subscriptions.push(sendRequest);
     context.subscriptions.push(cancelRequest);
     context.subscriptions.push(diff);

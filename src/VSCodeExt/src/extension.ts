@@ -3,6 +3,7 @@ import { commands, ExtensionContext, languages, Range, TextDocument, Uri, window
 import { RequestController } from './controllers/requestController';
 import { DiffController } from './controllers/diffController';
 import { HttpCodeLensProvider } from './providers/httpCodeLensProvider'
+import { RequestVariableHoverProvider } from './providers/requestVariableHoverProvider';
 export function activate(context: vscode.ExtensionContext) {
 
     const requestController = new RequestController(context);
@@ -20,6 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
     ];
 
 	context.subscriptions.push(languages.registerCodeLensProvider(documentSelector, new HttpCodeLensProvider()));
+	context.subscriptions.push(languages.registerHoverProvider(documentSelector, new RequestVariableHoverProvider()));
 	context.subscriptions.push(sendRequest);
 	context.subscriptions.push(cancelRequest);
 	context.subscriptions.push(diff);

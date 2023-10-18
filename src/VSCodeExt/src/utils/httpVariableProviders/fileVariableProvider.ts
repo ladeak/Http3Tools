@@ -4,6 +4,7 @@ import { DocumentCache } from '../../models/documentCache';
 import { ResolveErrorMessage } from '../../models/httpVariableResolveResult';
 import { VariableType } from '../../models/variableType';
 import { HttpVariable, HttpVariableProvider } from './httpVariableProvider';
+import { RequestVariableProvider } from './requestVariableProvider';
 
 type FileVariableValue = Record<'name' | 'value', string>;
 
@@ -25,6 +26,7 @@ export class FileVariableProvider implements HttpVariableProvider {
     ]);
 
     private readonly innerVariableProviders: HttpVariableProvider[] = [
+        RequestVariableProvider.Instance
     ];
 
     private readonly fileVariableCache = new DocumentCache<FileVariableValue[]>();

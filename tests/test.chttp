@@ -6,12 +6,13 @@
 ###
 # @name jsonSample
 GET https://{{baseUrl}}/jsonresponse HTTP/2
-
+###
+@nextRequest = {{jsonSample.response.body.message}}
 ###
 # echo
 GET https://{{baseUrl}}/echo HTTP/2
 
-{{jsonSample.response.body.message}}
+{{nextRequest}}
 
 ###
 # @name {{custom}}
