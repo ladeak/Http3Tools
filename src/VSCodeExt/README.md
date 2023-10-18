@@ -21,10 +21,10 @@ VSCode Extension for CHttp command line tool. It allows to send and performance 
 Send a simple HTTP/2 request GET request. When no HTTP version is specified HTTP/2 is used by default.
 
 ```http
-GET https://{{baseUrl}}
+GET https://localhost:5001
 ```
 
-Add headers and content:
+One can define headers and content. Separate headers and content with an empty line.
 
 ```http
 POST https://localhost:5001/jsonrequest HTTP/2
@@ -35,41 +35,69 @@ Content-Type:application/json
 }
 ```
 
-### Use variables
+To add comments use `#`or `//` characters. To separate queries, use the `###` character combination.
 
-```
+## Variables
+
+It is possible to define and re-use file level variables using the `@variable` syntax. Then a variable can be referenced with the `{{variable}}` syntax.
+
+```http
+@baseUrl = localhost:5001
 @path = delay
 ###
 GET https://{{baseUrl}}/{{path}} HTTP/2
 ```
 
-### Use named requests
+Variables may also reference another request's response content or headers. To achieve this, create a *named* request:
 
-```
+```http
 ###
 # @name jsonSample
-GET https://{{baseUrl}}/jsonresponse HTTP/2
-```
-
-### Parse and use response headers and json content
-
-In the sample below the `message` json value is used from the response body of the *jsonSample* named request as the content of the *echo* request.
-
-```
+GET https://localhost:5001/jsonresponse
 ###
-# @name jsonSample
-GET https://{{baseUrl}}/jsonresponse HTTP/2
-
+@nextRequestContent = {{jsonSample.response.body.message}}
 ###
 # echo
-GET https://{{baseUrl}}/echo HTTP/2
+GET https://localhost:5001/echo
 
-{{jsonSample.response.body.message}}
+{{nextRequestContent}}
+```
+
+In the above case the top request is named by the `# @name jsonSample` attribute. A variable `@nextRequestContent` references the response body's message JSON field. Use json-path to refer to a custom element of the response. Use the `[requestname].response.header.content-type` to refer to response headers.
+
+Then use this variable in another request with `{{nextRequestContent}}` reference.
+
+## Attributes
+
+Use attributes to change the HTTP request behavior. At the time of writing the following attributes are supported:
+
+- clientscount
+- requestcount
+- timeout (in seconds)
+- no-certificate-validation
+- no-redirect
+- name
+- kerberos-auth
+
+Using named requests:
+
+```
+@baseUrl = localhost:5001
+###
+# @name jsonSample
+GET https://{{baseUrl}}/jsonresponse HTTP/2
+```
+
+Or ignore certificate validation errors, by using the `@no-certificate-validation` attribute with value `true`.
+
+```http
+# @no-certificate-validation true
+GET https://localhost:5001/endpoint HTTP/1.1
 ```
 
 ## Performance Measurements
 
-Add one of the following arguments for performance measurments:
+Run performance measurements by defining either `@clientscount` or `@requestcount` attributes. Their default values are 10 and 100 respectively. 
 
 ```
 # @clientsCount 10
@@ -78,34 +106,15 @@ Add one of the following arguments for performance measurments:
 
 Samples:
 
-```
-### Test
-@path = /delay
+```http
 @baseUrl = localhost:5001
-@custom = comparison
 
 ###
-# @name jsonSample
-GET https://{{baseUrl}}/jsonresponse HTTP/2
-
-###
-# echo
-GET https://{{baseUrl}}/echo HTTP/2
-
-{{jsonSample.response.body.message}}
-
-###
-# @name {{custom}}
-GET https://{{baseUrl}} HTTP/2
-
-###
-# @name {{custom}}
 # @clientsCount 10
 # @requestCount 100
-GET https://{{baseUrl}} HTTP/2
+GET https://{{baseUrl}}
 
 ###
-# @name basePerformance
 # @clientsCount 10
 # @requestCount 100
 POST https://{{baseUrl}}/post
@@ -113,16 +122,12 @@ POST https://{{baseUrl}}/post
 {"data":"hello world"}
 ```
 
-Custom variables:
 
-- clientscount
-- requestcount
-- timeout (in seconds)
-- no-certificate-validation
-- no-redirect
-- name
+While it is possible to set a request content, for performance measurements it is not suggested as larger requests can impact the performance measurement on client side.
 
-### Sample performance measurement Output:
+### Sample performance measurement Output
+
+The output has three sections. The top section displays statistical results. The middle section draws a distribution of requests. The last section displays an aggregate view of the response codes.
 
 ```
 RequestCount: 100, Clients: 10
@@ -152,14 +157,18 @@ HTTP status codes:
 ------------------------------------------------------------------------
 ```
 
-## DIFF
+I this case the mean execution time is 322.698 us. The distribution has a single mode. All requests 100 returned status codes from the 200-299 range.
 
-Compare two *named* performance measurement results with the `DIFF` command:
+## Diff Performance Measurements
+
+Compare two *named* performance measurement results with the `DIFF` command. Use the `@name [value]` attribute to give a referrable name to a query and refer these names with the `DIFF` command.
 
 ```
 ###
 # @name comparison
-GET https://{{baseUrl}} HTTP/2
+# @clientsCount 10
+# @requestCount 100
+GET https://{{baseUrl}}/post HTTP/2
 
 ###
 # @name basePerformance
@@ -171,4 +180,36 @@ POST https://{{baseUrl}}/post
 
 ###
 DIFF basePerformance comparison
+```
+
+Diff results an aggregate view of the differences between the two requests.
+
+```
+RequestCount: 100, Clients: 10
+| Mean:          448,127 us      -55,265 us   |
+| StdDev:        151,588 us     +120,312 us   |
+| Error:          15,159 us      +12,031 us   |
+| Median:        413,600 us     -115,100 us   |
+| Min:           265,300 us     -137,600 us   |
+| Max:             1,285 ms     +225,800 us   |
+| 95th:          763,700 us     +220,100 us   |
+| Throughput:      0.000  B/s          0  B/s |
+| Req/Sec:      1,16E+04       +9244,993      |
+------------------------------------------------------------------------
+   266,040 us +++++++++++++
+   404,380 us =============###
+   542,720 us ====############
+   681,060 us =++
+   819,400 us ##
+   957,740 us =
+     1,096 ms =+
+     1,234 ms 
+     1,373 ms 
+     1,511 ms +
+------------------------------------------------------------------------
+HTTP status codes:
+1xx: 0 +0, 2xx: 100 +0, 3xx: 0 +0, 4xx: 0 +0, 5xx: 0 +0, Other: 0 +0
+------------------------------------------------------------------------
+*Warning: session files contain different urls: https://localhost:5001/,https://localhost:5001/post
+------------------------------------------------------------------------
 ```
