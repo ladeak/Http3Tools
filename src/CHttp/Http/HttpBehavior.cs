@@ -5,4 +5,5 @@ internal record HttpBehavior(
 	bool EnableCertificateValidation, 
 	double Timeout,
 	bool ToUtf8,
-	string CookieContainer);
+	string CookieContainer,
+	bool UseKerberosAuth);

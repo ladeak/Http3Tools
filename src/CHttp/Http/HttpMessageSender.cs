@@ -1,4 +1,5 @@
 ﻿using System.IO.Pipelines;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using CHttp.Http;
@@ -27,6 +28,12 @@ internal sealed class HttpMessageSender
 		if (!behavior.EnableCertificateValidation)
 			messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 
+		if (behavior.UseKerberosAuth)
+		{
+			messageHandler.DefaultProxyCredentials = CredentialCache.DefaultNetworkCredentials;
+			messageHandler.Credentials = CredentialCache.DefaultCredentials;
+		}
+
 		messageHandler.UseCookies = true;
 		messageHandler.CookieContainer = cookieContainer.Load();
 
@@ -38,7 +45,7 @@ internal sealed class HttpMessageSender
 	{
 		_writer = writer ?? throw new ArgumentNullException(nameof(writer));
 		_client = client ?? throw new ArgumentNullException(nameof(client));
-		_behavior = new(false, false, 0, ToUtf8: false, CookieContainer: string.Empty);
+		_behavior = new(false, false, 0, ToUtf8: false, CookieContainer: string.Empty, false);
 	}
 
 	public async Task SendRequestAsync(HttpRequestDetails requestData)

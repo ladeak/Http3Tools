@@ -124,7 +124,14 @@ internal static class CommandFactory
 			name: "--upload-throttle",
 			getDefaultValue: () => null,
 			description: "Specify HTTP level throttling in kbyte/sec when sending the request");
-		nOption.IsRequired = false;
+		uploadThrottleOption.IsRequired = false;
+
+		var kerberosAuthOption = new Option<bool>(
+			name: "--kerberos-auth",
+			getDefaultValue: () => false,
+			description: "Use Kerberos Auth");
+		kerberosAuthOption.AddAlias("-k");
+		kerberosAuthOption.IsRequired = false;
 
 		var diffFileOption = new Option<IEnumerable<string>>(
 			name: "--files",
@@ -151,12 +158,13 @@ internal static class CommandFactory
 		rootCommand.AddOption(bodyOptions);
 		rootCommand.AddOption(uriOption);
 		rootCommand.AddOption(uploadThrottleOption);
+		rootCommand.AddOption(kerberosAuthOption);
 
-		CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, rootCommand);
+		CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, kerberosAuthOption, rootCommand);
 
-		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, rootCommand);
+		CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, kerberosAuthOption, rootCommand);
 
-		CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, rootCommand);
+		CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, kerberosAuthOption, rootCommand);
 
 		CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
@@ -176,6 +184,7 @@ internal static class CommandFactory
 		Option<LogLevel> logOption,
 		Option<string> outputFileOption,
 		Option<string> cookieContainerOption,
+		Option<bool> kerberosAuthOption,
 		RootCommand rootCommand)
 	{
 		var formsCommand = new Command("forms", "Forms request");
@@ -201,7 +210,8 @@ internal static class CommandFactory
 		  new InvertBinder(redirectOption),
 		  new InvertBinder(validateCertificateOption),
 		  timeoutOption,
-		  cookieContainerOption),
+		  cookieContainerOption,
+		  kerberosAuthOption),
 		new OutputBehaviorBinder(logOption, outputFileOption),
 		new KeyValueBinder(formsOptions));
 	}
@@ -220,6 +230,7 @@ internal static class CommandFactory
 		Option<string> outputFileOption,
 		Option<string> cookieContainerOption,
 		Option<int?> uploadThrottleOption,
+		Option<bool> kerberosAuthOption,
 		RootCommand rootCommand)
 	{
 		rootCommand.SetHandler(async (requestDetails, httpBehavior, outputBehavior, body, uploadThrottle) =>
@@ -244,7 +255,8 @@ internal static class CommandFactory
 		  new InvertBinder(redirectOption),
 		  new InvertBinder(validateCertificateOption),
 		  timeoutOption,
-		  cookieContainerOption),
+		  cookieContainerOption,
+		  kerberosAuthOption),
 		new OutputBehaviorBinder(logOption, outputFileOption),
 		bodyOptions,
 		uploadThrottleOption);
@@ -265,6 +277,7 @@ internal static class CommandFactory
 		Option<string> outputFileOption,
 		Option<string> metricsOption,
 		Option<string> cookieContainerOption,
+		Option<bool> kerberosAuthOption,
 		RootCommand rootCommand)
 	{
 		var perfCommand = new Command("perf", "Performance Measure");
@@ -298,7 +311,8 @@ internal static class CommandFactory
 		  new InvertBinder(redirectOption),
 		  new InvertBinder(validateCertificateOption),
 		  timeoutOption,
-		  cookieContainerOption),
+		  cookieContainerOption,
+		  kerberosAuthOption),
 		 new PerformanceBehaviorBinder(nOption, cOption),
 		 bodyOptions,
 		 outputFileOption,
