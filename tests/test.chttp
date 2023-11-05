@@ -35,3 +35,8 @@ POST https://{{baseUrl}}/post
 
 ###
 DIFF hello basePerformance.json
+
+###
+GET https://{{baseUrl}} HTTP/3
+
+###

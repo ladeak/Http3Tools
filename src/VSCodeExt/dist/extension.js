@@ -66,7 +66,7 @@ class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                const CHttpModule = __webpack_require__(28);
+                const CHttpModule = __webpack_require__(34);
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
@@ -91,7 +91,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const httpRequest = await parser.parseHttpRequest(name);
         try {
-            const CHttpModule = __webpack_require__(28);
+            const CHttpModule = __webpack_require__(34);
             var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
@@ -2642,19 +2642,7 @@ exports.HttpRequestParser = HttpRequestParser;
 
 
 /***/ }),
-/* 28 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-/* module decorator */ module = __webpack_require__.nmd(module);
-
-try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "f901ce7e54d4057210ef11a3b801dc52.node");
-} catch (error) {
-  throw new Error('node-loader:\n' + error);
-}
-
-
-/***/ }),
+/* 28 */,
 /* 29 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -2703,7 +2691,7 @@ class DiffController {
             return;
         }
         try {
-            const CHttpModule = __webpack_require__(28);
+            const CHttpModule = __webpack_require__(34);
             var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
             this._view.render(response);
             this._requestStatusEntry.updateStatus("Completed");
@@ -2879,6 +2867,19 @@ class RequestVariableHoverProvider {
 exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 
 
+/***/ }),
+/* 34 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "dffe9ff5570c77252afd069bef18241f.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
 /***/ })
 /******/ 	]);
 /************************************************************************/
@@ -2987,7 +2988,7 @@ function activate(context) {
     const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
-        const CHttpModule = __webpack_require__(28);
+        const CHttpModule = __webpack_require__(34);
         CHttpModule.CHttpExt.cancel();
     }));
     let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => diffController.run(range)));
