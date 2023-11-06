@@ -18,7 +18,7 @@ VSCode Extension for CHttp command line tool. It allows to send and performance 
 
 ## Getting Started
 
-Send a simple HTTP/2 request GET request. When no HTTP version is specified HTTP/2 is used by default.
+Send a simple HTTP/2 and HTTP/3 request requests. When no HTTP version is specified HTTP/2 is used by default.
 
 ```http
 GET https://localhost:5001
