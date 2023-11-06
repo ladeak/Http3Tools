@@ -1,4 +1,7 @@
-﻿using CHttp;
+﻿using System.Net;
+using System.Net.Quic;
+using System.Runtime.Versioning;
+using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -17,6 +20,12 @@ public static class CHttpExt
 	private static MemoryFileSystem _fileSystem = new MemoryFileSystem();
 	private static string _fileNotExistsMessage = "Results for '{0}' are not available";
 
+	public static void SetMsQuicPath(string msquicPath)
+	{
+		AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", msquicPath);
+    }
+
+	[SupportedOSPlatform("windows")]
 	public static async Task<string> SendRequestAsync(
 		bool enableRedirects,
 		bool enableCertificateValidation,
@@ -28,35 +37,36 @@ public static class CHttpExt
 		IEnumerable<string> headers,
 		string body
 )
-	{
-		_cancellationTokenSource.Cancel();
-		if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
-			return "Cancelled";
-		try
-		{
-			_cancellationTokenSource = new();
-			return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
-				timeout, method, uri, version, headers, body);
-		}
-		finally
-		{
-			_semaphore.Release();
-		}
-	}
+    {
+        Version parsedVersion = ParseHttpVersion(version);
+        _cancellationTokenSource.Cancel();
+        if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+            return "Cancelled";
+        try
+        {
+            _cancellationTokenSource = new();
+            return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
+                timeout, method, uri, parsedVersion, headers, body);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
 
-	private static async Task<string> SendRequestImplAsync(
+    private static async Task<string> SendRequestImplAsync(
 		bool enableRedirects,
 		bool enableCertificateValidation,
 		bool useKerberosAuth,
 		double timeout,
 		string method,
 		string uri,
-		string version,
+		Version version,
 		IEnumerable<string> headers,
 		string body
 	)
-	{
-		var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty, useKerberosAuth);
+    {
+        var httpBehavior = new HttpBehavior(enableRedirects, enableCertificateValidation, timeout, false, string.Empty, useKerberosAuth);
 		var parsedHeaders = new List<KeyValueDescriptor>();
 		foreach (string header in headers ?? Enumerable.Empty<string>())
 		{
@@ -65,7 +75,7 @@ public static class CHttpExt
 		var requestDetails = new HttpRequestDetails(
 			new HttpMethod(method),
 			new Uri(uri, UriKind.Absolute),
-			VersionBinder.Map(version),
+            version,
 			parsedHeaders);
 		if (!string.IsNullOrWhiteSpace(body))
 			requestDetails = requestDetails with { Content = new StringContent(body) };
@@ -81,7 +91,7 @@ public static class CHttpExt
 		return console.Text;
 	}
 
-
+	[SupportedOSPlatform("windows")]
 	public static async Task<string> PerfMeasureAsync(
 		string executionName,
 		bool enableRedirects,
@@ -98,14 +108,15 @@ public static class CHttpExt
 		Action<string> callback
 	)
 	{
-		_cancellationTokenSource.Cancel();
+        Version parsedVersion = ParseHttpVersion(version);
+        _cancellationTokenSource.Cancel();
 		if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
 			return "Cancelled";
 		try
 		{
 			_cancellationTokenSource = new();
 			return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth,
-				timeout, method, uri, version, headers, body, requestCount, clientsCount, callback);
+				timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, callback);
 		}
 		finally
 		{
@@ -121,7 +132,7 @@ public static class CHttpExt
 		double timeout,
 		string method,
 		string uri,
-		string version,
+		Version version,
 		IEnumerable<string> headers,
 		string body,
 		int requestCount,
@@ -138,7 +149,7 @@ public static class CHttpExt
 		var requestDetails = new HttpRequestDetails(
 			new HttpMethod(method),
 			new Uri(uri, UriKind.Absolute),
-			VersionBinder.Map(version),
+			version,
 			parsedHeaders);
 		if (!string.IsNullOrWhiteSpace(body))
 			requestDetails = requestDetails with { Content = new StringContent(body) };
@@ -168,7 +179,19 @@ public static class CHttpExt
 		return console.Text;
 	}
 
-	private static bool FilesExist(string fileName1, string fileName2, out string error)
+
+    [SupportedOSPlatform("windows")]
+    private static Version ParseHttpVersion(string version)
+    {
+        var parsedVersion = VersionBinder.Map(version);
+#pragma warning disable CA2252 // This API requires opting into preview features
+        if (parsedVersion == HttpVersion.Version30 && !QuicConnection.IsSupported)
+            throw new InvalidOperationException($"QUIC is not supported or not available in folder {AppContext.BaseDirectory}");
+#pragma warning restore CA2252 // This API requires opting into preview features
+        return parsedVersion;
+    }
+
+    private static bool FilesExist(string fileName1, string fileName2, out string error)
 	{
 		if (!_fileSystem.Exists(fileName1))
 		{

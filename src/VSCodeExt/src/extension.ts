@@ -11,8 +11,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document: TextDocument, range: Range) => requestController.run(range)));
 	let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document: TextDocument, range: Range) => 
 	{
-		const CHttpModule = require('./chttp-win-x64/CHttpExtension.node');
-        CHttpModule.CHttpExt.cancel();
+		const cHttpModule = require('./chttp-win-x64/CHttpExtension.node');
+        cHttpModule.CHttpExt.cancel();
 	}));
 	let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document: TextDocument, range: Range) => diffController.run(range)));
 
@@ -25,6 +25,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(sendRequest);
 	context.subscriptions.push(cancelRequest);
 	context.subscriptions.push(diff);
+	const cHttpModule = require('./chttp-win-x64/CHttpExtension.node');
+	cHttpModule.CHttpExt.setMsQuicPath(context.extensionPath);
 }
 
 // This method is called when your extension is deactivated

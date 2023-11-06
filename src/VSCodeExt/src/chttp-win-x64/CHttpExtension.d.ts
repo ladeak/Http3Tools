@@ -6,6 +6,8 @@
 declare module 'node-api-dotnet' {
 
 	export namespace CHttpExt {
+		export function setMsQuicPath(msquicPath: string): void;
+
 		export function sendRequestAsync(
 			enableRedirects: boolean,
 			enableCertificateValidation: boolean,

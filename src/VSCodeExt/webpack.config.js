@@ -41,6 +41,10 @@ const extensionConfig = {
       {
         test: /\.node$/,
         loader: "node-loader",
+      },
+      {
+        test: /msquic\.dll$/,
+        type: 'asset/resource'
       }
     ]
   },
