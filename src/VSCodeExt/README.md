@@ -14,7 +14,7 @@ VSCode Extension for CHttp command line tool. It allows to send and performance 
 - Use overarching cookie container
 - Comments (line starts with # or //) support
 - CodeLens for sending requests
-- HTTP versions of 1.0 1.1 and 2 are supported
+- HTTP versions of 1.0 1.1 2 and 3 are supported
 
 ## Getting Started
 
