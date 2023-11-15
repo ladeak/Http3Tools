@@ -44,3 +44,7 @@ declare module 'node-api-dotnet' {
 		export function cancel(): void;
 	}
 }
+
+declare module 'CHttpExtension' {
+	export * from 'node-api-dotnet';
+}
