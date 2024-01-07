@@ -232,3 +232,10 @@ Run the following commands to publish the native dependencis of the VS Code Exte
 dotnet publish src/CHttpExtension -r win-x64
 cp src/CHttpExtension/bin/Release/net8.0/win-x64/publish\* src/VSCodeExt/src/chttp-win-x86/
 ```
+
+### Cleanup NPM
+
+- Clear npm cache `npm cache clean --force`
+- Remove yeoman `npm install -g yo generator-code`
+- Uninstall `npm install -g @vscode/vsce`
+- Uninstall npm
