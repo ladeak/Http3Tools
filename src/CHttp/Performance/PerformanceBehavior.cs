@@ -1,3 +1,3 @@
 ﻿namespace CHttp;
 
-internal record PerformanceBehavior(int RequestCount, int ClientsCount);
+internal record PerformanceBehavior(int RequestCount, int ClientsCount, bool SharedSocketsHandler);

@@ -12,8 +12,8 @@ internal class PerformanceMeasureOrchestrator
 {
     private readonly ISummaryPrinter _summaryPrinter;
     private readonly ICookieContainer _cookieContainer;
-    private readonly int _requestCount;
-    private readonly int _clientsCount;
+    private readonly BaseSocketsHandlerProvider _socketsProvider;
+    private readonly PerformanceBehavior _behavior;
     private readonly ProgressBar<Ratio<int>> _progressBar;
     private readonly CancellationTokenSource _cts;
     private Task? _progressBarTask;
@@ -25,28 +25,28 @@ internal class PerformanceMeasureOrchestrator
         IConsole console,
         IAwaiter awaiter,
         ICookieContainer cookieContainer,
+        BaseSocketsHandlerProvider socketsProvider,
         PerformanceBehavior behavior)
     {
         _summaryPrinter = summaryPrinter ?? throw new ArgumentNullException(nameof(summaryPrinter));
         _cookieContainer = cookieContainer ?? throw new ArgumentNullException(nameof(cookieContainer));
-        _requestCount = behavior.RequestCount;
-        _clientsCount = behavior.ClientsCount;
+        _socketsProvider = socketsProvider ?? throw new ArgumentNullException(nameof(socketsProvider));
+        _behavior = behavior ?? throw new ArgumentNullException(nameof(behavior));
         _progressBar = new ProgressBar<Ratio<int>>(console, awaiter);
         _cts = new();
+        ThreadPool.GetMinThreads(out var workerThreadCount, out var completionPortThreadsCount);
+        if (workerThreadCount < _behavior.ClientsCount)
+            ThreadPool.SetMinThreads(_behavior.ClientsCount, completionPortThreadsCount);
     }
 
     public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
     {
-        ThreadPool.GetMinThreads(out var workerThreadCount, out var completionPortThreadsCount);
-        if (workerThreadCount < _clientsCount)
-            ThreadPool.SetMinThreads(_clientsCount, completionPortThreadsCount);
-
         _startTimestamp = Stopwatch.GetTimestamp();
         _progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
-        var clientTasks = new Task<IEnumerable<Summary>>[_clientsCount];
+        var clientTasks = new Task<IEnumerable<Summary>>[_behavior.ClientsCount];
         INetEventListener readListener = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
 
-        for (int i = 0; i < _clientsCount; i++)
+        for (int i = 0; i < _behavior.ClientsCount; i++)
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior, token), token);
         await Task.WhenAll(clientTasks);
         await readListener.WaitUpdateAndStopAsync();
@@ -56,13 +56,13 @@ internal class PerformanceMeasureOrchestrator
         {
             Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
             TotalBytesRead = readListener.GetBytesRead(),
-            Behavior = new(_requestCount, _clientsCount)
+            Behavior = _behavior
         });
     }
 
     private async Task CompleteProgressBarAsync()
     {
-        _progressBar.Set(new Ratio<int>(_requestCompleted, _requestCount, TimeSpan.Zero));
+        _progressBar.Set(new Ratio<int>(_requestCompleted, _behavior.RequestCount, TimeSpan.Zero));
         _cts.Cancel();
         if (_progressBarTask != null)
             await _progressBarTask;
@@ -71,19 +71,19 @@ internal class PerformanceMeasureOrchestrator
     private async Task<IEnumerable<Summary>> RunClient(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
     {
         var writer = new SummaryWriter();
-        var client = new HttpMessageSender(writer, _cookieContainer, httpBehavior);
+        var client = new HttpMessageSender(writer, _cookieContainer, _socketsProvider, httpBehavior);
 
         // Warm up
         await client.SendRequestAsync(requestDetails);
 
         // Measured requests
-        while (Interlocked.Increment(ref _requestStarting) <= _requestCount && !token.IsCancellationRequested)
+        while (Interlocked.Increment(ref _requestStarting) <= _behavior.RequestCount && !token.IsCancellationRequested)
         {
             await client.SendRequestAsync(requestDetails);
             var completed = Interlocked.Increment(ref _requestCompleted);
             var currentTimestamp = Stopwatch.GetTimestamp();
-            var reaminingTime = TimeSpan.FromTicks((long)((currentTimestamp - _startTimestamp) / (double)completed * (_requestCount - completed)));
-            _progressBar.Set(new Ratio<int>(completed, _requestCount, reaminingTime));
+            var reaminingTime = TimeSpan.FromTicks((long)((currentTimestamp - _startTimestamp) / (double)completed * (_behavior.RequestCount - completed)));
+            _progressBar.Set(new Ratio<int>(completed, _behavior.RequestCount, reaminingTime));
         }
         await writer.CompleteAsync(CancellationToken.None);
         await _cookieContainer.SaveAsync();

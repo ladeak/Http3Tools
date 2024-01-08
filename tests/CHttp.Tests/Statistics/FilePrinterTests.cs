@@ -14,7 +14,7 @@ public class FilePrinterTests
         var summary = new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.Timeout };
         summary.Length = 100;
 
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new[] { summary }, TotalBytesRead = 100, Behavior = new(1000, 10) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new[] { summary }, TotalBytesRead = 100, Behavior = new(1000, 10, false) });
 
         var file = fileSystem.GetFile("somefile");
         var results = JsonSerializer.Deserialize<PerformanceMeasurementResults>(file)!;

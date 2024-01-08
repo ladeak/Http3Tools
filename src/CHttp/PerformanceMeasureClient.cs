@@ -37,7 +37,7 @@ public class PerformanceMeasureClient
         {
             Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
             TotalBytesRead = readListener.GetBytesRead(),
-            Behavior = new(_requestCount, _clientsCount)
+            Behavior = new(_requestCount, _clientsCount, false)
         };
         await _summaryPrinter.SummarizeResultsAsync(session);
         if (session.Summaries.Count == 0)

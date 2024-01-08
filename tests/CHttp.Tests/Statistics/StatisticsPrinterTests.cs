@@ -18,7 +18,7 @@ public class StatisticsPrinterTests
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new List<Summary>() { summary }, TotalBytesRead = 1, Behavior = new(1, 1) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new List<Summary>() { summary }, TotalBytesRead = 1, Behavior = new(1, 1, false) });
         Assert.Equal(
 @"RequestCount: 1, Clients: 1
 | Mean:            1.000 s    |
@@ -42,7 +42,7 @@ HTTP status codes:
     {
         var console = new TestConsolePerWrite();
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new KnowSizeEnumerableCollection<Summary>(Enumerable.Empty<Summary>(), 0), TotalBytesRead = 1, Behavior = new(0, 0) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new KnowSizeEnumerableCollection<Summary>(Enumerable.Empty<Summary>(), 0), TotalBytesRead = 1, Behavior = new(0, 0, false) });
 
         Assert.Equal($"No measurements available{Environment.NewLine}", console.Text);
     }
@@ -54,7 +54,7 @@ HTTP status codes:
         summary.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new List<Summary>() { summary }, TotalBytesRead = 1, Behavior = new(0, 0) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new List<Summary>() { summary }, TotalBytesRead = 1, Behavior = new(0, 0, false) });
 
         Assert.Equal(
 @"RequestCount: 0, Clients: 0
@@ -87,7 +87,7 @@ HTTP status codes:
         summary2.RequestCompleted(System.Net.HttpStatusCode.OK);
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new[] { summary0, summary1, summary2 }, TotalBytesRead = 1, Behavior = new(3, 1) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = new[] { summary0, summary1, summary2 }, TotalBytesRead = 1, Behavior = new(3, 1, false) });
 
         Assert.Equal(
 @"RequestCount: 3, Clients: 1
@@ -123,7 +123,7 @@ HTTP status codes:
         }
         var console = new TestConsolePerWrite(59);
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, Behavior = new(input.Count, 1) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, Behavior = new(input.Count, 1, false) });
 
         Assert.Equal(
 @$"RequestCount: {n}, Clients: {1}
@@ -155,7 +155,7 @@ HTTP status codes:
         }
         var console = new TestConsoleAsOuput(200);
         var sut = new StatisticsPrinter(console);
-        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, Behavior = new(input.Count, 1) });
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, Behavior = new(input.Count, 1, false) });
 
         Assert.Contains("     1.300 s  ##################################################", console.Text);
         Assert.Contains("     2.200 s  ##################################################", console.Text);

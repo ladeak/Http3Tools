@@ -15,7 +15,7 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session);
@@ -71,7 +71,7 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session);
@@ -100,13 +100,13 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
         PerformanceMeasurementResults session1 = new()
         {
             TotalBytesRead = 400,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
@@ -138,13 +138,13 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
         PerformanceMeasurementResults session1 = new()
         {
             TotalBytesRead = 400,
             Summaries = new[] { new Summary("different_url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
@@ -165,7 +165,7 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = new[] { new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 } },
-            Behavior = new(1, 1)
+            Behavior = new(1, 1, false)
         };
         PerformanceMeasurementResults session1 = new()
         {
@@ -174,7 +174,7 @@ public class CHttpDiffFunctionalTests
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 },
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 }
             },
-            Behavior = new(2, 1)
+            Behavior = new(2, 1, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
@@ -183,7 +183,7 @@ public class CHttpDiffFunctionalTests
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem).InvokeAsync($"diff --files session0.json --files session1.json")
             .WaitAsync(TimeSpan.FromSeconds(10));
 
-        Assert.Contains("*Warning: session files use different test parameters: PerformanceBehavior { RequestCount = 1, ClientsCount = 1 } and PerformanceBehavior { RequestCount = 2, ClientsCount = 1 }", console.Text);
+        Assert.Contains("*Warning: session files use different test parameters: PerformanceBehavior { RequestCount = 1, ClientsCount = 1, SharedSocketsHandler = False } and PerformanceBehavior { RequestCount = 2, ClientsCount = 1, SharedSocketsHandler = False }", console.Text);
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class CHttpDiffFunctionalTests
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 },
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 }
             },
-            Behavior = new(2, 1)
+            Behavior = new(2, 1, false)
         };
         PerformanceMeasurementResults session1 = new()
         {
@@ -207,7 +207,7 @@ public class CHttpDiffFunctionalTests
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 },
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 1, DateTimeKind.Utc), TimeSpan.FromSeconds(2)) { ErrorCode = ErrorType.None, HttpStatusCode = 400 }
             },
-            Behavior = new(2, 2)
+            Behavior = new(2, 2, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
@@ -217,7 +217,7 @@ public class CHttpDiffFunctionalTests
             .WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Contains($"RequestCount: 2, Clients: 1", console.Text);
-        Assert.Contains("*Warning: session files use different test parameters: PerformanceBehavior { RequestCount = 2, ClientsCount = 1 } and PerformanceBehavior { RequestCount = 2, ClientsCount = 2 }", console.Text);
+        Assert.Contains("*Warning: session files use different test parameters: PerformanceBehavior { RequestCount = 2, ClientsCount = 1, SharedSocketsHandler = False } and PerformanceBehavior { RequestCount = 2, ClientsCount = 2, SharedSocketsHandler = False }", console.Text);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 100,
             Summaries = summaries0,
-            Behavior = new(100, 10)
+            Behavior = new(100, 10, false)
         };
         var summaries1 = new List<Summary>();
         for (int i = 0; i < 100; i++)
@@ -241,7 +241,7 @@ public class CHttpDiffFunctionalTests
         {
             TotalBytesRead = 400,
             Summaries = summaries1,
-            Behavior = new(100, 10)
+            Behavior = new(100, 10, false)
         };
 
         await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
