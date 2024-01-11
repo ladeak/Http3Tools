@@ -1,5 +1,4 @@
-﻿using System.Text;
-using CHttp.Abstractions;
+﻿using CHttp.Abstractions;
 
 namespace CHttpExtension;
 

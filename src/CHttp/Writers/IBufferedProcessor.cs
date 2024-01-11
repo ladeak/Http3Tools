@@ -1,6 +1,8 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 
+namespace CHttp.Writers;
+
 internal interface IBufferedProcessor
 {
     PipeWriter Pipe { get; }

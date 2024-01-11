@@ -1,7 +1,7 @@
 ﻿using CHttp.Abstractions;
 using CHttp.Writers;
 
-namespace CHttp.Tests;
+namespace CHttp.Tests.Writers;
 
 public class ProgressBarTests
 {

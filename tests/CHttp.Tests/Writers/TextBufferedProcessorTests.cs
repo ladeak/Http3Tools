@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
+using CHttp.Writers;
 
-namespace CHttp.Tests;
+namespace CHttp.Tests.Writers;
 
 public class TextBufferedProcessorTests
 {

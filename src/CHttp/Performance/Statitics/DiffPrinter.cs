@@ -1,8 +1,9 @@
 ﻿using System.Numerics;
 using CHttp.Abstractions;
 using CHttp.Data;
+using CHttp.Performance.Data;
 
-namespace CHttp.Statitics;
+namespace CHttp.Performance.Statitics;
 
 internal class DiffPrinter
 {
@@ -20,17 +21,17 @@ internal class DiffPrinter
             _console.WriteLine("No measurements available");
             return;
         }
-        var stats0 = Statistics.GetStats(session0);
-        var stats1 = Statistics.GetStats(session1);
+        var stats0 = StatisticsCalculator.GetStats(session0);
+        var stats1 = StatisticsCalculator.GetStats(session1);
 
         _console.WriteLine($"RequestCount: {session0.Behavior.RequestCount}, Clients: {session0.Behavior.ClientsCount}");
-        PrintLine("Mean:", Statistics.Display(stats0.Mean), Statistics.Display(stats1.Mean - stats0.Mean));
-        PrintLine("StdDev:", Statistics.Display(stats0.StdDev), Statistics.Display(stats1.StdDev - stats0.StdDev));
-        PrintLine("Error:", Statistics.Display(stats0.Error), Statistics.Display(stats1.Error - stats0.Error));
-        PrintLine("Median:", Statistics.Display(stats0.Median), Statistics.Display(stats1.Median - stats0.Median));
-        PrintLine("Min:", Statistics.Display(stats0.Min), Statistics.Display(stats1.Min - stats0.Min));
-        PrintLine("Max:", Statistics.Display(stats0.Max), Statistics.Display(stats1.Max - stats0.Max));
-        PrintLine("95th:", Statistics.Display(stats0.Percentile95th), Statistics.Display(stats1.Percentile95th - stats0.Percentile95th));
+        PrintLine("Mean:", StatisticsCalculator.Display(stats0.Mean), StatisticsCalculator.Display(stats1.Mean - stats0.Mean));
+        PrintLine("StdDev:", StatisticsCalculator.Display(stats0.StdDev), StatisticsCalculator.Display(stats1.StdDev - stats0.StdDev));
+        PrintLine("Error:", StatisticsCalculator.Display(stats0.Error), StatisticsCalculator.Display(stats1.Error - stats0.Error));
+        PrintLine("Median:", StatisticsCalculator.Display(stats0.Median), StatisticsCalculator.Display(stats1.Median - stats0.Median));
+        PrintLine("Min:", StatisticsCalculator.Display(stats0.Min), StatisticsCalculator.Display(stats1.Min - stats0.Min));
+        PrintLine("Max:", StatisticsCalculator.Display(stats0.Max), StatisticsCalculator.Display(stats1.Max - stats0.Max));
+        PrintLine("95th:", StatisticsCalculator.Display(stats0.Percentile95th), StatisticsCalculator.Display(stats1.Percentile95th - stats0.Percentile95th));
         PrintThroughput("Throughput:", SizeFormatter<double>.FormatSizeWithQualifier(stats0.Throughput), SizeFormatter<double>.FormatSizeWithQualifierWithSign(stats1.Throughput - stats0.Throughput));
         PrintRequestSec("Req/Sec:", stats0.RequestSec, stats1.RequestSec - stats0.RequestSec);
 
@@ -120,7 +121,7 @@ internal class DiffPrinter
     private void PrintHistogram(Stats stats0, Stats stats1, double scaleNormalize)
     {
         var sumStats = Stats.SumHistogram(stats0, stats1);
-        (var bucketCount, var bSize) = Statistics.GetHistogramBuckets(sumStats);
+        (var bucketCount, var bSize) = StatisticsCalculator.GetHistogramBuckets(sumStats);
         var bucketSize = new Vector<double>(bSize);
 
         var bucketLimit = new Vector<double>(sumStats.Min);
@@ -132,7 +133,7 @@ internal class DiffPrinter
             long currentCounter0 = GetCountForBucket(bucketLimit, ref input0);
             long currentCounter1 = GetCountForBucket(bucketLimit, ref input1);
 
-            (var limit, var limitQualifier) = Statistics.Display(bucketLimit[0]);
+            (var limit, var limitQualifier) = StatisticsCalculator.Display(bucketLimit[0]);
             _console.Write($"{limit,10:F3} {limitQualifier} ");
 
             var counter0Count = (int)Math.Round(scaleNormalize * currentCounter0);

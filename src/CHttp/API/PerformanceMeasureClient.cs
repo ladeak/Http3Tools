@@ -1,10 +1,12 @@
 ﻿using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.EventListeners;
-using CHttp.Statitics;
+using CHttp.Http;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 using CHttp.Writers;
 
-namespace CHttp;
+namespace CHttp.API;
 
 public class PerformanceMeasureClient
 {
@@ -42,7 +44,7 @@ public class PerformanceMeasureClient
         await _summaryPrinter.SummarizeResultsAsync(session);
         if (session.Summaries.Count == 0)
             return null;
-        return Statistics.GetStats(session);
+        return StatisticsCalculator.GetStats(session);
     }
 
     private async Task<IEnumerable<Summary>> RunClient(HttpClient httpClient, Func<HttpRequestMessage> requestFactory)

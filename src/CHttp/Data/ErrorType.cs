@@ -1,4 +1,6 @@
-﻿public enum ErrorType
+﻿namespace CHttp.Data;
+
+public enum ErrorType
 {
     None,
     HttpRequestException,

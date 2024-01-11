@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace CHttp;
+namespace CHttp.Http;
 
 internal abstract class BaseSocketsHandlerProvider
 {

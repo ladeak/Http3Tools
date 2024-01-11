@@ -1,4 +1,6 @@
-﻿namespace CHttp.Tests;
+﻿using CHttp.Writers;
+
+namespace CHttp.Tests.Writers;
 
 public class StreamBufferedProcessorTests
 {

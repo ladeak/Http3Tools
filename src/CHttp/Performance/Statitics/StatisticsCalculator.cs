@@ -1,10 +1,11 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Numerics;
 using CHttp.Data;
+using CHttp.Performance.Data;
 
-namespace CHttp.Statitics;
+namespace CHttp.Performance.Statitics;
 
-internal static class Statistics
+internal static class StatisticsCalculator
 {
     private static readonly Meter Meter = new("CHttp");
     private static readonly Histogram<double> Mean = Meter.CreateHistogram<double>(nameof(Mean));

@@ -2,6 +2,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using CHttp.Abstractions;
+
+namespace CHttp.Writers;
 
 internal record struct HttpResponseInitials(HttpStatusCode ResponseStatus, HttpResponseHeaders Headers, HttpContentHeaders ContentHeaders, Version HttpVersion, Encoding Encoding);
 

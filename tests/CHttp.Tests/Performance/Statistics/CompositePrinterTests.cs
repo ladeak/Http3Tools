@@ -1,7 +1,9 @@
-﻿using CHttp.Statitics;
+﻿using CHttp.Abstractions;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 using NSubstitute;
 
-namespace CHttp.Tests.Statistics;
+namespace CHttp.Tests.Performance.Statistics;
 
 public class CompositePrinterTests
 {

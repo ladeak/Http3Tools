@@ -1,8 +1,10 @@
 ﻿using System.Text.Json;
 using CHttp.Abstractions;
-using CHttp.Statitics;
+using CHttp.Data;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 
-namespace CHttp.Tests.Statistics;
+namespace CHttp.Tests.Performance.Statistics;
 
 public class FilePrinterTests
 {

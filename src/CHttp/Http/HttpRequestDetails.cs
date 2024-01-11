@@ -1,6 +1,6 @@
 ﻿using CHttp.Data;
 
-namespace CHttp;
+namespace CHttp.Http;
 
 public record HttpRequestDetails(HttpMethod Method, Uri Uri, Version Version, IEnumerable<KeyValueDescriptor> Headers)
 {

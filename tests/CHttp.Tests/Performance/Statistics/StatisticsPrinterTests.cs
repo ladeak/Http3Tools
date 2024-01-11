@@ -1,8 +1,9 @@
 ﻿using System.Globalization;
 using CHttp.Abstractions;
-using CHttp.Statitics;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 
-namespace CHttp.Tests.Statistics;
+namespace CHttp.Tests.Performance.Statistics;
 
 public class StatisticsPrinterTests
 {

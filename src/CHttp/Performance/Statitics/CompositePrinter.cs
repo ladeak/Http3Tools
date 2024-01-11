@@ -1,4 +1,6 @@
-﻿namespace CHttp.Statitics;
+﻿using CHttp.Performance.Data;
+
+namespace CHttp.Performance.Statitics;
 
 internal class CompositePrinter : ISummaryPrinter
 {

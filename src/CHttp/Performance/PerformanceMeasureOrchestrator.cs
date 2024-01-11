@@ -3,10 +3,12 @@ using System.Net;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.EventListeners;
-using CHttp.Statitics;
+using CHttp.Http;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 using CHttp.Writers;
 
-namespace CHttp;
+namespace CHttp.Performance;
 
 internal class PerformanceMeasureOrchestrator
 {
@@ -41,11 +43,12 @@ internal class PerformanceMeasureOrchestrator
 
     public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
     {
-        _startTimestamp = Stopwatch.GetTimestamp();
+        using var a = new HttpMericsListener();
         _progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
         var clientTasks = new Task<IEnumerable<Summary>>[_behavior.ClientsCount];
         INetEventListener readListener = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
 
+        _startTimestamp = Stopwatch.GetTimestamp();
         for (int i = 0; i < _behavior.ClientsCount; i++)
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior, token), token);
         await Task.WhenAll(clientTasks);

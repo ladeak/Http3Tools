@@ -1,8 +1,9 @@
 ﻿using System.Numerics;
 using CHttp.Abstractions;
 using CHttp.Data;
+using CHttp.Performance.Data;
 
-namespace CHttp.Statitics;
+namespace CHttp.Performance.Statitics;
 
 internal class StatisticsPrinter : ISummaryPrinter
 {
@@ -21,15 +22,15 @@ internal class StatisticsPrinter : ISummaryPrinter
             _console.WriteLine("No measurements available");
             return ValueTask.CompletedTask;
         }
-        var stats = Statistics.GetStats(session);
+        var stats = StatisticsCalculator.GetStats(session);
 
-        (var displayMean, var meanQualifier) = Statistics.Display(stats.Mean);
-        (var displayStdDev, var stdDevQualifier) = Statistics.Display(stats.StdDev);
-        (var displayError, var errorQualifier) = Statistics.Display(stats.Error);
-        (var displayMinResponseTime, var minResponseTimeQualifier) = Statistics.Display(stats.Min);
-        (var displayMaxResponseTime, var maxResponseTimeQualifier) = Statistics.Display(stats.Max);
-        (var displayMedian, var medianQualifier) = Statistics.Display(stats.Median);
-        (var displayPercentile95, var displayPercentile95Qualifier) = Statistics.Display(stats.Percentile95th);
+        (var displayMean, var meanQualifier) = StatisticsCalculator.Display(stats.Mean);
+        (var displayStdDev, var stdDevQualifier) = StatisticsCalculator.Display(stats.StdDev);
+        (var displayError, var errorQualifier) = StatisticsCalculator.Display(stats.Error);
+        (var displayMinResponseTime, var minResponseTimeQualifier) = StatisticsCalculator.Display(stats.Min);
+        (var displayMaxResponseTime, var maxResponseTimeQualifier) = StatisticsCalculator.Display(stats.Max);
+        (var displayMedian, var medianQualifier) = StatisticsCalculator.Display(stats.Median);
+        (var displayPercentile95, var displayPercentile95Qualifier) = StatisticsCalculator.Display(stats.Percentile95th);
         (var throughputFormatted, var throughputQualifier) = SizeFormatter<double>.FormatSizeWithQualifier(stats.Throughput);
 
         _console.WriteLine($"RequestCount: {session.Behavior.RequestCount}, Clients: {session.Behavior.ClientsCount}");
@@ -66,7 +67,7 @@ internal class StatisticsPrinter : ISummaryPrinter
 
     private void PrintHistogram(Stats stats, double scaleNormalize)
     {
-        (var bucketCount, var bSize) = Statistics.GetHistogramBuckets(stats);
+        (var bucketCount, var bSize) = StatisticsCalculator.GetHistogramBuckets(stats);
         var bucketSize = new Vector<double>(bSize);
 
         var bucketLimit = new Vector<double>(stats.Min);
@@ -87,7 +88,7 @@ internal class StatisticsPrinter : ISummaryPrinter
             if (input.Length < vSize && input.Length > 0)
                 currentCounter += input.Length;
 
-            (var limit, var limitQualifier) = Statistics.Display(bucketLimit[0]);
+            (var limit, var limitQualifier) = StatisticsCalculator.Display(bucketLimit[0]);
             _console.Write($"{limit,10:F3} {limitQualifier} ");
             _console.Write(new string('#', (int)Math.Round(scaleNormalize * currentCounter)));
             _console.WriteLine();

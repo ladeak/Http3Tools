@@ -4,7 +4,8 @@ using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Http;
-using CHttp.Statitics;
+using CHttp.Performance;
+using CHttp.Performance.Statitics;
 using CHttp.Writers;
 
 namespace CHttp;

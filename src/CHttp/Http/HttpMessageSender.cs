@@ -1,9 +1,11 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
-using CHttp.Http;
+using CHttp.Abstractions;
+using CHttp.Data;
+using CHttp.Writers;
 
-namespace CHttp;
+namespace CHttp.Http;
 
 internal sealed class HttpMessageSender
 {

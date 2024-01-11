@@ -1,4 +1,6 @@
-﻿namespace CHttp.Statitics;
+﻿using CHttp.Abstractions;
+
+namespace CHttp.Performance.Data;
 
 internal class PerformanceMeasurementResults
 {

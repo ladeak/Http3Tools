@@ -1,4 +1,4 @@
-﻿namespace CHttp;
+﻿namespace CHttp.Http;
 
 internal record HttpBehavior(
     double Timeout,

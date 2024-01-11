@@ -1,4 +1,4 @@
-using CHttp;
+using CHttp.API;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace TestWebApplication.Tests;

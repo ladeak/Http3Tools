@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics.Metrics;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using CHttp.Abstractions;
-using CHttp.Statitics;
+using CHttp.Performance.Data;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
-namespace CHttp;
+namespace CHttp.Performance.Statitics;
 
 internal class AppInsightsPrinter(IConsole console, string? metricsConnectionString = null) : ISummaryPrinter
 {

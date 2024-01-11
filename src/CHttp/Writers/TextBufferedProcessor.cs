@@ -2,6 +2,8 @@
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 
+namespace CHttp.Writers;
+
 internal class TextBufferedProcessor : IBufferedProcessor
 {
     private Pipe _pipe;

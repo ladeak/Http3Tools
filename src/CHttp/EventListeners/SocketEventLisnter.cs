@@ -1,8 +1,43 @@
-﻿using System.Diagnostics.Tracing;
+﻿using System.Diagnostics.Metrics;
+using System.Diagnostics.Tracing;
 
 namespace CHttp.EventListeners;
 
-internal class SocketEventListener : EventListener, INetEventListener
+
+internal sealed class HttpMericsListener : IDisposable
+{
+    private readonly MeterListener _httpListener;
+
+    public HttpMericsListener()
+    {
+        _httpListener = new MeterListener();
+        _httpListener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Name == "http.client.open_connections")
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        _httpListener.SetMeasurementEventCallback<long>(OnMeasurementRecorded);
+        _httpListener.Start();
+    }
+
+    static void OnMeasurementRecorded<T>(
+        Instrument instrument,
+        T measurement,
+        ReadOnlySpan<KeyValuePair<string, object?>> tags,
+        object? state)
+    {
+        Console.WriteLine($"{instrument.Name} recorded measurement {measurement}");
+    }
+
+    public void Dispose()
+    {
+        _httpListener.Dispose();
+    }
+}
+
+internal sealed class SocketEventListener : EventListener, INetEventListener
 {
     private const string SocketSourceName = "System.Net.Sockets";
 

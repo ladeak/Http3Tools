@@ -30,7 +30,7 @@
     },
     "chttp perf": {
       "commandName": "Project",
-      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 3"
+      "commandLineArgs": "perf --method GET --no-certificate-validation --uri https://localhost:5001/delay -c 10 -n 100 -v 2 --shared-sockethandler"
     },
     "chttp perf appinsights": {
       "commandName": "Project",

@@ -1,6 +1,7 @@
 ﻿using CHttp.Abstractions;
+using CHttp.Performance.Data;
 
-namespace CHttp.Statitics;
+namespace CHttp.Performance.Statitics;
 
 internal class FilePrinter : ISummaryPrinter
 {

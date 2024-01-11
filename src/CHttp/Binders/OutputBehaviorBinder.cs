@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Binding;
 using CHttp.Data;
+using CHttp.Writers;
 
 namespace CHttp.Binders;
 

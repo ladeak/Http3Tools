@@ -1,8 +1,10 @@
 ﻿using System.CommandLine;
 using CHttp.Abstractions;
-using CHttp.Statitics;
+using CHttp.Data;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 
-namespace CHttp.Tests;
+namespace CHttp.Tests.Performance;
 
 public class CHttpDiffFunctionalTests
 {

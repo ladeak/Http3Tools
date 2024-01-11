@@ -1,12 +1,13 @@
 ﻿using System.Net;
 using System.Net.Quic;
 using System.Runtime.Versioning;
-using CHttp;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Http;
-using CHttp.Statitics;
+using CHttp.Performance;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
 using CHttp.Writers;
 using Microsoft.JavaScript.NodeApi;
 
