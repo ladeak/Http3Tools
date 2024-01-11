@@ -134,7 +134,7 @@ internal static class CommandFactory
         kerberosAuthOption.IsRequired = false;
 
         var shareSocketsHandlerOption = new Option<bool>(
-            name: "--pooled-sockethandler",
+            name: "--shared-sockethandler",
             getDefaultValue: () => false,
             description: "Use pool sockets handler with allowng multiple connection");
         shareSocketsHandlerOption.IsRequired = false;

@@ -8,31 +8,28 @@ using OpenTelemetry.Resources;
 
 namespace CHttp;
 
-internal class AppInsightsPrinter : ISummaryPrinter
+internal class AppInsightsPrinter(IConsole console, string? metricsConnectionString = null) : ISummaryPrinter
 {
-    private static readonly Meter Meter = new("CHttp");
-    private static readonly Histogram<long> Requests = Meter.CreateHistogram<long>(nameof(Requests));
-
-    private readonly IConsole _console;
-    private MeterProvider? _metricsProvider;
-
-    public AppInsightsPrinter(IConsole console, string? metricsConnectionString = null)
-    {
-        if (!string.IsNullOrWhiteSpace(metricsConnectionString))
-        {
-            _metricsProvider = Sdk.CreateMeterProviderBuilder()
-              .ConfigureResource(b => b.AddService("CHttp"))
-              .AddMeter("CHttp")
-              .AddAzureMonitorMetricExporter(options => { options.ConnectionString = metricsConnectionString; }).Build();
-        }
-        _console = console ?? throw new ArgumentNullException(nameof(console));
-    }
+    private readonly IConsole _console = console ?? throw new ArgumentNullException(nameof(console));
+    private readonly string? _metricsConnectionString = metricsConnectionString;
 
     public ValueTask SummarizeResultsAsync(PerformanceMeasurementResults session)
     {
-        var summaries = session.Summaries;
-        if (_metricsProvider is null || summaries.Count == 0)
+        if (string.IsNullOrWhiteSpace(_metricsConnectionString))
+        {
             return ValueTask.CompletedTask;
+        }
+        Meter Meter = new("CHttp");
+        Histogram<long> Requests = Meter.CreateHistogram<long>(nameof(Requests));
+        MeterProvider? metricsProvider = Sdk.CreateMeterProviderBuilder()
+              .ConfigureResource(b => b.AddService("CHttp"))
+              .AddMeter("CHttp")
+              .AddAzureMonitorMetricExporter(options => { options.ConnectionString = _metricsConnectionString; }).Build();
+
+        var summaries = session.Summaries;
+        if (metricsProvider is null || summaries.Count == 0)
+            return ValueTask.CompletedTask;
+
         _console.WriteLine("Sending metrics to AppInsights...");
         foreach (var summary in summaries)
             Requests.Record((long)summary.Duration.TotalMilliseconds,
@@ -43,8 +40,8 @@ internal class AppInsightsPrinter : ISummaryPrinter
                 new("RequestCount", session.Behavior.RequestCount),
                 new("ClientCount", session.Behavior.ClientsCount));
 
-        _metricsProvider.ForceFlush();
-        _metricsProvider.Dispose();
+        metricsProvider.ForceFlush();
+        metricsProvider.Dispose();
         return ValueTask.CompletedTask;
     }
 }

@@ -42,7 +42,7 @@ internal sealed class SharedSocketsHandlerProvider : BaseSocketsHandlerProvider
         if (_handler != null)
             return _handler;
 
-        Interlocked.CompareExchange(ref _handler, GetMessageHandler(cookieContainer, behavior), null);
+        Interlocked.CompareExchange(ref _handler, CreateMessageHandler(cookieContainer, behavior), null);
         return _handler;
     }
 }
