@@ -69,6 +69,7 @@ Options:
   -u, --uri <uri> (REQUIRED)                         The URL of the resource
   --upload-throttle <upload-throttle>                Specify HTTP level throttling in kbyte/sec when sending the
                                                      request []
+  -k, --kerberos-auth                                Use Kerberos Auth [default: False]
   --version                                          Show version information
   -?, -h, --help                                     Show help and usage information
 
@@ -141,7 +142,7 @@ Options:
 Performance measurements yields results such as:
 
 ```
-RequestCount: 100, Clients: 10
+RequestCount: 100, Clients: 10, Connections: 10
 | Mean:          322,698 us   |
 | StdDev:         80,236 us   |
 | Error:           8,024 us   |
