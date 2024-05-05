@@ -185,7 +185,7 @@ DIFF basePerformance comparison
 Diff results an aggregate view of the differences between the two requests.
 
 ```
-RequestCount: 100, Clients: 10
+RequestCount: 100, Clients: 10, Connections: 10
 | Mean:          448,127 us      -55,265 us   |
 | StdDev:        151,588 us     +120,312 us   |
 | Error:          15,159 us      +12,031 us   |
