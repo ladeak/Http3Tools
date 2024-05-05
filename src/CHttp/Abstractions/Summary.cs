@@ -23,7 +23,6 @@ public record struct Summary
         EndTime = StartTime + duration.Ticks;
     }
 
-#if NET8_0
     public string Url { get; init; }
 
     public string Error { get; init; }
@@ -31,16 +30,6 @@ public record struct Summary
     public ErrorType ErrorCode { get; init; }
 
     public long StartTime { get; init; }
-#endif
-#if NET7_0
-    public string Url { get; set; }
-
-    public string Error { get; set; }
-
-    public ErrorType ErrorCode { get; set; }
-
-    public long StartTime { get; set; }
-#endif
 
     private long _endTime;
     public long EndTime

@@ -1,20 +1,26 @@
-﻿using System.Diagnostics.Metrics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.Metrics;
 using System.Diagnostics.Tracing;
 
 namespace CHttp.EventListeners;
 
-
-internal sealed class HttpMericsListener : IDisposable
+internal sealed class HttpMetricsListener : IDisposable
 {
     private readonly MeterListener _httpListener;
+    private TaskCompletionSource? _tcs;
+    private Instrument? _instrument;
+    private long _maxConnections;
+    private long _currentConnections;
 
-    public HttpMericsListener()
+    public HttpMetricsListener()
     {
         _httpListener = new MeterListener();
         _httpListener.InstrumentPublished = (instrument, listener) =>
         {
             if (instrument.Name == "http.client.open_connections")
             {
+                _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                _instrument = instrument;
                 listener.EnableMeasurementEvents(instrument);
             }
         };
@@ -22,19 +28,38 @@ internal sealed class HttpMericsListener : IDisposable
         _httpListener.Start();
     }
 
-    static void OnMeasurementRecorded<T>(
+    private void OnMeasurementRecorded<T>(
         Instrument instrument,
         T measurement,
         ReadOnlySpan<KeyValuePair<string, object?>> tags,
         object? state)
     {
-        Console.WriteLine($"{instrument.Name} recorded measurement {measurement}");
+        if (measurement is long count)
+        {
+            var newCurrentCount = Interlocked.Add(ref _currentConnections, count);
+            long originalValue;
+            long result;
+            do
+            {
+                originalValue = _maxConnections;
+                var newMaxValue = _currentConnections > originalValue ? _currentConnections : originalValue;
+                result = Interlocked.CompareExchange(ref _maxConnections, newMaxValue, originalValue);
+            } while (result != originalValue);
+            _tcs?.TrySetResult();
+        }
     }
 
-    public void Dispose()
+    public async Task WaitUpdateAndStopAsync()
     {
-        _httpListener.Dispose();
+        if (_httpListener is null || _instrument is null || _tcs is null)
+            return;
+        await _tcs.Task;
+        _httpListener.DisableMeasurementEvents(_instrument);
     }
+
+    public long GetMaxConnectionCount() => _maxConnections;
+
+    public void Dispose() => _httpListener.Dispose();
 }
 
 internal sealed class SocketEventListener : EventListener, INetEventListener
@@ -73,9 +98,7 @@ internal sealed class SocketEventListener : EventListener, INetEventListener
         if (keyName == "bytes-sent")
         {
             _sum = (double)eventPayload["Max"];
-
-            if (_tcs != null)
-                _tcs.TrySetResult();
+            _tcs?.TrySetResult();
         }
     }
 
@@ -91,8 +114,5 @@ internal sealed class SocketEventListener : EventListener, INetEventListener
         DisableEvents(_source);
     }
 
-    public long GetBytesRead()
-    {
-        return (long)_sum;
-    }
+    public long GetBytesRead() => (long)_sum;
 }

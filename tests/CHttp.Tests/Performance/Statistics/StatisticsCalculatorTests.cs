@@ -17,7 +17,7 @@ public class StatisticsCalculatorTests
             new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(3)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 },
         };
 
-        var result = StatisticsCalculator.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, Behavior = new(3, 1, false) });
+        var result = StatisticsCalculator.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, MaxConnections = 1, Behavior = new(3, 1, false) });
 
         Assert.NotNull(result);
         Assert.Equal(TimeSpan.FromSeconds(2).Ticks, result.Mean);
@@ -67,7 +67,7 @@ public class StatisticsCalculatorTests
                 new Summary("url", new DateTime(2023, 06, 08, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromSeconds(3)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 },
             };
 
-            StatisticsCalculator.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, Behavior = new(3, 1, false) });
+            StatisticsCalculator.GetStats(new PerformanceMeasurementResults() { Summaries = summaries, TotalBytesRead = 100, MaxConnections = 1, Behavior = new(3, 1, false) });
             var result = await tcs.Task;
             if (Equal(expected, result, 4))
                 return;

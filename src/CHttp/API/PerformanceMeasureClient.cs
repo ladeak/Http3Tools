@@ -22,7 +22,7 @@ public class PerformanceMeasureClient
     {
         var noConsole = new NoOpConsole();
         _summaryPrinter = new CompositePrinter(new StatisticsPrinter(noConsole),
-            new AppInsightsPrinter(noConsole, options.AppInsightsConnectionString));
+            new OpenTelemtryPrinter(noConsole, options.AppInsightsConnectionString));
         _requestCount = options.RequestCount;
         _clientsCount = options.ClientsCount;
     }
@@ -39,6 +39,7 @@ public class PerformanceMeasureClient
         {
             Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
             TotalBytesRead = readListener.GetBytesRead(),
+            MaxConnections = 0,
             Behavior = new(_requestCount, _clientsCount, false)
         };
         await _summaryPrinter.SummarizeResultsAsync(session);

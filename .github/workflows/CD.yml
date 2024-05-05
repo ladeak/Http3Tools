@@ -7,21 +7,21 @@ on:
 
 env:
   CONFIGURATION: Release
-  DOTNET_VERSION: 8.0.x
-  GH_PACKAGE_VERSION: net8.0
+  DOTNET_VERSION: 9.0.x
+  GH_PACKAGE_VERSION: net9.0
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Install Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: 16.x
+        node-version: 20.x
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Build CHttp

@@ -149,7 +149,7 @@ internal static class CommandFactory
         var metricsOption = new Option<string>(
             name: "--metrics",
             getDefaultValue: () => Environment.GetEnvironmentVariable("chttp_metrics", EnvironmentVariableTarget.Process) ?? string.Empty,
-            description: "When Application Insights connection string is set, it pushes performance metrics data.");
+            description: "Performance metrics data publihed to gRPC OpenTelemetry dashboards such as Aspire. Set format <endpoint;header>");
         outputFileOption.IsRequired = false;
 
         var rootCommand = new RootCommand("Send HTTP request");
@@ -309,7 +309,7 @@ internal static class CommandFactory
             if (!string.IsNullOrWhiteSpace(outputFile))
                 printer = new CompositePrinter(printer, new FilePrinter(outputFile, fileSystem));
             if (!string.IsNullOrWhiteSpace(metricsConnectionString))
-                printer = new CompositePrinter(printer, new AppInsightsPrinter(console, metricsConnectionString));
+                printer = new CompositePrinter(printer, new OpenTelemtryPrinter(console, metricsConnectionString));
             BaseSocketsHandlerProvider socketsProvider = performanceBehavior.SharedSocketsHandler ? new SharedSocketsHandlerProvider() : new SingleSocketsHandlerProvider();
             var orchestrator = new PerformanceMeasureOrchestrator(printer, console, new Awaiter(), cookieContainer, socketsProvider, performanceBehavior);
             await orchestrator.RunAsync(requestDetails, httpBehavior);

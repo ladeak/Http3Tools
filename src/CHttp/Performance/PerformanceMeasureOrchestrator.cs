@@ -43,7 +43,7 @@ internal class PerformanceMeasureOrchestrator
 
     public async Task RunAsync(HttpRequestDetails requestDetails, HttpBehavior httpBehavior, CancellationToken token = default)
     {
-        using var a = new HttpMericsListener();
+        using var httpListener = new HttpMetricsListener();
         _progressBarTask = _progressBar.RunAsync<RatioFormatter<int>>(_cts.Token);
         var clientTasks = new Task<IEnumerable<Summary>>[_behavior.ClientsCount];
         INetEventListener readListener = requestDetails.Version == HttpVersion.Version30 ? new QuicEventListener() : new SocketEventListener();
@@ -53,12 +53,14 @@ internal class PerformanceMeasureOrchestrator
             clientTasks[i] = Task.Run(() => RunClient(requestDetails, httpBehavior, token), token);
         await Task.WhenAll(clientTasks);
         await readListener.WaitUpdateAndStopAsync();
+        await httpListener.WaitUpdateAndStopAsync();
         await CompleteProgressBarAsync();
 
         await _summaryPrinter.SummarizeResultsAsync(new PerformanceMeasurementResults()
         {
             Summaries = new KnowSizeEnumerableCollection<Summary>(clientTasks.SelectMany(x => x.Result), _requestCompleted),
             TotalBytesRead = readListener.GetBytesRead(),
+            MaxConnections = httpListener.GetMaxConnectionCount(),
             Behavior = _behavior
         });
     }

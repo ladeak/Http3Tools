@@ -33,7 +33,7 @@ internal class StatisticsPrinter : ISummaryPrinter
         (var displayPercentile95, var displayPercentile95Qualifier) = StatisticsCalculator.Display(stats.Percentile95th);
         (var throughputFormatted, var throughputQualifier) = SizeFormatter<double>.FormatSizeWithQualifier(stats.Throughput);
 
-        _console.WriteLine($"RequestCount: {session.Behavior.RequestCount}, Clients: {session.Behavior.ClientsCount}");
+        _console.WriteLine($"RequestCount: {session.Behavior.RequestCount}, Clients: {session.Behavior.ClientsCount}, Connections: {session.MaxConnections}");
         _console.WriteLine($"| Mean:       {displayMean,10:F3} {meanQualifier}   |");
         _console.WriteLine($"| StdDev:     {displayStdDev,10:F3} {stdDevQualifier}   |");
         _console.WriteLine($"| Error:      {displayError,10:F3} {errorQualifier}   |");
