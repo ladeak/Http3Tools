@@ -6,7 +6,7 @@
   "repository": "https://github.com/ladeak/Http3Tools",
   "publisher": "ladeak-net",
   "engines": {
-    "vscode": "^1.83.0"
+    "vscode": "^1.89.0"
   },
   "categories": [
     "Other"
