@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>chttpexec</ToolCommandName>
+    <RollForward>major</RollForward>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <RootNamespace>CHttpExec</RootNamespace>
+    <PackageId>LaDeak.CHttpExec</PackageId>
+    <Authors>LaDeak</Authors>
+    <Description>A simple HTTP/3 client tool for CICD testing.</Description>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CHttp\CHttp.csproj" />
+  </ItemGroup>
+
+</Project>

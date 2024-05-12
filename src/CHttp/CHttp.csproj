@@ -26,6 +26,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="CHttp.Tests" />
     <InternalsVisibleTo Include="CHttpExtension" />
+    <InternalsVisibleTo Include="CHttpExecutor" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,42 @@
+﻿### Test
+@path = /delay
+@baseUrl = localhost:5001
+@custom = hello
+
+###
+# @name jsonSample
+GET https://{{baseUrl}}/jsonresponse HTTP/2
+###
+@nextRequest = {{jsonSample.response.body.message}}
+###
+
+# echo
+GET https://{{baseUrl}}/echo HTTP/2
+
+{{nextRequest}}
+
+###
+# @name {{custom}}
+GET https://{{baseUrl}} HTTP/2
+
+###
+# @name {{custom}}
+# @clientsCount 10
+# @requestCount 100
+GET https://{{baseUrl}} HTTP/2
+
+###
+# @name basePerformance.json
+# @clientsCount 10
+# @requestCount 100
+POST https://{{baseUrl}}/post
+
+{"data":"hello world"}
+
+###
+DIFF hello basePerformance.json
+
+###
+GET https://{{baseUrl}} HTTP/3
+
+###

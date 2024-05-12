@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CHttp.Tests;
 
-internal static class HttpServer
+public static class HttpServer
 {
 	public static WebApplication CreateHostBuilder(RequestDelegate? requestDelegate = null,
 		HttpProtocols? protocol = null,

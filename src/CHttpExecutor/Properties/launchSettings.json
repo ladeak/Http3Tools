@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CHttpExecutor": {
+      "commandName": "Project",
+      "commandLineArgs": "..\\..\\..\\..\\..\\tests\\CHttpExecutor.Tests\\test.chttp"
+    }
+  }
+}
