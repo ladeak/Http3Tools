@@ -38,11 +38,9 @@ internal sealed class ProgressingConsoleWriter : IWriter
 	private void PrintResponse(HttpResponseInitials initials)
 	{
 		_console.WriteLine($"Status: {initials.ResponseStatus} Version: {initials.HttpVersion} Encoding: {initials.Encoding.WebName}");
-		foreach (var header in initials.Headers)
-			_console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
-		foreach (var header in initials.ContentHeaders)
-			_console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
-	}
+        HeaderWriter.Write(initials.Headers, _console);
+        HeaderWriter.Write(initials.ContentHeaders, _console);
+    }
 
 	private Task ProcessLine(ReadOnlySequence<byte> line)
 	{
@@ -55,9 +53,9 @@ internal sealed class ProgressingConsoleWriter : IWriter
 		await _contentProcessor.CompleteAsync(CancellationToken.None);
 		_cts.Cancel();
 		await _progressBarTask;
-		foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
-			_console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
-		summary.Length = _contentProcessor.Position;
+        if (trailers is { })
+            HeaderWriter.Write(trailers, _console);
+        summary.Length = _contentProcessor.Position;
 		_console.WriteLine(summary.ToString());
 	}
 

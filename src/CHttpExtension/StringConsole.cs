@@ -53,7 +53,5 @@ public class StringConsole : IConsole
 
 	public void WriteLine() => _sb.AppendLine();
 
-	public void Write(char[] buffer, int index, int count) => _sb.Append(buffer, index, count);
-
 	public void WriteLine(string value) => _sb.AppendLine(value);
 }

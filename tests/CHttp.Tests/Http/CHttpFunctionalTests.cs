@@ -6,23 +6,26 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Primitives;
 
 namespace CHttp.Tests.Http;
 
 public class CHttpFunctionalTests
 {
+    private const string DateReplacement = "2024.05.18";
+
     [Fact]
     public async Task VerboseWriter_TestVanilaHttp3Request()
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http3);
         await host.StartAsync();
-        var console = new TestConsolePerWrite();
+        var console = new TestConsolePerWrite(filterDate: DateReplacement);
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011");
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Contains($"Status: OK Version: 3.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+        Assert.Contains($"Status: OK Version: 3.0 Encoding: utf-8{Environment.NewLine}Date{Environment.NewLine}:{Environment.NewLine}{DateReplacement}{Environment.NewLine}{Environment.NewLine}Server{Environment.NewLine}:{Environment.NewLine}Kestrel{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
     }
 
     [Fact]
@@ -30,13 +33,51 @@ public class CHttpFunctionalTests
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
         await host.StartAsync();
-        var console = new TestConsolePerWrite();
+        var console = new TestConsolePerWrite(filterDate: DateReplacement);
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:Server: Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+        Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date{Environment.NewLine}:{Environment.NewLine}{DateReplacement}{Environment.NewLine}{Environment.NewLine}Server{Environment.NewLine}:{Environment.NewLine}Kestrel{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+    }
+
+    [Fact]
+    public async Task SilentWriter_TestVanilaHttp2Request()
+    {
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            context.Response.Headers["my"] = new string('a', 1024 * 10);
+            await context.Response.WriteAsync("test");
+        }, HttpProtocols.Http2);
+        await host.StartAsync();
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+    }
+
+    [Fact]
+    public async Task CookiesAreSepartedBySemicolon()
+    {
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            context.Response.Headers.Cookie = new StringValues(["a", "b"]);
+            context.Response.Headers["my"] = new StringValues(["c", "d"]);
+            await context.Response.WriteAsync("test");
+        }, HttpProtocols.Http2);
+        await host.StartAsync();
+        var console = new TestConsoleAsOuput();
+        var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Contains("a;b", console.Text);
+        Assert.Contains("c,d", console.Text);
     }
 
     [Fact]
@@ -51,7 +92,7 @@ public class CHttpFunctionalTests
         var client = await CommandFactory.CreateRootCommand(writer).InvokeAsync("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2");
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Contains("Content-Type: application/json", console.Text);
+        Assert.Contains($"Content-Type{Environment.NewLine}:{Environment.NewLine}application/json", console.Text);
     }
 
     [Fact]

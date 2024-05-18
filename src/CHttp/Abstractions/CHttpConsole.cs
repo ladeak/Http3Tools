@@ -14,8 +14,6 @@ internal class CHttpConsole : IConsole
 
     public void Write(char[] buffer) => Console.Write(buffer);
 
-    public void Write(char[] buffer, int index, int count) => Console.Write(buffer, index, count);
-
     public void Write(string buffer) => Console.Write(buffer);
 
     public void WriteLine() => Console.WriteLine();

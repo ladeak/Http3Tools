@@ -98,7 +98,7 @@ internal static class CommandFactory
             description: "Level of logging details.");
         logOption.AddAlias("-l");
         logOption.IsRequired = false;
-        logOption.FromAmong(nameof(LogLevel.Quiet), nameof(LogLevel.Normal), nameof(LogLevel.Verbose));
+        logOption.FromAmong(nameof(LogLevel.Silent), nameof(LogLevel.Quiet), nameof(LogLevel.Normal), nameof(LogLevel.Verbose));
 
         var outputFileOption = new Option<string>(
             name: "--output",

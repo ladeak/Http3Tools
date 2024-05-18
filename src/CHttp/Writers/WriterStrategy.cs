@@ -18,6 +18,7 @@ internal sealed class WriterStrategy : IWriter
         _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
         _strategy = behavior switch
         {
+            { LogLevel: LogLevel.Silent } => new SilentConsoleWriter(_contentProcessor, console),
             { LogLevel: LogLevel.Quiet } => new QuietConsoleWriter(_contentProcessor, console),
             { LogLevel: LogLevel.Normal } => new ProgressingConsoleWriter(_contentProcessor, console),
             { LogLevel: LogLevel.Verbose, FilePath: string { Length: > 0 } } => new ProgressingConsoleWriter(_contentProcessor, console),

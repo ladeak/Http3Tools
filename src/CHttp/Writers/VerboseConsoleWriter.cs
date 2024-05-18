@@ -31,18 +31,16 @@ internal sealed class VerboseConsoleWriter : IWriter
     private void PrintResponse(HttpResponseInitials initials)
     {
         _console.WriteLine($"Status: {initials.ResponseStatus} Version: {initials.HttpVersion} Encoding: {initials.Encoding.WebName}");
-        foreach (var header in initials.Headers)
-            _console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
-		foreach (var header in initials.ContentHeaders)
-			_console.WriteLine($"{header.Key}: {string.Join(',', header.Value)}");
-		_console.WriteLine();
+        HeaderWriter.Write(initials.Headers, _console);
+        HeaderWriter.Write(initials.ContentHeaders, _console);
+        _console.WriteLine();
 	}
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
     {
         var buffer = ArrayPool<char>.Shared.Rent((int)line.Length);
         int count = Encoding.UTF8.GetChars(line, buffer);
-        _console.Write(buffer, 0, count);
+        _console.Write(buffer[..count]);
         ArrayPool<char>.Shared.Return(buffer);
         return Task.CompletedTask;
     }
@@ -51,8 +49,8 @@ internal sealed class VerboseConsoleWriter : IWriter
     {
         await _contentProcessor.CompleteAsync(CancellationToken.None);
         _console.WriteLine();
-        foreach (var trailer in trailers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
-            _console.WriteLine($"{trailer.Key}: {string.Join(',', trailer.Value)}");
+        if (trailers is { })
+            HeaderWriter.Write(trailers, _console);
         summary.Length = _contentProcessor.Position;
         _console.WriteLine(summary.ToString());
     }

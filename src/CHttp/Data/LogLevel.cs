@@ -5,4 +5,5 @@ internal enum LogLevel
     Verbose,
     Normal,
     Quiet,
+    Silent,
 }

@@ -31,7 +31,5 @@ public class StateConsole : IConsole
 
 	public void WriteLine() => _callback("Completed");
 
-	public void Write(char[] buffer, int index, int count) { }
-
 	public void WriteLine(string value) { }
 }

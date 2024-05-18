@@ -28,6 +28,7 @@ internal abstract class BaseSocketsHandlerProvider
 
         messageHandler.UseCookies = true;
         messageHandler.CookieContainer = cookieContainer.Load();
+        messageHandler.MaxResponseHeadersLength = 1024;
         return messageHandler;
     }
 }

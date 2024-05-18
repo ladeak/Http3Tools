@@ -5,18 +5,12 @@ using CHttp.Abstractions;
 
 namespace CHttp.Writers;
 
-internal sealed class QuietConsoleWriter : IWriter
+internal sealed class SilentConsoleWriter(IBufferedProcessor contentProcessor, IConsole console) : IWriter
 {
-    private readonly IBufferedProcessor _contentProcessor;
-    private readonly IConsole _console;
+    private readonly IBufferedProcessor _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
+    private readonly IConsole _console = console;
 
     public PipeWriter Buffer => _contentProcessor.Pipe;
-
-    public QuietConsoleWriter(IBufferedProcessor contentProcessor, IConsole console)
-    {
-        _contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
-        _console = console;
-    }
 
     public async Task InitializeResponseAsync(HttpResponseInitials initials)
     {
@@ -29,8 +23,6 @@ internal sealed class QuietConsoleWriter : IWriter
     private void PrintResponse(HttpResponseInitials initials)
     {
         _console.WriteLine($"Status: {initials.ResponseStatus} Version: {initials.HttpVersion} Encoding: {initials.Encoding.WebName}");
-        HeaderWriter.Write(initials.Headers, _console);
-        HeaderWriter.Write(initials.ContentHeaders, _console);
     }
 
     private Task ProcessLine(ReadOnlySequence<byte> line)
@@ -41,8 +33,6 @@ internal sealed class QuietConsoleWriter : IWriter
     public async Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
     {
         await _contentProcessor.CompleteAsync(CancellationToken.None);
-        if (trailers is { })
-            HeaderWriter.Write(trailers, _console);
         summary.Length = _contentProcessor.Position;
         _console.WriteLine(summary.ToString());
     }

@@ -16,10 +16,6 @@ internal class NoOpConsole : IConsole
     {
     }
 
-    public void Write(char[] buffer, int index, int count)
-    {
-    }
-
     public void Write(string buffer)
     {
     }

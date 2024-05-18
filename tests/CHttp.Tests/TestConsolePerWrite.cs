@@ -5,8 +5,8 @@ namespace CHttp.Tests;
 
 public class TestConsolePerWrite : IConsole
 {
-    public bool CursorVisible { get; set; }
-    private StringBuilder _sb = new StringBuilder();
+    private readonly StringBuilder _sb = new StringBuilder();
+    private readonly string _filterDate = string.Empty;
 
     public TestConsolePerWrite()
     {
@@ -17,6 +17,13 @@ public class TestConsolePerWrite : IConsole
     {
         WindowWidth = windowWidth;
     }
+
+    public TestConsolePerWrite(string filterDate) : this()
+    {
+        _filterDate = filterDate;
+    }
+
+    public bool CursorVisible { get; set; }
 
     public string Text { get => _sb.ToString(); }
 
@@ -31,25 +38,26 @@ public class TestConsolePerWrite : IConsole
         // NoOp
     }
 
-    public void Write(char[] buffer) => _sb.Append(buffer);
+    public void Write(char[] buffer) => _sb.Append(FilterDate(buffer.AsSpan()));
 
     public void Write(string buffer)
     {
-        _sb.Append(buffer);
+        _sb.Append(FilterDate(buffer.AsSpan()));
         _sb.AppendLine();
     }
 
     public void WriteLine() => _sb.AppendLine();
 
-    public void Write(char[] buffer, int index, int count) => _sb.Append(buffer, index, count);
-
     public void WriteLine(string value)
     {
-        if (value.StartsWith("Date: "))
-        {
-            _sb.Append("Date:");
-            return;
-        }
-        _sb.AppendLine(value);
+        _sb.Append(FilterDate(value.AsSpan()));
+        _sb.AppendLine();
+    }
+
+    private ReadOnlySpan<char> FilterDate(ReadOnlySpan<char> line)
+    {
+        if (DateTime.TryParse(line, out _))
+            return _filterDate.AsSpan();
+        return line;
     }
 }
