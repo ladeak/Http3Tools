@@ -2,23 +2,27 @@
 
 public class KeyValueDescriptor
 {
-    private readonly string _header;
+    private readonly string _name;
 
-    private readonly Range _keyRange;
+    private readonly string _value;
 
-    private readonly Range _valueRange;
-
-    public KeyValueDescriptor(string header)
+    public KeyValueDescriptor(string rawHeader)
     {
+        var header = rawHeader.AsSpan();
         var separatorIndex = header.IndexOf(':');
         if (separatorIndex < 1)
             throw new ArgumentException(nameof(header));
-        _header = header;
-        _keyRange = new Range(0, separatorIndex);
-        _valueRange = new Range(separatorIndex + 1, header.Length);
+        _name = header[..separatorIndex].Trim().ToString();
+        _value = header[(separatorIndex + 1)..].Trim().ToString();
     }
 
-    public ReadOnlySpan<char> GetKey() => _header[_keyRange];
+    public KeyValueDescriptor(ReadOnlySpan<char> name, ReadOnlySpan<char> value)
+    {
+        _name = name.ToString();
+        _value = value.ToString();
+    }
 
-    public ReadOnlySpan<char> GetValue() => _header[_valueRange];
+    public string GetKey() => _name;
+
+    public string GetValue() => _value;
 }

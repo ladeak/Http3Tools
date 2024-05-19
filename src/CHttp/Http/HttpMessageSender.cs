@@ -92,8 +92,8 @@ internal sealed class HttpMessageSender
     {
         foreach (var header in requestData.Headers)
         {
-            var headerKey = header.GetKey().ToString();
-            var headerValue = header.GetValue().ToString();
+            var headerKey = header.GetKey();
+            var headerValue = header.GetValue();
             if (!request.Headers.TryAddWithoutValidation(headerKey, headerValue) && request.Content is { })
             {
                 if (string.Equals(headerKey, "Content-Type", StringComparison.OrdinalIgnoreCase))
