@@ -176,7 +176,7 @@ POST https://localhost:5020/ HTTP/1.1
     }
 
     [Fact]
-    public async Task SampleMultiStep()
+    public async Task SampleMultiStep_IgnoresDiffCommand()
     {
         var stream = File.OpenRead("test.chttp");
 
@@ -186,6 +186,4 @@ POST https://localhost:5020/ HTTP/1.1
         Assert.Equal(6, plan.Steps.Count());
         Assert.Equal(4, plan.Variables.Count());
     }
-
-    // todo multistep, errors
 }

@@ -109,6 +109,8 @@ public class InputReader(IExecutionPlanBuilder builder)
                 }
                 return;
             }
+            if (line.StartsWith("DIFF "))
+                return;
             ThrowArgumentException("HTTP Verb expected.", lineNumber);
         }
 
