@@ -20,7 +20,7 @@ GET https://{{baseUrl}}/echo HTTP/2
 GET https://{{baseUrl}} HTTP/2
 
 ###
-# @name {{custom}}
+# @name {{custom}}2
 # @clientsCount 10
 # @requestCount 100
 GET https://{{baseUrl}} HTTP/2
@@ -32,9 +32,6 @@ GET https://{{baseUrl}} HTTP/2
 POST https://{{baseUrl}}/post
 
 {"data":"hello world"}
-
-###
-DIFF hello basePerformance.json
 
 ###
 GET https://{{baseUrl}} HTTP/3

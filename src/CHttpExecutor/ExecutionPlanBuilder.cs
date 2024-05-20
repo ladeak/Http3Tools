@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using System.Buffers;
+using System.CommandLine.IO;
+using System.Net;
 using System.Text;
 using CHttp.Data;
 
@@ -9,6 +11,8 @@ public interface IExecutionPlanBuilder
     ExecutionPlan Build();
 
     void AddStep(int lineNumber);
+
+    void AddMethod(string requestVerb);
 
     void AddUri(ReadOnlySpan<char> uri);
 
@@ -23,11 +27,9 @@ public interface IExecutionPlanBuilder
     void AddExecutionInstruction(ReadOnlySpan<char> command, ReadOnlySpan<char> parameters);
 
     void AddExecutionInstruction(ReadOnlySpan<char> command);
-    void AddMethod(string requestVerb);
 }
 
-
-public class ExecutionPlanBuilder : IExecutionPlanBuilder
+public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 {
     private static CompositeFormat ErrorFormat = CompositeFormat.Parse("Line {0}, with {1} {2}");
 
@@ -39,7 +41,7 @@ public class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     public void AddStep(int lineNumber)
     {
-        if (!_currentStep.IsEmpty())
+        if (!_currentStep.IsDefault())
             _steps.Add(FreezeCurrentStep(_currentStep));
         _currentStep = new() { LineNumber = lineNumber };
     }
@@ -51,9 +53,9 @@ public class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     public void AddUri(ReadOnlySpan<char> rawUri)
     {
-        if (!Uri.TryCreate(rawUri.ToString(), UriKind.Absolute, out var uri))
-            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.NameOrUri(), "Uri cannot be parsed"));
-        _currentStep.Uri = uri;
+        if (rawUri.Length == 0)
+            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.NameOrUri(), "Uri is missing"));
+        _currentStep.Uri = rawUri.ToString();
     }
 
     public void AddHttpVersion(ReadOnlySpan<char> version)
@@ -77,8 +79,7 @@ public class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     public void AddBodyLine(ReadOnlySpan<char> line)
     {
-        _currentStep.Body.Append(line);
-        _currentStep.Body.AppendLine();
+        _currentStep.Body.Add(line.ToString());
     }
 
     public void AddHeader(ReadOnlySpan<char> name, ReadOnlySpan<char> value)
@@ -126,26 +127,50 @@ public class ExecutionPlanBuilder : IExecutionPlanBuilder
             return;
         }
 
-        if (command.Equals("shared-sockethandler", StringComparison.OrdinalIgnoreCase)
+        if (command.Equals("sharedsocket", StringComparison.OrdinalIgnoreCase)
             && bool.TryParse(parameters, out var sharedSockets))
         {
             _currentStep.SharedSocket = sharedSockets;
+            return;
+        }
+        if (command.Equals("no-redirects", StringComparison.OrdinalIgnoreCase)
+            && bool.TryParse(parameters, out var noRedirects))
+        {
+            _currentStep.EnableRedirects = noRedirects;
+            return;
+        }
+        if ((command.Equals("no-certificate-validation", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("no-cert-validation", StringComparison.OrdinalIgnoreCase))
+            && bool.TryParse(parameters, out var noCertValidation))
+        {
+            _currentStep.NoCertificateValidation = noCertValidation;
             return;
         }
     }
 
     public void AddExecutionInstruction(ReadOnlySpan<char> command)
     {
-        if (command.Equals("shared-sockethandler", StringComparison.OrdinalIgnoreCase))
+        if (command.Equals("sharedsocket", StringComparison.OrdinalIgnoreCase))
         {
             _currentStep.SharedSocket = true;
+            return;
+        }
+        if (command.Equals("no-redirects", StringComparison.OrdinalIgnoreCase))
+        {
+            _currentStep.EnableRedirects = false;
+            return;
+        }
+        if (command.Equals("no-certificate-validation", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("no-cert-validation", StringComparison.OrdinalIgnoreCase))
+        {
+            _currentStep.NoCertificateValidation = true;
             return;
         }
     }
 
     public ExecutionPlan Build()
     {
-        if (!_currentStep.IsEmpty())
+        if (!_currentStep.IsDefault())
             _steps.Add(FreezeCurrentStep(_currentStep));
         return new ExecutionPlan(_steps, _variables);
     }
@@ -161,7 +186,7 @@ public class ExecutionPlanBuilder : IExecutionPlanBuilder
             RequestsCount = step.RequestsCount,
             Timeout = step.Timeout,
             SharedSocket = step.SharedSocket,
-            Body = step.Body.ToString(),
-            Headers = step.Headers
+            Body = step.Body,
+            Headers = step.Headers,
         };
 }

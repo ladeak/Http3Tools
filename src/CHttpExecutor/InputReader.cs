@@ -31,9 +31,6 @@ public class InputReader(IExecutionPlanBuilder builder)
 
     private void ProcessLine(string inputLine, int lineNumber)
     {
-        if (string.IsNullOrWhiteSpace(inputLine))
-            return;
-
         ReadOnlySpan<char> line = inputLine.AsSpan().Trim();
 
         // New Step
@@ -59,11 +56,12 @@ public class InputReader(IExecutionPlanBuilder builder)
         // Execution Instruction line
         if (line.StartsWith("# @") && _state == InputReaderState.Ready)
         {
-            var separator = line.IndexOf(' ');
+            var instruction = line[3..];
+            var separator = instruction.IndexOf(' ');
             if (separator > -1)
-                builder.AddExecutionInstruction(line[3..separator], line[(separator + 1)..].Trim());
+                builder.AddExecutionInstruction(instruction[..separator].Trim(), instruction[(separator + 1)..].Trim());
             else
-                builder.AddExecutionInstruction(line[3..separator]);
+                builder.AddExecutionInstruction(instruction.Trim());
             return;
         }
 
@@ -75,9 +73,9 @@ public class InputReader(IExecutionPlanBuilder builder)
         if (line.StartsWith("@") && _state == InputReaderState.Ready)
         {
             var separtaor = line.IndexOf('=');
-            if (separtaor != -1)
+            if (separtaor == -1)
                 ThrowArgumentException("Equal sign expected", lineNumber);
-            builder.AddVariable(line[..separtaor].Trim(), line[(separtaor + 1)..].Trim());
+            builder.AddVariable(line[1..separtaor].Trim(), line[(separtaor + 1)..].Trim());
             return;
         }
 
@@ -98,7 +96,7 @@ public class InputReader(IExecutionPlanBuilder builder)
             if (requestVerb != null)
             {
                 _state = InputReaderState.Headers;
-                builder.AddMethod(requestVerb[..^1].ToString());
+                builder.AddMethod(requestVerb);
                 var endIndex = line.IndexOf(" HTTP/");
                 if (endIndex > 0)
                 {
@@ -118,10 +116,10 @@ public class InputReader(IExecutionPlanBuilder builder)
         if (_state == InputReaderState.Request || _state == InputReaderState.Headers)
         {
             _state = InputReaderState.Headers;
-            var equalSign = line.IndexOf(':');
-            if (equalSign != -1)
+            var sepearator = line.IndexOf(':');
+            if (sepearator == -1)
                 ThrowArgumentException("Invalid Header format", lineNumber);
-            builder.AddHeader(line[..equalSign].Trim(), line[(equalSign + 1)..].Trim());
+            builder.AddHeader(line[..sepearator].Trim(), line[(sepearator + 1)..].Trim());
             return;
         }
 

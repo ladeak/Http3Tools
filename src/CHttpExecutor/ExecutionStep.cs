@@ -6,7 +6,7 @@ namespace CHttpExecutor;
 
 public record ExecutionPlan(IEnumerable<FrozenExecutionStep> Steps, IEnumerable<Variable> Variables);
 
-public record ExecutionStep
+public class ExecutionStep
 {
     private const int TimeoutInSeconds = 10;
 
@@ -14,11 +14,11 @@ public record ExecutionStep
 
     public string? Name { get; set; }
 
-    public Uri? Uri { get; set; }
+    public string? Uri { get; set; }
 
     public string? Method { get; set; }
 
-    public StringBuilder Body { get; } = new();
+    public List<string> Body { get; } = [];
 
     public List<KeyValueDescriptor> Headers { get; } = [];
 
@@ -32,29 +32,31 @@ public record ExecutionStep
 
     public bool SharedSocket { get; set; }
 
+    public bool EnableRedirects { get; set; } = true;
+
+    public bool NoCertificateValidation { get; set; }
+
     public string NameOrUri() => Name ?? Uri?.ToString() ?? "missing name";
 
-    public bool IsEmpty() =>
-        Name == null && Uri == null && Method == null && Body.Length == 0
+    public bool IsDefault() =>
+        Name == null && Uri == null && Method == null && Body.Count == 0
+        && EnableRedirects && !NoCertificateValidation
         && Headers.Count == 0 && !RequestsCount.HasValue && !ClientsCount.HasValue
         && SharedSocket == false && Timeout == TimeSpan.FromSeconds(TimeoutInSeconds)
         && Version == HttpVersion.Version20;
 
     // TODO Assertions
-    // TODO variables
 }
 
 public class FrozenExecutionStep
 {
-    public static FrozenExecutionStep Default { get; } = new FrozenExecutionStep() { Method = "", Uri = new Uri("https://localhost:5001"), Version = HttpVersion.Version20, Headers = [] };
-
     public string? Name { get; init; }
 
-    public required Uri Uri { get; init; }
+    public required string Uri { get; init; }
 
     public required string Method { get; init; }
 
-    public string? Body { get; init; }
+    public required IReadOnlyCollection<string> Body { get; init; }
 
     public required IReadOnlyCollection<KeyValueDescriptor> Headers { get; init; }
 
@@ -71,7 +73,6 @@ public class FrozenExecutionStep
     public bool IsPerformanceRequest => ClientsCount.HasValue && RequestsCount.HasValue;
 
     // TODO Assertions
-    // TODO variables
 }
 
 public record struct Variable(string Name, string Value);

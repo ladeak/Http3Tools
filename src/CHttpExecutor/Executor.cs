@@ -13,9 +13,9 @@ public class Executor(ExecutionPlan plan)
 
     public async Task ExecuteAsync()
     {
-        foreach (var step in plan.Steps.Where(x => x != FrozenExecutionStep.Default))
+        foreach (var step in plan.Steps)
         {
-            await SendRequestImplAsync(false, false, false, 5, "GET", step.Uri,
+            await SendRequestImplAsync(false, false, false, 5, "GET", new Uri(step.Uri),
                 HttpVersion.Version20, [], null);
         }
     }
