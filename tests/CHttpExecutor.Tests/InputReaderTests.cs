@@ -40,20 +40,22 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         var plan = await reader.ReadStreamAsync(stream);
 
         var step = plan.Steps.Single();
-        Assert.Equal(10, step.ClientsCount);
-        Assert.Equal(100, step.RequestsCount);
+        Assert.Equal(10, step.ClientsCount!.Value);
+        Assert.Equal(100, step.RequestsCount!.Value);
         Assert.Equal("mytest", step.Name);
         Assert.True(step.IsPerformanceRequest);
-        Assert.True(step.SharedSocket);
-        Assert.Equal(TimeSpan.FromSeconds(5), step.Timeout);
+        Assert.True(step.SharedSocket!.Value);
+        Assert.Equal(TimeSpan.FromSeconds(5), step.Timeout!.Value);
     }
 
     [Fact]
     public async Task CommentedVariables()
     {
         byte[] request = @"###
+@var = a
 ## @clientscount 10
 # @sharedsocket true
+# @requestCount {{ var}}
 GET https://localhost:5020/"u8.ToArray();
         var stream = new MemoryStream(request);
 
@@ -61,8 +63,8 @@ GET https://localhost:5020/"u8.ToArray();
         var plan = await reader.ReadStreamAsync(stream);
 
         var step = plan.Steps.Single();
-        Assert.False(step.ClientsCount.HasValue);
-        Assert.True(step.SharedSocket);
+        Assert.Null(step.ClientsCount);
+        Assert.Equal("{{ var}}", step.RequestsCount!.VariableValue);
     }
 
     [Fact]
@@ -185,5 +187,17 @@ POST https://localhost:5020/ HTTP/1.1
 
         Assert.Equal(6, plan.Steps.Count());
         Assert.Equal(4, plan.Variables.Count());
+    }
+
+    [Fact]
+    public async Task VariableNotDefinedThrows()
+    {
+        byte[] request = @"
+# @requestCount {{var}}
+GET https://localhost:5020/"u8.ToArray();
+        var stream = new MemoryStream(request);
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        await Assert.ThrowsAsync<ArgumentException>(() => reader.ReadStreamAsync(stream));
     }
 }

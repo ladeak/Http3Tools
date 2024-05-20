@@ -1,6 +1,4 @@
-﻿using System.Buffers;
-using System.CommandLine.IO;
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using CHttp.Data;
 
@@ -90,29 +88,39 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     public void AddExecutionInstruction(ReadOnlySpan<char> command, ReadOnlySpan<char> parameters)
     {
         if (command.Equals("clientsCount", StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(parameters, out int clientCount))
+            && VarValue<int>.TryCreate(parameters, out var clientCount))
         {
-            if (clientCount <= 0)
+            if (clientCount.HasValue && clientCount.Value <= 0)
                 throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "ClientsCount must be a positive number"));
+            ValidateVariableExistance(clientCount);
             _currentStep.ClientsCount = clientCount;
             return;
         }
 
         if (command.Equals("requestCount", StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(parameters, out int requestCount))
+            && VarValue<int>.TryCreate(parameters, out var requestCount))
         {
-            if (requestCount <= 0)
-                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "ClientsCount must be a positive number"));
+            if (requestCount.HasValue && requestCount.Value <= 0)
+                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "RequestCount must be a positive number"));
+            ValidateVariableExistance(requestCount);
             _currentStep.RequestsCount = requestCount;
             return;
         }
 
-        if (command.Equals("timeout", StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(parameters, out int timeout))
+        if (command.Equals("timeout", StringComparison.OrdinalIgnoreCase))
         {
-            if (timeout <= 0)
-                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "ClientsCount must be a positive number"));
-            _currentStep.Timeout = TimeSpan.FromSeconds(timeout);
+            if (int.TryParse(parameters, out int timeout))
+            {
+                if (timeout <= 0)
+                    throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "ClientsCount must be a positive number"));
+                _currentStep.Timeout = new VarValue<TimeSpan>(TimeSpan.FromSeconds(timeout));
+            }
+            else
+            {
+                var timeoutExpression = new VarValue<TimeSpan>(parameters.ToString());
+                ValidateVariableExistance(timeoutExpression);
+                _currentStep.Timeout = timeoutExpression;
+            }
             return;
         }
 
@@ -128,21 +136,24 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
         }
 
         if (command.Equals("sharedsocket", StringComparison.OrdinalIgnoreCase)
-            && bool.TryParse(parameters, out var sharedSockets))
+            && VarValue<bool>.TryCreate(parameters, out var sharedSockets))
         {
+            ValidateVariableExistance(sharedSockets);
             _currentStep.SharedSocket = sharedSockets;
             return;
         }
         if (command.Equals("no-redirects", StringComparison.OrdinalIgnoreCase)
-            && bool.TryParse(parameters, out var noRedirects))
+            && VarValue<bool>.TryCreate(parameters, out var noRedirects))
         {
+            ValidateVariableExistance(noRedirects);
             _currentStep.EnableRedirects = noRedirects;
             return;
         }
         if ((command.Equals("no-certificate-validation", StringComparison.OrdinalIgnoreCase)
             || command.Equals("no-cert-validation", StringComparison.OrdinalIgnoreCase))
-            && bool.TryParse(parameters, out var noCertValidation))
+            && VarValue<bool>.TryCreate(parameters, out var noCertValidation))
         {
+            ValidateVariableExistance(noCertValidation);
             _currentStep.NoCertificateValidation = noCertValidation;
             return;
         }
@@ -152,18 +163,18 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     {
         if (command.Equals("sharedsocket", StringComparison.OrdinalIgnoreCase))
         {
-            _currentStep.SharedSocket = true;
+            _currentStep.SharedSocket = VarValue.True;
             return;
         }
         if (command.Equals("no-redirects", StringComparison.OrdinalIgnoreCase))
         {
-            _currentStep.EnableRedirects = false;
+            _currentStep.EnableRedirects = VarValue.False;
             return;
         }
         if (command.Equals("no-certificate-validation", StringComparison.OrdinalIgnoreCase)
             || command.Equals("no-cert-validation", StringComparison.OrdinalIgnoreCase))
         {
-            _currentStep.NoCertificateValidation = true;
+            _currentStep.NoCertificateValidation = VarValue.True;
             return;
         }
     }
@@ -178,6 +189,7 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     private static FrozenExecutionStep FreezeCurrentStep(ExecutionStep step) =>
         new()
         {
+            LineNumber = step.LineNumber,
             Method = step.Method ?? throw new ArgumentException(string.Format(null, ErrorFormat, step.LineNumber, step.NameOrUri(), "missing HTTP Verb")),
             Uri = step.Uri ?? throw new ArgumentException(string.Format(null, ErrorFormat, step.LineNumber, step.NameOrUri(), "missing Url")),
             Version = step.Version ?? HttpVersion.Version20,
@@ -189,4 +201,16 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             Body = step.Body,
             Headers = step.Headers,
         };
+
+    private void ValidateVariableExistance<T>(VarValue<T> source)
+        where T : ISpanParsable<T>
+    {
+        if (source.HasValue)
+            return;
+        var undefinedVar = VariablePreprocessor.GetVariableNames(source.VariableValue)
+            .FirstOrDefault(x => !_variables.Any(v => v.Name == x));
+
+        if (undefinedVar != null)
+            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"{undefinedVar} is not yet defined"));
+    }
 }
