@@ -33,15 +33,22 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     private List<FrozenExecutionStep> _steps = new();
 
-    private List<Variable> _variables = new();
+    private HashSet<string> _variables = new();
 
     private ExecutionStep _currentStep = new() { LineNumber = 1 };
 
     public void AddStep(int lineNumber)
     {
-        if (!_currentStep.IsDefault())
-            _steps.Add(FreezeCurrentStep(_currentStep));
-        _currentStep = new() { LineNumber = lineNumber };
+        // If variables defined 
+        var variables = new List<Variable>();
+        if (_currentStep.IsOnlyRollingParameter)
+            _currentStep = new() { LineNumber = lineNumber, Variables = _currentStep.Variables };
+        else
+        {
+            if (!_currentStep.IsDefault)
+                _steps.Add(FreezeCurrentStep(_currentStep));
+            _currentStep = new() { LineNumber = lineNumber };
+        }
     }
 
     public void AddMethod(string requestVerb)
@@ -72,7 +79,11 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     {
         if (value.StartsWith("{{$") && value.EndsWith("}}"))
             value = Environment.GetEnvironmentVariable(value[3..^3].ToString());
-        _variables.Add(new(name.ToString(), value.ToString()));
+        var key = name.ToString();
+        ValidateVariableExistance(value);
+        var variable = new Variable(key, value.ToString());
+        _variables.Add(key);
+        _currentStep.Variables.Add(key, variable);
     }
 
     public void AddBodyLine(ReadOnlySpan<char> line)
@@ -181,7 +192,7 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     public ExecutionPlan Build()
     {
-        if (!_currentStep.IsDefault())
+        if (!_currentStep.IsDefault)
             _steps.Add(FreezeCurrentStep(_currentStep));
         return new ExecutionPlan(_steps, _variables);
     }
@@ -200,6 +211,9 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             SharedSocket = step.SharedSocket,
             Body = step.Body,
             Headers = step.Headers,
+            EnableRedirects = step.EnableRedirects,
+            NoCertificateValidation = step.NoCertificateValidation,
+            Variables = step.Variables,
         };
 
     private void ValidateVariableExistance<T>(VarValue<T> source)
@@ -207,8 +221,16 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     {
         if (source.HasValue)
             return;
-        var undefinedVar = VariablePreprocessor.GetVariableNames(source.VariableValue)
-            .FirstOrDefault(x => !_variables.Any(v => v.Name == x));
+        ValidateVariableExistance(source.VariableValue);
+    }
+
+    private void ValidateVariableExistance(ReadOnlySpan<char> source)
+    {
+        // Can be a named variable or a step name
+        var undefinedVar = VariablePreprocessor.GetVariableNames(source)
+            .Where(x => !_variables.Contains(x))
+            .Where(x => !_steps.Any(s => s.Name != null && x.StartsWith(s.Name)))
+            .Where(x => !(_currentStep.Name != null && x.StartsWith(_currentStep.Name))).FirstOrDefault();
 
         if (undefinedVar != null)
             throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"{undefinedVar} is not yet defined"));

@@ -27,14 +27,16 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
     [Fact]
     public async Task ExecutionInstructionsParsed()
     {
-            byte[] request = @"###
+        byte[] request = @"###
 # @name mytest
 # @clientscount 10
 # @requestcount 100
 # @sharedsocket
 # @timeout 5
+# @no-cert-validation true
+# @enableRedirect false
 GET https://localhost:5020/ HTTP/2"u8.ToArray();
-    var stream = new MemoryStream(request);
+        var stream = new MemoryStream(request);
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
@@ -45,6 +47,8 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         Assert.Equal("mytest", step.Name);
         Assert.True(step.IsPerformanceRequest);
         Assert.True(step.SharedSocket!.Value);
+        Assert.True(step.NoCertificateValidation!.Value);
+        Assert.True(step.EnableRedirects!.Value);
         Assert.Equal(TimeSpan.FromSeconds(5), step.Timeout!.Value);
     }
 
@@ -125,10 +129,11 @@ POST https://localhost:5020/ HTTP/1.1
         Assert.Equal("POST", step.Method);
         Assert.Equal("{\"something\": \"value\"}", step.Body.Single());
         var variables = plan.Variables;
-        Assert.Equal("my", variables.First().Name);
-        Assert.Equal("some", variables.First().Value);
-        Assert.Equal("my2", variables.Last().Name);
-        Assert.Equal("variable", variables.Last().Value);
+        Assert.Contains("my", variables);
+        Assert.Contains("my2", variables);
+
+        Assert.Equal("some", step.Variables["my"].Value);
+        Assert.Equal("variable", step.Variables["my2"].Value);
     }
 
     [Fact]
@@ -157,24 +162,23 @@ POST https://localhost:5020/ HTTP/1.1
         var plan = await reader.ReadStreamAsync(stream);
 
         var stepFirst = plan.Steps.First();
-        var stepLast = plan.Steps.Last();
+        var stepSecond = plan.Steps.Last();
 
         Assert.Equal("https://localhost:5021/", stepFirst.Uri.ToString());
         Assert.Equal(HttpMethod.Get.ToString(), stepFirst.Method);
         Assert.Equal(HttpVersion.Version20, stepFirst.Version);
         Assert.Null(stepFirst.Name);
 
-        Assert.Equal("https://localhost:5020/", stepLast.Uri.ToString());
-        Assert.Equal(HttpMethod.Post.ToString(), stepLast.Method);
-        Assert.Equal(HttpVersion.Version11, stepLast.Version);
-        Assert.Equal("test", stepLast.Name);
+        Assert.Equal("https://localhost:5020/", stepSecond.Uri.ToString());
+        Assert.Equal(HttpMethod.Post.ToString(), stepSecond.Method);
+        Assert.Equal(HttpVersion.Version11, stepSecond.Version);
+        Assert.Equal("test", stepSecond.Name);
 
-        Assert.Equal(stepFirst.Body , stepLast.Body);
-        var variables = plan.Variables;
-        Assert.Equal("my", variables.First().Name);
-        Assert.Equal("some", variables.First().Value);
-        Assert.Equal("my2", variables.Last().Name);
-        Assert.Equal("variable", variables.Last().Value);
+        Assert.Equal(stepSecond.Body, stepSecond.Body);
+
+        Assert.Equal(2, plan.Variables.Count);
+        Assert.Equal(2, stepFirst.Variables.Count);
+        Assert.Empty(stepSecond.Variables);
     }
 
     [Fact]

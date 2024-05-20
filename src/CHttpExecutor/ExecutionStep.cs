@@ -3,7 +3,7 @@ using CHttp.Data;
 
 namespace CHttpExecutor;
 
-public record ExecutionPlan(IEnumerable<FrozenExecutionStep> Steps, IEnumerable<Variable> Variables);
+public record ExecutionPlan(IReadOnlyCollection<FrozenExecutionStep> Steps, HashSet<string> Variables);
 
 public record class VarValue<T>
     where T : ISpanParsable<T>
@@ -74,9 +74,21 @@ public class ExecutionStep
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
+    public Dictionary<string, Variable> Variables { get; set; } = [];
+
     public string NameOrUri() => Name ?? Uri?.ToString() ?? "missing name";
 
-    public bool IsDefault() =>
+    public bool IsDefault =>
+        Name == null && Uri == null && Method == null && Body.Count == 0
+        && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
+        && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
+        && SharedSocket == VarValue.False && Timeout == DefaultTimeout
+        && Variables.Count == 0
+        && Version == HttpVersion.Version20;
+
+    public bool IsOnlyRollingParameter => IsDefaultNoVariable && Variables.Count > 0;
+
+    public bool IsDefaultNoVariable =>
         Name == null && Uri == null && Method == null && Body.Count == 0
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
@@ -113,6 +125,8 @@ public class FrozenExecutionStep
     public VarValue<bool> EnableRedirects { get; set; } = VarValue.True;
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
+
+    public required IReadOnlyDictionary<string, Variable> Variables { get; init; }
 
     public bool IsPerformanceRequest => ClientsCount != null && RequestsCount != null;
 

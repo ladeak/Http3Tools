@@ -6,21 +6,33 @@ using CHttp.Writers;
 
 namespace CHttpExecutor;
 
+internal class ExecutionContext
+{
+    public IFileSystem FileSystem { get; } = new MemoryFileSystem();
+    
+    public ICookieContainer CookieContainer { get; } = new MemoryCookieContainer();
+    
+    public Dictionary<string, string> VariableValues { get; } = new();
+}
+
 public class Executor(ExecutionPlan plan)
 {
-    private static MemoryFileSystem _fileSystem = new MemoryFileSystem();
-    private static MemoryCookieContainer CookieContainer = new MemoryCookieContainer();
+    private ExecutionContext _ctx = new ExecutionContext();
 
     public async Task ExecuteAsync()
     {
         foreach (var step in plan.Steps)
         {
+            // TODO: Variable preprocessing
             await SendRequestImplAsync(false, false, false, 5, "GET", new Uri(step.Uri),
                 HttpVersion.Version20, [], null);
+            // TODO: Variable postprocessing
+
+            // TODO: assertion
         }
     }
 
-    private static async Task SendRequestImplAsync(
+    private async Task SendRequestImplAsync(
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
@@ -48,9 +60,9 @@ public class Executor(ExecutionPlan plan)
         var outputBehavior = new OutputBehavior(LogLevel.Verbose, string.Empty);
         var console = new NoOpConsole();
         var writer = new WriterStrategy(outputBehavior, console: console);
-        var client = new HttpMessageSender(writer, CookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
+        var client = new HttpMessageSender(writer, _ctx.CookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
         await client.SendRequestAsync(requestDetails);
         await writer.CompleteAsync(CancellationToken.None);
-        await CookieContainer.SaveAsync();
+        await _ctx.CookieContainer.SaveAsync();
     }
 }
