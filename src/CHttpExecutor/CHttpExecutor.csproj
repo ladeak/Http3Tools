@@ -21,4 +21,8 @@
     <ProjectReference Include="..\CHttp\CHttp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="CHttpExecutor.Tests"/>
+  </ItemGroup>
+
 </Project>

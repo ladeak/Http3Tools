@@ -10,6 +10,7 @@ public class IntegrationTests
     private const int Port = 5020;
 
     private byte[] _singleRequest = @"###
+# @no-cert-validation
 GET https://localhost:5020/ HTTP/2"u8.ToArray();
 
     [Fact]

@@ -83,7 +83,7 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
         ValidateVariableExistance(value);
         var variable = new Variable(key, value.ToString());
         _variables.Add(key);
-        _currentStep.Variables.Add(key, variable);
+        _currentStep.Variables.Add(variable);
     }
 
     public void AddBodyLine(ReadOnlySpan<char> line)
@@ -124,11 +124,11 @@ public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             {
                 if (timeout <= 0)
                     throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "ClientsCount must be a positive number"));
-                _currentStep.Timeout = new VarValue<TimeSpan>(TimeSpan.FromSeconds(timeout));
+                _currentStep.Timeout = new VarValue<double>(timeout);
             }
             else
             {
-                var timeoutExpression = new VarValue<TimeSpan>(parameters.ToString());
+                var timeoutExpression = new VarValue<double>(parameters.ToString());
                 ValidateVariableExistance(timeoutExpression);
                 _currentStep.Timeout = timeoutExpression;
             }

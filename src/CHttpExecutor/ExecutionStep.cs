@@ -1,5 +1,7 @@
-﻿using System.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using CHttp.Data;
+using Google.Protobuf.WellKnownTypes;
 
 namespace CHttpExecutor;
 
@@ -33,6 +35,7 @@ public record class VarValue<T>
 
     public string? VariableValue { get; }
 
+    [MemberNotNullWhen(true, nameof(Value))]
     public bool HasValue => VariableValue == null;
 }
 
@@ -44,7 +47,7 @@ public static class VarValue
 
 public class ExecutionStep
 {
-    private static VarValue<TimeSpan> DefaultTimeout = new VarValue<TimeSpan>(TimeSpan.FromSeconds(TimeoutInSeconds));
+    private static VarValue<double> DefaultTimeout = new VarValue<double>(TimeoutInSeconds);
 
     private const int TimeoutInSeconds = 10;
 
@@ -62,7 +65,7 @@ public class ExecutionStep
 
     public Version Version { get; set; } = HttpVersion.Version20;
 
-    public VarValue<TimeSpan> Timeout { get; set; } = DefaultTimeout;
+    public VarValue<double> Timeout { get; set; } = DefaultTimeout;
 
     public VarValue<int>? ClientsCount { get; set; }
 
@@ -74,7 +77,7 @@ public class ExecutionStep
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
-    public Dictionary<string, Variable> Variables { get; set; } = [];
+    public List<Variable> Variables { get; set; } = [];
 
     public string NameOrUri() => Name ?? Uri?.ToString() ?? "missing name";
 
@@ -114,7 +117,7 @@ public class FrozenExecutionStep
 
     public required Version Version { get; init; }
 
-    public required VarValue<TimeSpan> Timeout { get; init; }
+    public required VarValue<double> Timeout { get; init; }
 
     public VarValue<int>? ClientsCount { get; init; }
 
@@ -126,8 +129,9 @@ public class FrozenExecutionStep
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
-    public required IReadOnlyDictionary<string, Variable> Variables { get; init; }
+    public List<Variable> Variables { get; init; } = [];
 
+    [MemberNotNullWhen(true, nameof(ClientsCount), nameof(RequestsCount))]
     public bool IsPerformanceRequest => ClientsCount != null && RequestsCount != null;
 
     // TODO Assertions

@@ -49,7 +49,7 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         Assert.True(step.SharedSocket!.Value);
         Assert.True(step.NoCertificateValidation!.Value);
         Assert.True(step.EnableRedirects!.Value);
-        Assert.Equal(TimeSpan.FromSeconds(5), step.Timeout!.Value);
+        Assert.Equal(5, step.Timeout!.Value);
     }
 
     [Fact]
@@ -132,8 +132,8 @@ POST https://localhost:5020/ HTTP/1.1
         Assert.Contains("my", variables);
         Assert.Contains("my2", variables);
 
-        Assert.Equal("some", step.Variables["my"].Value);
-        Assert.Equal("variable", step.Variables["my2"].Value);
+        Assert.Contains(new("my", "some"), step.Variables);
+        Assert.Contains(new("my2", "variable"), step.Variables);
     }
 
     [Fact]

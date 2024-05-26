@@ -16,10 +16,14 @@ public class KeyValueDescriptor
         _value = header[(separatorIndex + 1)..].Trim().ToString();
     }
 
-    public KeyValueDescriptor(ReadOnlySpan<char> name, ReadOnlySpan<char> value)
+    public KeyValueDescriptor(string name, string value)
     {
-        _name = name.ToString();
-        _value = value.ToString();
+        _name = name;
+        _value = value;
+    }
+
+    public KeyValueDescriptor(ReadOnlySpan<char> name, ReadOnlySpan<char> value) : this(name.ToString(), value.ToString())
+    {
     }
 
     public string GetKey() => _name;

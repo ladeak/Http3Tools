@@ -41,7 +41,7 @@ public static class VariablePreprocessor
             if (startIndex == -1)
             {
                 destination.Write(source);
-                break;
+                return;
             }
 
             destination.Write(source[..startIndex]);
@@ -50,7 +50,7 @@ public static class VariablePreprocessor
             if (endIndex == -1)
             {
                 destination.Write(source[startIndex..]);
-                break;
+                return;
             }
 
             // Remove ToString() call in .NET 9 https://github.com/dotnet/runtime/issues/27229
