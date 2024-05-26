@@ -26,64 +26,53 @@ public static class VariablePreprocessor
         IReadOnlyDictionary<string, string> values)
     {
         var buffer = new PooledArrayBufferWriter<char>();
-        bool runSubstitution = true;
-        while (true)
-        {
-            runSubstitution = Substitute(source, values, buffer);
-            if (!runSubstitution)
-                return buffer.WrittenSpan.ToString();
-            source = buffer.WrittenSpan.ToString();
-            buffer.Clear();
-        }
+        Substitute(source, values, buffer);
+        return buffer.WrittenSpan.ToString();
     }
 
-    private static bool Substitute(
+    private static void Substitute(
         ReadOnlySpan<char> source,
         IReadOnlyDictionary<string, string> values,
-        PooledArrayBufferWriter<char> buffer)
+        PooledArrayBufferWriter<char> destination)
     {
-        bool hasReplaced = false;
         while (source.Length > 0)
         {
             var startIndex = source.IndexOf("{{");
             if (startIndex == -1)
             {
-                buffer.Write(source);
+                destination.Write(source);
                 break;
             }
 
-            buffer.Write(source[..startIndex]);
+            destination.Write(source[..startIndex]);
 
             var endIndex = source.Slice(startIndex).IndexOf("}}");
             if (endIndex == -1)
             {
-                buffer.Write(source[startIndex..]);
+                destination.Write(source[startIndex..]);
                 break;
             }
 
             // Remove ToString() call in .NET 9 https://github.com/dotnet/runtime/issues/27229
             var key = source.Slice(startIndex + 2, endIndex - 2).Trim().ToString();
-            ReadOnlySpan<char> replacment = string.Empty;
-            if (values.TryGetValue(key, out var value))
+            if (!values.TryGetValue(key, out var value))
             {
-                replacment = value;
-                hasReplaced = true;
+                // No replacement
+                destination.Write(source.Slice(startIndex, endIndex + 2));
             }
             else
             {
-                // No replacement
-                replacment = source.Slice(startIndex, endIndex + 2);
-            }
-            if (replacment.StartsWith("{{$") && replacment.EndsWith("}}"))
-            {
-                var envVarName = replacment.Slice(3, replacment.Length - 5).Trim();
-                replacment = Environment.GetEnvironmentVariable(envVarName.ToString()) ?? string.Empty;
-                hasReplaced = true;
+                var replacement = value.AsSpan();
+                if (replacement.StartsWith("{{$") && replacement.EndsWith("}}"))
+                {
+                    var envVarName = replacement.Slice(3, replacement.Length - 5).Trim();
+                    replacement = Environment.GetEnvironmentVariable(envVarName.ToString()) ?? string.Empty;
+                }
+
+                Substitute(replacement, values, destination);
             }
 
-            buffer.Write(replacment);
             source = source.Slice(startIndex + endIndex + 2);
         }
-        return hasReplaced;
     }
 }
