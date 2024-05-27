@@ -22,6 +22,8 @@ internal sealed class ProgressBar<T> where T : struct
 
     public async Task RunAsync<U>(CancellationToken token = default) where U : INumberFormatter<T>
     {
+        if (_length == 0)
+            return;
         _value = default;
         char[] buffer = new char[_length];
         buffer[0] = '[';

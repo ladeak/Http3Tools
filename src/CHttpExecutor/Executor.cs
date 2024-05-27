@@ -3,7 +3,12 @@ using System.Threading;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Http;
+using CHttp.Performance.Data;
+using CHttp.Performance.Statitics;
+using CHttp.Performance;
 using CHttp.Writers;
+using System.IO.Pipelines;
+using System.Net.Http.Headers;
 
 namespace CHttpExecutor;
 
@@ -14,6 +19,10 @@ internal class ExecutionContext
     public ICookieContainer CookieContainer { get; } = new MemoryCookieContainer();
 
     public Dictionary<string, string> VariableValues { get; } = new();
+
+    public FrozenExecutionStep? CurrentStep { get; set; }
+
+    public VariablePostProcessingWriterStrategy Writer { get; set; }
 }
 
 public class Executor(ExecutionPlan plan)
@@ -24,6 +33,7 @@ public class Executor(ExecutionPlan plan)
     {
         foreach (var step in plan.Steps)
         {
+            _ctx.CurrentStep = step;
             // Add or update variable state in the context.
             foreach (var newVar in step.Variables)
                 _ctx.VariableValues[newVar.Name] = newVar.Value;
@@ -40,17 +50,22 @@ public class Executor(ExecutionPlan plan)
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
             HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Substitute(x, _ctx.VariableValues)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
-                await SendRequestImplAsync(httpBehavior, requestDetails, body);
+            {
+                _ctx.Writer = new(!string.IsNullOrWhiteSpace(step.Name));
+                await SendRequestAsync(httpBehavior, requestDetails, body, _ctx);
+
+                // TODO: Variable postprocessing
+
+            }
             else
             {
                 // Variable preprocessing
                 var clientsCount = ProcessVariable(step.ClientsCount, _ctx, nameof(step.ClientsCount));
                 var requestCount = ProcessVariable(step.RequestsCount, _ctx, nameof(step.RequestsCount));
                 var sharedsocket = ProcessVariable(step.SharedSocket, _ctx, nameof(step.SharedSocket));
+                var perfBehavior = new PerformanceBehavior(requestCount, clientsCount, sharedsocket);
+                await PerfMeasureAsync(httpBehavior, requestDetails, perfBehavior, body, _ctx);
             }
-
-
-            // TODO: Variable postprocessing
 
             // TODO: assertion
         }
@@ -67,16 +82,85 @@ public class Executor(ExecutionPlan plan)
         throw new ArgumentException($"Invalid value set for {name}");
     }
 
-    private async Task SendRequestImplAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body)
+    private static async Task SendRequestAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body, ExecutionContext ctx)
     {
         if (body is not null)
             requestDetails = requestDetails with { Content = body };
-        var outputBehavior = new OutputBehavior(LogLevel.Verbose, string.Empty);
-        var console = new NoOpConsole();
-        var writer = new WriterStrategy(outputBehavior, console: console);
-        var client = new HttpMessageSender(writer, _ctx.CookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
+        var writer = ctx.Writer;
+        var client = new HttpMessageSender(writer, ctx.CookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
         await client.SendRequestAsync(requestDetails);
         await writer.CompleteAsync(CancellationToken.None);
-        await _ctx.CookieContainer.SaveAsync();
+        await ctx.CookieContainer.SaveAsync();
+    }
+
+    private static async Task PerfMeasureAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, PerformanceBehavior performanceBehavior, HttpContent? body, ExecutionContext ctx)
+    {
+        var step = ctx.CurrentStep!;
+        if (body is not null)
+            requestDetails = requestDetails with { Content = body };
+        var console = new NoOpConsole();
+        var cookieContainer = new MemoryCookieContainer();
+        ISummaryPrinter printer;
+        if (string.IsNullOrEmpty(step.Name))
+            printer = new StatisticsPrinter(console);
+        else
+            printer = new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(step.Name, ctx.FileSystem));
+        var orchestrator = new PerformanceMeasureOrchestrator(printer, new NoOpConsole(), new Awaiter(), cookieContainer, new SingleSocketsHandlerProvider(), performanceBehavior);
+        await orchestrator.RunAsync(requestDetails, httpBehavior, CancellationToken.None);
+    }
+}
+
+internal class VariablePostProcessingWriterStrategy : IWriter
+{
+    private bool _enabled;
+    private Stream? _buffer;
+
+    public VariablePostProcessingWriterStrategy(bool enabled)
+    {
+        _enabled = enabled;
+        if (_enabled)
+            _buffer = new MemoryStream();
+        else
+            _buffer = Stream.Null;
+        Buffer = PipeWriter.Create(_buffer);
+    }
+
+    public PipeWriter Buffer { get; }
+
+    public HttpResponseHeaders? Headers { get; private set; }
+
+    public HttpContentHeaders? ContentHeaders { get; private set; }
+
+    public HttpResponseHeaders? Trailers { get; private set; }
+
+    public bool IsDisposed() => !_enabled;
+
+    public async Task CompleteAsync(CancellationToken token)
+    {
+        await Buffer.FlushAsync();
+        _enabled = false;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _enabled = true;
+        return ValueTask.CompletedTask;
+    }
+
+    public Task WriteSummaryAsync(HttpResponseHeaders? trailers, Summary summary)
+    {
+        if (!_enabled)
+            return Task.CompletedTask;
+        Trailers = trailers;
+        return Task.CompletedTask;
+    }
+
+    public Task InitializeResponseAsync(HttpResponseInitials initials)
+    {
+        if (!_enabled)
+            return Task.CompletedTask;
+        Headers = initials.Headers;
+        ContentHeaders = initials.ContentHeaders;
+        return Task.CompletedTask;
     }
 }
