@@ -14,7 +14,7 @@ public class VariablePreprocessorTests
         {
             { "host", "localhost" }
         };
-        var result = VariablePreprocessor.Substitute(input, variables);
+        var result = VariablePreprocessor.Evaluate(input, variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal(expected, result);
     }
 
@@ -34,7 +34,7 @@ public class VariablePreprocessorTests
         {
             { "host", "localhost" }
         };
-        var result = VariablePreprocessor.Substitute(input, variables);
+        var result = VariablePreprocessor.Evaluate(input, variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal(expected, result);
     }
 
@@ -50,7 +50,7 @@ public class VariablePreprocessorTests
             { "host", "localhost" },
             { "port", "5000" }
         };
-        var result = VariablePreprocessor.Substitute(input, variables);
+        var result = VariablePreprocessor.Evaluate(input, variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal(expected, result);
     }
 
@@ -62,7 +62,7 @@ public class VariablePreprocessorTests
         {
             { "host", "{{$envVarHost}}" }
         };
-        var result = VariablePreprocessor.Substitute("https://{{host}}/", variables);
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal("https://localhost/", result);
     }
 
@@ -74,7 +74,7 @@ public class VariablePreprocessorTests
             { "something", "localhost" },
             { "host", "{{ something }}" }
         };
-        var result = VariablePreprocessor.Substitute("https://{{host}}/", variables);
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal("https://localhost/", result);
     }
 
@@ -87,7 +87,7 @@ public class VariablePreprocessorTests
             { "someOtherVariable", "localhost" },
             { "host", "{{$ envVarHost  }}" }
         };
-        var result = VariablePreprocessor.Substitute("https://{{host}}/", variables);
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal("https://localhost/", result);
     }
 }
