@@ -107,4 +107,20 @@ public class VariablePreprocessorTests
         var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data}}/", new Dictionary<string, string>(), responses);
         Assert.Equal("https://hello/", result);
     }
+
+
+    [Fact]
+    public async Task BodyFilterParse()
+    {
+        var responseWriter = new VariablePostProcessingWriterStrategy(true);
+        responseWriter.Buffer.Write("""{"Data":[{"Name":"test0","Val":0},{"Name":"test1","Val":1}]}"""u8);
+        await responseWriter.Buffer.CompleteAsync();
+        await responseWriter.CompleteAsync(CancellationToken.None);
+        var responses = new Dictionary<string, VariablePostProcessingWriterStrategy>()
+        {
+            { "first",  responseWriter }
+        };
+        var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data[?@.Val<1].Name}}/", new Dictionary<string, string>(), responses);
+        Assert.Equal("https://test0/", result);
+    }
 }

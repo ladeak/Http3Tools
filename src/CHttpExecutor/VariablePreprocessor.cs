@@ -9,6 +9,8 @@ namespace CHttpExecutor;
 
 internal static class VariablePreprocessor
 {
+    private static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { WriteIndented = false };
+
     public static IReadOnlyCollection<string> GetVariableNames(ReadOnlySpan<char> source)
     {
         List<string> variableNames = new();
@@ -125,7 +127,7 @@ internal static class VariablePreprocessor
         return false;
     }
 
-    private static bool ParseBody_Custom(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
+    private static bool ParseBodySimplified(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
     {
         // VSCE does not require $.
         if (jsonPath.StartsWith(".$"))
@@ -177,13 +179,13 @@ internal static class VariablePreprocessor
         if (jsonPath.StartsWith("."))
             jsonPath = $"${jsonPath}";
 
-        var path = JsonPath.Parse(jsonPath.ToString(), new PathParsingOptions() { AllowMathOperations = false, AllowRelativePathStart = true, AllowJsonConstructs = false, AllowInOperator = false, TolerateExtraWhitespace = true });
+        var path = JsonPath.Parse(jsonPath.ToString(), new PathParsingOptions() { AllowMathOperations = false, AllowRelativePathStart = false, AllowJsonConstructs = false, AllowInOperator = false, TolerateExtraWhitespace = true });
         responseCtx.Content.Seek(0, SeekOrigin.Begin);
         var instance = JsonNode.Parse(responseCtx.Content);
         var matches = path.Evaluate(instance);
         if (matches?.Matches == null || matches.Matches.Count == 0)
             return false;
-
+        
         if (matches.Matches.Count != 1)
         {
             return false;
@@ -195,7 +197,7 @@ internal static class VariablePreprocessor
         if (matchedValue.GetValueKind() == JsonValueKind.String)
             result = matchedValue.ToString();
         else
-            result = matches.Matches.First().Value?.ToJsonString(new JsonSerializerOptions() { WriteIndented = false }) ?? string.Empty;
+            result = matches.Matches.First().Value?.ToJsonString(JsonOptions) ?? string.Empty;
         return true;
     }
 
