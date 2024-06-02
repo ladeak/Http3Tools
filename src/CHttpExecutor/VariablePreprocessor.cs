@@ -1,7 +1,9 @@
 ﻿using System.Buffers;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using CHttp.Writers;
+using Json.More;
+using Json.Path;
 
 namespace CHttpExecutor;
 
@@ -118,20 +120,24 @@ internal static class VariablePreprocessor
             return ParseHeaderValue(jsonPath.Slice(headersPart.Length), responseCtx, ref result);
 
         if (jsonPath.StartsWith(bodyPart, StringComparison.OrdinalIgnoreCase))
-            return ParseBody(jsonPath.Slice(bodyPart.Length), responseCtx, ref result);
+            return ParseBody(jsonPath.Slice(bodyPart.Length - 1), responseCtx, ref result);
 
         return false;
     }
 
-    private static bool ParseBody(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
+    private static bool ParseBody_Custom(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
     {
+        // VSCE does not require $.
+        if (jsonPath.StartsWith(".$"))
+            jsonPath = jsonPath.Slice(2);
+
         responseCtx.Content.Seek(0, SeekOrigin.Begin);
         var jsonDoc = JsonDocument.Parse(responseCtx.Content);
         var currentElement = jsonDoc.RootElement;
         while (jsonPath.Length > 0)
         {
             var segment = jsonPath;
-            var separatorIndex = jsonPath.IndexOf('.');
+            var separatorIndex = jsonPath.Slice(1).IndexOfAny(".[");
             if (separatorIndex == -1)
             {
                 segment = jsonPath;
@@ -139,16 +145,17 @@ internal static class VariablePreprocessor
             }
             else
             {
-                segment = jsonPath[..separatorIndex];
+                segment = jsonPath[..(separatorIndex + 1)];
                 jsonPath = jsonPath.Slice(separatorIndex + 1);
             }
 
-            if (currentElement.ValueKind == JsonValueKind.Object && currentElement.TryGetProperty(segment, out var element))
+            if (currentElement.ValueKind == JsonValueKind.Object && currentElement.TryGetProperty(segment[1..], out var element))
             {
                 currentElement = element;
             }
             else if (currentElement.ValueKind == JsonValueKind.Array
-                && int.TryParse(segment, out var arrayIndex)
+                && segment.Length > 2 && segment.StartsWith("[") && segment.EndsWith("]")
+                && int.TryParse(segment[1..^1].Trim(), out var arrayIndex)
                 && currentElement.GetArrayLength() > arrayIndex)
             {
                 currentElement = currentElement.EnumerateArray().ElementAt(arrayIndex);
@@ -159,6 +166,36 @@ internal static class VariablePreprocessor
             }
         }
         result = currentElement.ToString();
+        return true;
+    }
+
+    private static bool ParseBody(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
+    {
+        // VSCE does not require $.
+        if (jsonPath.StartsWith(".$"))
+            jsonPath = jsonPath.Slice(1);
+        if (jsonPath.StartsWith("."))
+            jsonPath = $"${jsonPath}";
+
+        var path = JsonPath.Parse(jsonPath.ToString(), new PathParsingOptions() { AllowMathOperations = false, AllowRelativePathStart = true, AllowJsonConstructs = false, AllowInOperator = false, TolerateExtraWhitespace = true });
+        responseCtx.Content.Seek(0, SeekOrigin.Begin);
+        var instance = JsonNode.Parse(responseCtx.Content);
+        var matches = path.Evaluate(instance);
+        if (matches?.Matches == null || matches.Matches.Count == 0)
+            return false;
+
+        if (matches.Matches.Count != 1)
+        {
+            return false;
+        }
+        var matchedValue = matches.Matches.First().Value;
+        if (matchedValue == null)
+            return false;
+
+        if (matchedValue.GetValueKind() == JsonValueKind.String)
+            result = matchedValue.ToString();
+        else
+            result = matches.Matches.First().Value?.ToJsonString(new JsonSerializerOptions() { WriteIndented = false }) ?? string.Empty;
         return true;
     }
 

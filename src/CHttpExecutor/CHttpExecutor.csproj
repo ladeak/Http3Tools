@@ -22,7 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="CHttpExecutor.Tests"/>
+    <InternalsVisibleTo Include="CHttpExecutor.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonPath.Net" Version="1.1.0" />
   </ItemGroup>
 
 </Project>

@@ -33,14 +33,14 @@ internal class VariablePostProcessingWriterStrategy : IWriter
 
     public async Task CompleteAsync(CancellationToken token)
     {
-        await _pipe.Reader.CopyToAsync(Content, token);
+        if (Enabled)
+            await _pipe.Reader.CopyToAsync(Content, token);
         IsCompleted = true;
         Content.Seek(0, SeekOrigin.Begin);
     }
 
     public ValueTask DisposeAsync()
     {
-        Enabled = true;
         return ValueTask.CompletedTask;
     }
 

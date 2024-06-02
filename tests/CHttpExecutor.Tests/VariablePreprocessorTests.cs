@@ -1,4 +1,6 @@
-﻿namespace CHttpExecutor.Tests;
+﻿using System.Buffers;
+
+namespace CHttpExecutor.Tests;
 
 public class VariablePreprocessorTests
 {
@@ -89,5 +91,20 @@ public class VariablePreprocessorTests
         };
         var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables, new Dictionary<string, VariablePostProcessingWriterStrategy>());
         Assert.Equal("https://localhost/", result);
+    }
+
+    [Fact]
+    public async Task BodyParse()
+    {
+        var responseWriter = new VariablePostProcessingWriterStrategy(true);
+        responseWriter.Buffer.Write("""{"Data":"hello"}"""u8);
+        await responseWriter.Buffer.CompleteAsync();
+        await responseWriter.CompleteAsync(CancellationToken.None);
+        var responses = new Dictionary<string, VariablePostProcessingWriterStrategy>()
+        {
+            { "first",  responseWriter }
+        };
+        var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data}}/", new Dictionary<string, string>(), responses);
+        Assert.Equal("https://hello/", result);
     }
 }
