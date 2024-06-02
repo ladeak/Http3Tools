@@ -1,4 +1,7 @@
 ﻿using System.Buffers;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 
 namespace CHttpExecutor.Tests;
 
@@ -108,7 +111,6 @@ public class VariablePreprocessorTests
         Assert.Equal("https://hello/", result);
     }
 
-
     [Fact]
     public async Task BodyFilterParse()
     {
@@ -122,5 +124,24 @@ public class VariablePreprocessorTests
         };
         var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data[?@.Val<1].Name}}/", new Dictionary<string, string>(), responses);
         Assert.Equal("https://test0/", result);
+    }
+
+    [Fact]
+    public async Task Header()
+    {
+        var responseWriter = new VariablePostProcessingWriterStrategy(true);
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+        response.Headers.Add("my", "value-");
+        response.Content = new StringContent("test", MediaTypeHeaderValue.Parse("application/json"));
+        var initDetails = new CHttp.Writers.HttpResponseInitials(HttpStatusCode.OK, response.Headers, response.Content.Headers, HttpVersion.Version20, Encoding.UTF8);
+        await responseWriter.InitializeResponseAsync(initDetails);
+        await responseWriter.Buffer.CompleteAsync();
+        await responseWriter.CompleteAsync(CancellationToken.None);
+        var responses = new Dictionary<string, VariablePostProcessingWriterStrategy>()
+        {
+            { "first",  responseWriter }
+        };
+        var result = VariablePreprocessor.Evaluate("{{first.response.Headers.my}}{{first.response.headers.content-type}}", new Dictionary<string, string>(), responses);
+        Assert.Equal("value-application/json", result);
     }
 }
