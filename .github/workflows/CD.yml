@@ -65,7 +65,7 @@ jobs:
         npm run vsce-deploy ${VERSION}
         popd
     - name: Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
           files: |
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
