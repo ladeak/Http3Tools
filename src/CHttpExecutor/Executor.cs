@@ -20,7 +20,7 @@ internal class ExecutionContext
     public Dictionary<string, VariablePostProcessingWriterStrategy> ExecutionResults { get; set; } = new();
 }
 
-public class Executor(ExecutionPlan plan)
+internal class Executor(ExecutionPlan plan)
 {
     private ExecutionContext _ctx = new ExecutionContext();
 

@@ -9,7 +9,6 @@
     <ToolCommandName>chttpexec</ToolCommandName>
     <RollForward>major</RollForward>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <RootNamespace>CHttpExec</RootNamespace>
     <PackageId>LaDeak.CHttpExec</PackageId>
     <Authors>LaDeak</Authors>
     <Description>A simple HTTP/3 client tool for CICD testing.</Description>

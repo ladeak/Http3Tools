@@ -1,11 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using CHttp.Data;
-using Google.Protobuf.WellKnownTypes;
 
 namespace CHttpExecutor;
 
-public record ExecutionPlan(IReadOnlyCollection<FrozenExecutionStep> Steps, HashSet<string> Variables);
+internal record ExecutionPlan(IReadOnlyCollection<FrozenExecutionStep> Steps, HashSet<string> Variables);
 
 public record class VarValue<T>
     where T : ISpanParsable<T>
@@ -101,7 +100,7 @@ public class ExecutionStep
     // TODO Assertions
 }
 
-public class FrozenExecutionStep
+internal class FrozenExecutionStep
 {
     public required int LineNumber { get; init; }
 
@@ -131,10 +130,10 @@ public class FrozenExecutionStep
 
     public List<Variable> Variables { get; init; } = [];
 
+    public List<Assertion> Assertions { get; init; } = [];
+
     [MemberNotNullWhen(true, nameof(ClientsCount), nameof(RequestsCount))]
     public bool IsPerformanceRequest => ClientsCount != null && RequestsCount != null;
-
-    // TODO Assertions
 }
 
 public record struct Variable(string Name, string Value);

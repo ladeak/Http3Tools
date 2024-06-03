@@ -4,7 +4,7 @@ using CHttp.Data;
 
 namespace CHttpExecutor;
 
-public interface IExecutionPlanBuilder
+internal interface IExecutionPlanBuilder
 {
     ExecutionPlan Build();
 
@@ -27,7 +27,7 @@ public interface IExecutionPlanBuilder
     void AddExecutionInstruction(ReadOnlySpan<char> command);
 }
 
-public partial class ExecutionPlanBuilder : IExecutionPlanBuilder
+internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 {
     private static CompositeFormat ErrorFormat = CompositeFormat.Parse("Line {0}, with {1} {2}");
 

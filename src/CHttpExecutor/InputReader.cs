@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using CHttpExecutor;
 
-public class InputReader(IExecutionPlanBuilder builder)
+internal class InputReader(IExecutionPlanBuilder builder)
 {
     private enum InputReaderState
     {

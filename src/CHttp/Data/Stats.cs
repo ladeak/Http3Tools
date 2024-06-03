@@ -4,6 +4,6 @@ public record class Stats(double Mean, double StdDev, double Error, double Reque
 {
     internal static Stats SumHistogram(Stats a, Stats b)
     {
-        return new Stats(0, 0, Math.Min(a.Error, b.Error), 0, 0, Math.Min(a.Min, b.Min), Math.Max(a.Max, b.Max), 0, 0, Array.Empty<long>(), Array.Empty<int>());
+        return new Stats(0, 0, double.Min(a.Error, b.Error), 0, 0, long.Min(a.Min, b.Min), long.Max(a.Max, b.Max), 0, 0, Array.Empty<long>(), Array.Empty<int>());
     }
 }
