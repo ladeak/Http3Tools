@@ -11,6 +11,8 @@ internal class ExecutionContext
 {
     public IFileSystem FileSystem { get; } = new MemoryFileSystem();
 
+    public required IConsole Console { get; init; }
+
     public ICookieContainer CookieContainer { get; } = new MemoryCookieContainer();
 
     public Dictionary<string, string> VariableValues { get; } = new();
@@ -18,49 +20,50 @@ internal class ExecutionContext
     public FrozenExecutionStep? CurrentStep { get; set; }
 
     public Dictionary<string, VariablePostProcessingWriterStrategy> ExecutionResults { get; set; } = new();
+
+    public List<string> AssertionViolations { get; } = new();
 }
 
-internal class Executor(ExecutionPlan plan)
+internal class Executor(ExecutionPlan plan, IConsole console)
 {
-    private ExecutionContext _ctx = new ExecutionContext();
-
-    public async Task ExecuteAsync()
+    public async Task<bool> ExecuteAsync()
     {
+        ExecutionContext ctx = new ExecutionContext() { Console = console };
         foreach (var step in plan.Steps)
         {
-            _ctx.CurrentStep = step;
+            ctx.Console.WriteLine($"Executing {GetStepId(step)}");
+            ctx.CurrentStep = step;
             // Add or update variable state in the context.
             foreach (var newVar in step.Variables)
-                _ctx.VariableValues[newVar.Name] = newVar.Value;
+                ctx.VariableValues[newVar.Name] = newVar.Value;
 
             // Variable preprocessing
-            var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, _ctx.VariableValues, _ctx.ExecutionResults));
+            var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, ctx.VariableValues, ctx.ExecutionResults));
             List<KeyValueDescriptor> headers = [];
             foreach (var header in step.Headers)
-                headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), _ctx.VariableValues, _ctx.ExecutionResults)));
-            var timeout = ProcessVariable(step.Timeout, _ctx, nameof(step.Timeout));
-            var enableRedirects = ProcessVariable(step.EnableRedirects, _ctx, nameof(step.EnableRedirects));
-            var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, _ctx, nameof(step.NoCertificateValidation));
+                headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), ctx.VariableValues, ctx.ExecutionResults)));
+            var timeout = ProcessVariable(step.Timeout, ctx, nameof(step.Timeout));
+            var enableRedirects = ProcessVariable(step.EnableRedirects, ctx, nameof(step.EnableRedirects));
+            var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, ctx, nameof(step.NoCertificateValidation));
             var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1));
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
-            HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, _ctx.VariableValues, _ctx.ExecutionResults)).ToArray()) : null;
+            HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValues, ctx.ExecutionResults)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
             {
-                _ctx.ExecutionResults.TryAdd(step.Name ?? string.Empty, new VariablePostProcessingWriterStrategy(!string.IsNullOrWhiteSpace(step.Name)));
-                await SendRequestAsync(httpBehavior, requestDetails, body, _ctx);
+                ctx.ExecutionResults.TryAdd(step.Name ?? string.Empty, new VariablePostProcessingWriterStrategy(!string.IsNullOrWhiteSpace(step.Name)));
+                await SendRequestAsync(httpBehavior, requestDetails, body, ctx);
             }
             else
             {
                 // Variable preprocessing
-                var clientsCount = ProcessVariable(step.ClientsCount, _ctx, nameof(step.ClientsCount));
-                var requestCount = ProcessVariable(step.RequestsCount, _ctx, nameof(step.RequestsCount));
-                var sharedsocket = ProcessVariable(step.SharedSocket, _ctx, nameof(step.SharedSocket));
+                var clientsCount = ProcessVariable(step.ClientsCount, ctx, nameof(step.ClientsCount));
+                var requestCount = ProcessVariable(step.RequestsCount, ctx, nameof(step.RequestsCount));
+                var sharedsocket = ProcessVariable(step.SharedSocket, ctx, nameof(step.SharedSocket));
                 var perfBehavior = new PerformanceBehavior(requestCount, clientsCount, sharedsocket);
-                await PerfMeasureAsync(httpBehavior, requestDetails, perfBehavior, body, _ctx);
+                await PerfMeasureAsync(httpBehavior, requestDetails, perfBehavior, body, ctx);
             }
-
-            // TODO: assertion
         }
+        return ctx.AssertionViolations.Count == 0;
     }
 
     private static T ProcessVariable<T>(VarValue<T> value, ExecutionContext ctx, string name)
@@ -89,14 +92,22 @@ internal class Executor(ExecutionPlan plan)
         var step = ctx.CurrentStep!;
         if (body is not null)
             requestDetails = requestDetails with { Content = body };
-        var console = new NoOpConsole();
         var cookieContainer = new MemoryCookieContainer();
-        ISummaryPrinter printer;
-        if (string.IsNullOrEmpty(step.Name))
-            printer = new StatisticsPrinter(console);
-        else
-            printer = new CompositePrinter(new StatisticsPrinter(console), new FilePrinter(step.Name, ctx.FileSystem));
-        var orchestrator = new PerformanceMeasureOrchestrator(printer, new NoOpConsole(), new Awaiter(), cookieContainer, new SingleSocketsHandlerProvider(), performanceBehavior);
+        var assertionHandler = new StatsAssertionHandler(step);
+
+        var console = ctx.Console;
+        var printer = new StatsChainingPrinter(assertionHandler, new StatisticsPrinter(console));
+        var orchestrator = new PerformanceMeasureOrchestrator(printer, console, new Awaiter(), cookieContainer, new SingleSocketsHandlerProvider(), performanceBehavior);
         await orchestrator.RunAsync(requestDetails, httpBehavior, CancellationToken.None);
+        string stepId = GetStepId(step);
+        var viloations = assertionHandler.GetViolations();
+        if (viloations.Count == 0)
+            return;
+        ctx.AssertionViolations.AddRange(viloations);
+        ctx.Console.WriteLine($"Assertion violation in step {stepId}:");
+        foreach (var violation in viloations)
+            console.WriteLine(violation);
     }
+
+    private static string GetStepId(FrozenExecutionStep step) => step.Name ?? $"{step.Uri} at L{step.LineNumber}";
 }

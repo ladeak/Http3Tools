@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CHttp.Abstractions;
 using CHttp.Tests;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -59,7 +60,7 @@ my: {{myheader}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -83,7 +84,7 @@ my: {{myheader}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -107,7 +108,7 @@ my: {{myheader}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -131,7 +132,7 @@ my: {{myheader}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -167,7 +168,7 @@ my: {{myheader}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -207,7 +208,7 @@ mynumber: {{mynumber}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -243,7 +244,7 @@ myvalue: {{myvalue}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -277,7 +278,7 @@ myvalue: {{myvalue}}"u8.ToArray();
 
         var reader = new InputReader(new ExecutionPlanBuilder());
         var plan = await reader.ReadStreamAsync(stream);
-        var executor = new Executor(plan);
+        var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));

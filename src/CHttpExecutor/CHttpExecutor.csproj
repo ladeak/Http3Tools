@@ -14,6 +14,7 @@
     <Description>A simple HTTP/3 client tool for CICD testing.</Description>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <DebugType>full</DebugType>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

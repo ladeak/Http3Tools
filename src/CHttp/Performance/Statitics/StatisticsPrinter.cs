@@ -5,7 +5,7 @@ using CHttp.Performance.Data;
 
 namespace CHttp.Performance.Statitics;
 
-internal class StatisticsPrinter : ISummaryPrinter
+internal class StatisticsPrinter : ISummaryPrinter, IStatsHandler
 {
     private readonly IConsole _console;
 
@@ -23,7 +23,11 @@ internal class StatisticsPrinter : ISummaryPrinter
             return ValueTask.CompletedTask;
         }
         var stats = StatisticsCalculator.GetStats(session);
+        return HandleStats(session, stats);
+    }
 
+    public ValueTask HandleStats(PerformanceMeasurementResults session, Stats stats)
+    {
         (var displayMean, var meanQualifier) = StatisticsCalculator.Display(stats.Mean);
         (var displayStdDev, var stdDevQualifier) = StatisticsCalculator.Display(stats.StdDev);
         (var displayError, var errorQualifier) = StatisticsCalculator.Display(stats.Error);
@@ -45,10 +49,10 @@ internal class StatisticsPrinter : ISummaryPrinter
         _console.WriteLine($"| Req/Sec:    {stats.RequestSec,10:G3}      |");
 
         int lineLength = _console.WindowWidth;
-        var scaleNormalize = (double)lineLength / summaries.Count;
+        var scaleNormalize = (double)lineLength / session.Summaries.Count;
         string separator = new string('-', lineLength);
         // Histogram
-        if (summaries.Count >= 100)
+        if (session.Summaries.Count >= 100)
         {
             _console.WriteLine(separator);
             PrintHistogram(stats, scaleNormalize);
