@@ -1,3 +1,4 @@
+using System.CommandLine.IO;
 using System.Text.Json;
 using CHttp.Abstractions;
 using CHttp.Tests;
@@ -282,6 +283,118 @@ myvalue: {{myvalue}}"u8.ToArray();
         await executor.ExecuteAsync();
 
         await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    private byte[] _assertionRequest = @"###
+@host = https://localhost:5020/
+@rcount = 5
+
+###
+# @no-cert-validation
+# @requestCount 5
+# @clientsCount 2
+# @assert mean < 1
+GET {{host}} HTTP/2
+"u8.ToArray();
+
+    [Fact]
+    public async Task Assert_ReturnsFalse()
+    {
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            await Task.Delay(2);
+            await context.Response.WriteAsync("test");
+        }, HttpProtocols.Http2, port: Port);
+        await host.StartAsync();
+
+        var stream = new MemoryStream(_assertionRequest);
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        var plan = await reader.ReadStreamAsync(stream);
+        var executor = new Executor(plan, new NoOpConsole());
+        Assert.False(await executor.ExecuteAsync());
+    }
+
+    private byte[] _successfulAssertionRequest = @"###
+@host = https://localhost:5020/
+@rcount = 5
+
+###
+# @no-cert-validation
+# @requestCount 5
+# @clientsCount 2
+# @assert mean >= 1.000 median > 0.653 min > -1 max < 1000000 throughput > 0 requestsec !=0 successstatus == 5 percentile95th <= 100000 stddev > 0 error >= 0
+GET {{host}} HTTP/2
+"u8.ToArray();
+
+    [Fact]
+    public async Task SuccessAssert_ReturnsTrue()
+    {
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            await context.Response.WriteAsync("test");
+        }, HttpProtocols.Http2, port: Port);
+        await host.StartAsync();
+
+        var stream = new MemoryStream(_successfulAssertionRequest);
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        var plan = await reader.ReadStreamAsync(stream);
+        var executor = new Executor(plan, new NoOpConsole());
+        Assert.True(await executor.ExecuteAsync());
+    }
+
+    private byte[] _failingAssertionRequest = @"###
+@host = https://localhost:5020/
+@rcount = 5
+
+###
+# @no-cert-validation
+# @requestCount 5
+# @clientsCount 2
+# @assert mean <= 0s median < 0.001ms min <= 0.001 max < 0 throughput<=0.002 requestsec ==0 successstatus== 6 percentile95th < 0.001 stddev <= 0 error == 0
+GET {{host}} HTTP/2
+"u8.ToArray();
+
+    [Fact]
+    public async Task FailingAssert_ReturnsErrors()
+    {
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            await Task.Delay(1);
+            await context.Response.WriteAsync("test");
+        }, HttpProtocols.Http2, port: Port);
+        await host.StartAsync();
+
+        var stream = new MemoryStream(_failingAssertionRequest);
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        var plan = await reader.ReadStreamAsync(stream);
+        var testConsole = new TestConsolePerWrite();
+        var executor = new Executor(plan, testConsole);
+        Assert.False(await executor.ExecuteAsync());
+        var output = testConsole.Text;
+        Assert.Contains("MeanAssertion", output);
+        Assert.Contains("MedianAssertion", output);
+        Assert.Contains("MinAssertion", output);
+        Assert.Contains("MaxAssertion", output);
+        Assert.Contains("ThroughputAssertion", output);
+        Assert.Contains("StdDevAssertion", output);
+        Assert.Contains("ErrorAssertion", output);
+        Assert.Contains("Percentile95thAssertion", output);
+        Assert.Contains("RequestSecAssertion", output);
+        Assert.Contains("SuccessStatusCodesAssertion", output);
+
+        Assert.Contains("<= 0.000ns", output);
+        Assert.Contains("< 1.000us", output);
+        Assert.Contains("<= 1.000ms", output);
+        Assert.Contains("< 0.000ns", output);
+        Assert.Contains("<= 0.002", output);
+        Assert.Contains("== 0.000", output);
+        Assert.Contains("== 6.000", output);
+        Assert.Contains("< 1.000ms", output);
+        Assert.Contains("<= 0.000ns", output);
+        Assert.Contains("== 0.000ns", output);
     }
 
     private record class Root(IEnumerable<Data> Data);

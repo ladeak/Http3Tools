@@ -1,4 +1,7 @@
-﻿using System.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Net;
+using System.Numerics;
 using System.Text;
 using CHttp.Data;
 
@@ -153,6 +156,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             _currentStep.SharedSocket = sharedSockets;
             return;
         }
+
         if (command.Equals("no-redirects", StringComparison.OrdinalIgnoreCase)
             && VarValue<bool>.TryCreate(parameters, out var noRedirects))
         {
@@ -160,12 +164,25 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             _currentStep.EnableRedirects = noRedirects;
             return;
         }
+
         if ((command.Equals("no-certificate-validation", StringComparison.OrdinalIgnoreCase)
             || command.Equals("no-cert-validation", StringComparison.OrdinalIgnoreCase))
             && VarValue<bool>.TryCreate(parameters, out var noCertValidation))
         {
             ValidateVariableExistance(noCertValidation);
             _currentStep.NoCertificateValidation = noCertValidation;
+            return;
+        }
+
+        if (command.Equals("assert", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("assertion", StringComparison.OrdinalIgnoreCase))
+        {
+            if (parameters.Length == 0)
+                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, "Assertion is empty"));
+            while (parameters.Length > 0)
+            {
+                _currentStep.Assertions.Add(ParseAssert(ref parameters));
+            }
             return;
         }
     }
@@ -214,6 +231,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             EnableRedirects = step.EnableRedirects,
             NoCertificateValidation = step.NoCertificateValidation,
             Variables = step.Variables,
+            Assertions = step.Assertions
         };
 
     private void ValidateVariableExistance<T>(VarValue<T> source)
@@ -234,5 +252,162 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 
         if (undefinedVar != null)
             throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"{undefinedVar} is not yet defined"));
+    }
+
+    private Assertion ParseAssert(ref ReadOnlySpan<char> parameters)
+    {
+        if (parameters.StartsWith("mean", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new MeanAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(4);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("median", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new MedianAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(6);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("stddev", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new StdDevAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(6);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("error", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new ErrorAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(5);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("requestsec", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new RequestSecAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(10);
+            return ParseAssert(assert, false, ref parameters);
+        }
+        if (parameters.StartsWith("throughput", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new ThroughputAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(10);
+            return ParseAssert(assert, false, ref parameters);
+        }
+        if (parameters.StartsWith("min", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new MinAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(3);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("max", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new MaxAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(3);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("percentile95th", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new Percentile95thAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(14);
+            return ParseAssert(assert, true, ref parameters);
+        }
+        if (parameters.StartsWith("successStatus", StringComparison.OrdinalIgnoreCase))
+        {
+            var assert = new SuccessStatusCodesAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
+            parameters = parameters.Slice(13);
+            return ParseAssert(assert, false, ref parameters);
+        }
+        throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion parameter: {parameters}"));
+    }
+
+    private Assertion<T> ParseAssert<T>(Assertion<T> assertion, bool timebased, ref ReadOnlySpan<char> parameters) where T : INumber<T>
+    {
+        parameters = parameters.TrimStart();
+        ComparingOperation comparator;
+        if (parameters.StartsWith("=="))
+        {
+            comparator = ComparingOperation.Equals;
+            parameters = parameters.Slice(2);
+        }
+        else if (parameters.StartsWith("!="))
+        {
+            comparator = ComparingOperation.NotEquals;
+            parameters = parameters.Slice(2);
+        }
+        else if (parameters.StartsWith("<="))
+        {
+            comparator = ComparingOperation.LessThenOrEquals;
+            parameters = parameters.Slice(2);
+        }
+        else if (parameters.StartsWith(">="))
+        {
+            comparator = ComparingOperation.MoreThenOrEquals;
+            parameters = parameters.Slice(2);
+        }
+        else if (parameters.StartsWith("<"))
+        {
+            comparator = ComparingOperation.LessThen;
+            parameters = parameters.Slice(1);
+        }
+        else if (parameters.StartsWith(">"))
+        {
+            comparator = ComparingOperation.MoreThen;
+            parameters = parameters.Slice(1);
+        }
+        else
+            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion comparator: {parameters}"));
+
+        parameters = parameters.TrimStart();
+        var nextSeparator = parameters.IndexOfAny(" \t");
+        if (nextSeparator == -1)
+            nextSeparator = parameters.Length;
+        var rawValue = parameters.Slice(0, nextSeparator);
+
+        // Parse double value with quantifier
+        if (!TryParseQuantifiedValue(rawValue, timebased ? TimeSpan.TicksPerSecond : 1, out T? comperand))
+        {
+            if (!T.TryParse(rawValue, CultureInfo.InvariantCulture, out comperand))
+                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion comparison value: {rawValue}"));
+        }
+        parameters = parameters.Slice(nextSeparator).Trim();
+        return assertion with { Comperator = comparator, Comperand = comperand };
+    }
+
+    public static bool TryParseQuantifiedValue<T>(ReadOnlySpan<char> parameter, double multiplier, [NotNullWhen(true)] out T? result) where T : INumber<T>
+    {
+        parameter = parameter.TrimEnd();
+        if (parameter.Length > 2 && parameter[^2] == 'n' && parameter[^1] == 's')
+        {
+            multiplier = 1.0 / TimeSpan.NanosecondsPerTick;
+            parameter = parameter[0..^2];
+        }
+        else if (parameter.Length > 2 && parameter[^2] == 'u' && parameter[^1] == 's')
+        {
+            multiplier = TimeSpan.TicksPerMicrosecond;
+            parameter = parameter[0..^2];
+        }
+        else if (parameter.Length > 2 && parameter[^2] == 'm' && parameter[^1] == 's')
+        {
+            multiplier = TimeSpan.TicksPerMillisecond;
+            parameter = parameter[0..^2];
+        }
+        else if (parameter.Length > 1 && parameter[^1] == 's')
+        {
+            multiplier = TimeSpan.TicksPerSecond;
+            parameter = parameter[0..^1];
+        }
+        else if (parameter.Length > 1 && parameter[^1] == 'm')
+        {
+            multiplier = TimeSpan.TicksPerMinute;
+            parameter = parameter[0..^1];
+        }
+
+        if (!double.TryParse(parameter, CultureInfo.InvariantCulture, out double comperand))
+        {
+            result = default;
+            return false;
+        }
+
+        result = T.CreateChecked(comperand * multiplier);
+        return true;
     }
 }

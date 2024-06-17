@@ -78,6 +78,8 @@ public class ExecutionStep
 
     public List<Variable> Variables { get; set; } = [];
 
+    internal List<Assertion> Assertions { get; set; } = [];
+
     public string NameOrUri() => Name ?? Uri?.ToString() ?? "missing name";
 
     public bool IsDefault =>
@@ -85,7 +87,7 @@ public class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
-        && Variables.Count == 0
+        && Variables.Count == 0 && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 
     public bool IsOnlyRollingParameter => IsDefaultNoVariable && Variables.Count > 0;
@@ -95,9 +97,8 @@ public class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
+        && Assertions.Count == 0
         && Version == HttpVersion.Version20;
-
-    // TODO Assertions
 }
 
 internal class FrozenExecutionStep
@@ -128,9 +129,9 @@ internal class FrozenExecutionStep
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
-    public List<Variable> Variables { get; init; } = [];
+    public IReadOnlyCollection<Variable> Variables { get; init; } = [];
 
-    public List<Assertion> Assertions { get; init; } = [];
+    public IReadOnlyCollection<Assertion> Assertions { get; init; } = [];
 
     [MemberNotNullWhen(true, nameof(ClientsCount), nameof(RequestsCount))]
     public bool IsPerformanceRequest => ClientsCount != null && RequestsCount != null;

@@ -1,5 +1,4 @@
-﻿using System.CommandLine;
-using CHttp.Abstractions;
+﻿using CHttp.Abstractions;
 using CHttpExecutor;
 
 var input = args[0];
@@ -9,7 +8,7 @@ var console = new CHttpConsole();
 if (!fileSytem.Exists(input))
 {
     console.WriteLine($"{input} file does not exist");
-    return;
+    return -1;
 }
 
 try
@@ -18,9 +17,12 @@ try
     var reader = new InputReader(new ExecutionPlanBuilder());
     var plan = await reader.ReadStreamAsync(fileStream);
     var executor = new Executor(plan, new CHttpConsole());
-    await executor.ExecuteAsync();
+    if (!await executor.ExecuteAsync())
+        return 1;
 }
 catch (ArgumentException argEx)
 {
     console.WriteLine(argEx.Message);
+    return -1;
 }
+return 0;
