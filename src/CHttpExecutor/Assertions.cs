@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using CHttp.Data;
 using CHttp.Performance.Statitics;
+using Quantified = (double DisplayValue, string Qualifier);
 
 namespace CHttpExecutor;
 
@@ -57,14 +58,15 @@ internal abstract record class Assertion<T> : Assertion, ISpanFormattable
 
     protected abstract T GetValue(Stats stats);
 
-    protected abstract (double DisplayValue, string Qualifier) GetComperandDisplay();
+    protected abstract Quantified GetComperandDisplay();
 
     public override bool Assert(Stats stats, [NotNullWhen(false)] out string? description)
     {
         var value = GetValue(stats);
         if (!AssertValue(value, Comperand, Comperator))
         {
-            description = $"assertion error: {this.GetType().Name} {value} is not {ComparatorDisplay(Comperator)} {this}";
+            ReadOnlySpan<char> typeName = this.GetType().Name.AsSpan()[0..^9]; // Cut 'Assertion' suffix
+            description = $"error: {typeName} is not {ComparatorDisplay(Comperator)} {this}";
             return false;
         }
         description = null;
@@ -75,7 +77,7 @@ internal abstract record class Assertion<T> : Assertion, ISpanFormattable
     {
         var comperand = GetComperandDisplay();
         var qualifierLength = comperand.Qualifier.Length;
-        if (!comperand.DisplayValue.TryFormat(destination[0..^(qualifierLength + 1)], out charsWritten, "F3", CultureInfo.InvariantCulture) 
+        if (!comperand.DisplayValue.TryFormat(destination[0..^(qualifierLength + 1)], out charsWritten, "F3", CultureInfo.InvariantCulture)
             || !comperand.Qualifier.TryCopyTo(destination[charsWritten..]))
             return false;
         charsWritten += qualifierLength;
@@ -141,59 +143,59 @@ internal abstract record class Assertion<T> : Assertion, ISpanFormattable
 internal record class MeanAssertion : Assertion<double>
 {
     protected override double GetValue(Stats stats) => stats.Mean;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class MedianAssertion : Assertion<long>
 {
     protected override long GetValue(Stats stats) => stats.Median;
-    protected override  (double DisplayValue, string Qualifier)  GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class StdDevAssertion : Assertion<double>
 {
     protected override double GetValue(Stats stats) => stats.StdDev;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class ErrorAssertion : Assertion<double>
 {
     protected override double GetValue(Stats stats) => stats.Error;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class RequestSecAssertion : Assertion<double>
 {
     protected override double GetValue(Stats stats) => stats.RequestSec;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => (Comperand, string.Empty);
+    protected override Quantified GetComperandDisplay() => (Comperand, string.Empty);
 }
 
 internal record class ThroughputAssertion : Assertion<double>
 {
     protected override double GetValue(Stats stats) => stats.Throughput;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => (Comperand, string.Empty);
+    protected override Quantified GetComperandDisplay() => (Comperand, string.Empty);
 }
 
 internal record class MinAssertion : Assertion<long>
 {
     protected override long GetValue(Stats stats) => stats.Min;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class MaxAssertion : Assertion<long>
 {
     protected override long GetValue(Stats stats) => stats.Max;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class Percentile95thAssertion : Assertion<long>
 {
     protected override long GetValue(Stats stats) => stats.Percentile95th;
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
+    protected override Quantified GetComperandDisplay() => StatisticsCalculator.Display(Comperand);
 }
 
 internal record class SuccessStatusCodesAssertion : Assertion<long>
 {
     protected override long GetValue(Stats stats) => stats.StatusCodes[1];
-    protected override (double DisplayValue, string Qualifier) GetComperandDisplay() => (Comperand, string.Empty);
+    protected override Quantified GetComperandDisplay() => (Comperand, string.Empty);
 }

@@ -31,7 +31,6 @@ internal class Executor(ExecutionPlan plan, IConsole console)
         ExecutionContext ctx = new ExecutionContext() { Console = console };
         foreach (var step in plan.Steps)
         {
-            ctx.Console.WriteLine($"Executing {GetStepId(step)}");
             ctx.CurrentStep = step;
             // Add or update variable state in the context.
             foreach (var newVar in step.Variables)
@@ -39,6 +38,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
 
             // Variable preprocessing
             var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, ctx.VariableValues, ctx.ExecutionResults));
+            ctx.Console.WriteLine($"Executing {GetStepId(step, uri)}");
             List<KeyValueDescriptor> headers = [];
             foreach (var header in step.Headers)
                 headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), ctx.VariableValues, ctx.ExecutionResults)));
@@ -97,17 +97,16 @@ internal class Executor(ExecutionPlan plan, IConsole console)
 
         var console = ctx.Console;
         var printer = new StatsChainingPrinter(assertionHandler, new StatisticsPrinter(console));
-        var orchestrator = new PerformanceMeasureOrchestrator(printer, console, new Awaiter(), cookieContainer, new SingleSocketsHandlerProvider(), performanceBehavior);
+        var orchestrator = new PerformanceMeasureOrchestrator(printer, new NoOpConsole(), new Awaiter(), cookieContainer, new SingleSocketsHandlerProvider(), performanceBehavior);
         await orchestrator.RunAsync(requestDetails, httpBehavior, CancellationToken.None);
-        string stepId = GetStepId(step);
         var viloations = assertionHandler.GetViolations();
         if (viloations.Count == 0)
             return;
         ctx.AssertionViolations.AddRange(viloations);
-        ctx.Console.WriteLine($"Assertion violation in step {stepId}:");
+        ctx.Console.WriteLine($"ASSERTION VIOLATION");
         foreach (var violation in viloations)
             console.WriteLine(violation);
     }
 
-    private static string GetStepId(FrozenExecutionStep step) => step.Name ?? $"{step.Uri} at L{step.LineNumber}";
+    private static string GetStepId(FrozenExecutionStep step, Uri uri) => step.Name ?? $"{step.Method} {uri} at L{step.LineNumber}";
 }

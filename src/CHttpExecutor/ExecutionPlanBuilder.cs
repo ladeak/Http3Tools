@@ -258,68 +258,68 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     {
         if (parameters.StartsWith("mean", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new MeanAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(4);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<double>(true, ref parameters, _currentStep);
+            return new MeanAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("median", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new MedianAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(6);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<long>(true, ref parameters, _currentStep);
+            return new MedianAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("stddev", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new StdDevAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(6);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<double>(true, ref parameters, _currentStep);
+            return new StdDevAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("error", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new ErrorAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(5);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<double>(true, ref parameters, _currentStep);
+            return new ErrorAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("requestsec", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new RequestSecAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(10);
-            return ParseAssert(assert, false, ref parameters);
+            var parsed = ParseAssert<double>(false, ref parameters, _currentStep);
+            return new RequestSecAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("throughput", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new ThroughputAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(10);
-            return ParseAssert(assert, false, ref parameters);
+            var parsed = ParseAssert<double>(false, ref parameters, _currentStep);
+            return new ThroughputAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("min", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new MinAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(3);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<long>(true, ref parameters, _currentStep);
+            return new MinAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("max", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new MaxAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(3);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<long>(true, ref parameters, _currentStep);
+            return new MaxAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("percentile95th", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new Percentile95thAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(14);
-            return ParseAssert(assert, true, ref parameters);
+            var parsed = ParseAssert<long>(true, ref parameters, _currentStep);
+            return new Percentile95thAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         if (parameters.StartsWith("successStatus", StringComparison.OrdinalIgnoreCase))
         {
-            var assert = new SuccessStatusCodesAssertion() { Comperand = 0, Comperator = ComparingOperation.Equals };
             parameters = parameters.Slice(13);
-            return ParseAssert(assert, false, ref parameters);
+            var parsed = ParseAssert<long>(false, ref parameters, _currentStep);
+            return new SuccessStatusCodesAssertion() { Comperand = parsed.Value, Comperator = parsed.Operator };
         }
         throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion parameter: {parameters}"));
     }
 
-    private Assertion<T> ParseAssert<T>(Assertion<T> assertion, bool timebased, ref ReadOnlySpan<char> parameters) where T : INumber<T>
+    protected static (ComparingOperation Operator, TParsed Value) ParseAssert<TParsed>(bool timebased, ref ReadOnlySpan<char> parameters, ExecutionStep step) where TParsed : INumber<TParsed>
     {
         parameters = parameters.TrimStart();
         ComparingOperation comparator;
@@ -354,7 +354,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             parameters = parameters.Slice(1);
         }
         else
-            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion comparator: {parameters}"));
+            throw new ArgumentException(string.Format(null, ErrorFormat, step.LineNumber, step.Name, $"Invalid assertion comparator: {parameters}"));
 
         parameters = parameters.TrimStart();
         var nextSeparator = parameters.IndexOfAny(" \t");
@@ -363,16 +363,14 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
         var rawValue = parameters.Slice(0, nextSeparator);
 
         // Parse double value with quantifier
-        if (!TryParseQuantifiedValue(rawValue, timebased ? TimeSpan.TicksPerSecond : 1, out T? comperand))
-        {
-            if (!T.TryParse(rawValue, CultureInfo.InvariantCulture, out comperand))
-                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"Invalid assertion comparison value: {rawValue}"));
-        }
+        if (!TryParseQuantifiedValue<TParsed>(rawValue, timebased ? TimeSpan.TicksPerSecond : 1, out TParsed? comperand))
+            if (!TParsed.TryParse(rawValue, CultureInfo.InvariantCulture, out comperand))
+                throw new ArgumentException(string.Format(null, ErrorFormat, step.LineNumber, step.Name, $"Invalid assertion comparison value: {rawValue}"));
         parameters = parameters.Slice(nextSeparator).Trim();
-        return assertion with { Comperator = comparator, Comperand = comperand };
+        return (comparator, comperand);
     }
 
-    public static bool TryParseQuantifiedValue<T>(ReadOnlySpan<char> parameter, double multiplier, [NotNullWhen(true)] out T? result) where T : INumber<T>
+    private static bool TryParseQuantifiedValue<TParsed>(ReadOnlySpan<char> parameter, double multiplier, [NotNullWhen(true)] out TParsed? result) where TParsed : INumber<TParsed>
     {
         parameter = parameter.TrimEnd();
         if (parameter.Length > 2 && parameter[^2] == 'n' && parameter[^1] == 's')
@@ -407,7 +405,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             return false;
         }
 
-        result = T.CreateChecked(comperand * multiplier);
+        result = TParsed.CreateChecked(comperand * multiplier);
         return true;
     }
 }

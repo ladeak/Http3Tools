@@ -293,7 +293,7 @@ myvalue: {{myvalue}}"u8.ToArray();
 # @no-cert-validation
 # @requestCount 5
 # @clientsCount 2
-# @assert mean < 1
+# @assert mean < 1ns
 GET {{host}} HTTP/2
 "u8.ToArray();
 
@@ -323,7 +323,7 @@ GET {{host}} HTTP/2
 # @no-cert-validation
 # @requestCount 5
 # @clientsCount 2
-# @assert mean >= 1.000 median > 0.653 min > -1 max < 1000000 throughput > 0 requestsec !=0 successstatus == 5 percentile95th <= 100000 stddev > 0 error >= 0
+# @assert mean >= 1.000ns median > 0.653ns min > -1 max < 1000000 throughput > 0 requestsec !=0 successstatus == 5 percentile95th <= 100000s stddev > 0s error >= 0
 GET {{host}} HTTP/2
 "u8.ToArray();
 
@@ -374,16 +374,16 @@ GET {{host}} HTTP/2
         var executor = new Executor(plan, testConsole);
         Assert.False(await executor.ExecuteAsync());
         var output = testConsole.Text;
-        Assert.Contains("MeanAssertion", output);
-        Assert.Contains("MedianAssertion", output);
-        Assert.Contains("MinAssertion", output);
-        Assert.Contains("MaxAssertion", output);
-        Assert.Contains("ThroughputAssertion", output);
-        Assert.Contains("StdDevAssertion", output);
-        Assert.Contains("ErrorAssertion", output);
-        Assert.Contains("Percentile95thAssertion", output);
-        Assert.Contains("RequestSecAssertion", output);
-        Assert.Contains("SuccessStatusCodesAssertion", output);
+        Assert.Contains("Mean", output);
+        Assert.Contains("Median", output);
+        Assert.Contains("Min", output);
+        Assert.Contains("Max", output);
+        Assert.Contains("Throughput", output);
+        Assert.Contains("StdDev", output);
+        Assert.Contains("Error", output);
+        Assert.Contains("Percentile95th", output);
+        Assert.Contains("RequestSec", output);
+        Assert.Contains("SuccessStatusCodes", output);
 
         Assert.Contains("<= 0.000ns", output);
         Assert.Contains("< 1.000us", output);
