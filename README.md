@@ -232,7 +232,7 @@ dotnet tool install -g LaDeak.CHttpExec --prerelease
 
 CHttpExec is tool that execute HTTP queries and HTTP performance measurements from a `.chttp` file. This can be useful to execute it on CI server or on a test infrastructure. When using the tool make sure that both the test target and the test executor machines are consistent in the available resources term, and no other concurrent apps share these resources during the performance measuremnt. This includes the network between the target server and the test executor.
 
-> Some automation infrastructure providers (such as GitHub Actions) might provide inconsistent amount of resources for different, jobs.
+> Some automation infrastructure providers (such as GitHub Actions) might provide inconsistent amount of resources for different jobs.
 
 Invoke the CLI as:
 
