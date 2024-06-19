@@ -1,10 +1,13 @@
 ﻿using CHttp.Abstractions;
 using CHttpExecutor;
-
-var input = args[0];
-
 var fileSytem = new FileSystem();
 var console = new CHttpConsole();
+if (!args.Any())
+{
+    console.WriteLine($"Missing argument: filepath");
+    return -1;
+}
+var input = args[0];
 if (!fileSytem.Exists(input))
 {
     console.WriteLine($"{input} file does not exist");

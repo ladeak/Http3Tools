@@ -1,6 +1,6 @@
 # Http3Tools
 
-CHttp is a tool to send HTTP requests. The tool is based on .NET8, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
+CHttp is a tool to send HTTP requests. The tool is based on .NET8 and .NET9, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
 ## Getting Started
 
@@ -9,7 +9,7 @@ CHttp is a tool to send HTTP requests. The tool is based on .NET8, for HTTP/3 us
 To install as a dotnet tool:
 
 ```
-dotnet tool install -g LaDeak.CHttp
+dotnet tool install -g LaDeak.CHttpExec --prerelease
 ```
 
 ### Install Executable
@@ -224,6 +224,58 @@ HTTP status codes:
 
 The distribution section uses `=` sign to indicate that both sessions have results in a given bucket; `#` where the base session have more results and `+` where the comparison sesoion has more results in the bucket.
 
+## CHttpExec
+
+```
+dotnet tool install -g LaDeak.CHttpExec --prerelease
+```
+
+CHttpExec is tool that execute HTTP queries and HTTP performance measurements from a `.chttp` file. This can be useful to execute it on CI server or on a test infrastructure. When using the tool make sure that both the test target and the test executor machines are consistent in the available resources term, and no other concurrent apps share these resources during the performance measuremnt. This includes the network between the target server and the test executor.
+
+> Some automation infrastructure providers (such as GitHub Actions) might provide inconsistent amount of resources for different, jobs.
+
+Invoke the CLI as:
+
+```$
+chttpexec Http3Tools\tests\test.chttp
+```
+
+### Attributing the chttp file to assert performance requirements
+
+A performance request can be attributed with `# @assert` expressions:
+
+```
+# @name validation
+# @clientsCount 10
+# @requestCount 100
+# @assert mean < 1s stddev < 0.5s requestSec >= 0 throughput > 0 successStatus == 100
+GET https://{{baseUrl}}/echo HTTP/2
+
+{{nextRequest}}
+```
+
+Possible parameters to assert:
+
+- mean
+- stddev
+- error
+- median
+- min
+- max
+- throughput
+- requestsec
+- percentile95th
+- successStatus (the number of successful responses)
+
+Values measured in time can be quantified by `s` `ms` `us` or `ns`. Values without a quantifier are processed as seconds.
+
+Violations are reported as:
+
+```$
+ASSERTION VIOLATION
+error: Mean is not < 1.000ns
+error: StdDev is not < 0.001ns
+```
 
 ## Develop
 

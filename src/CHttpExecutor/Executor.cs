@@ -1,4 +1,6 @@
-﻿using CHttp.Abstractions;
+﻿using System.Collections.Generic;
+using System.Reflection.PortableExecutable;
+using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Http;
 using CHttp.Performance;
@@ -19,6 +21,8 @@ internal class ExecutionContext
 
     public FrozenExecutionStep? CurrentStep { get; set; }
 
+    public (string Value, bool IsGiven) CurrentCalculatedStepName { get; set; } = (string.Empty, false);
+
     public Dictionary<string, VariablePostProcessingWriterStrategy> ExecutionResults { get; set; } = new();
 
     public List<string> AssertionViolations { get; } = new();
@@ -38,7 +42,8 @@ internal class Executor(ExecutionPlan plan, IConsole console)
 
             // Variable preprocessing
             var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, ctx.VariableValues, ctx.ExecutionResults));
-            ctx.Console.WriteLine($"Executing {GetStepId(step, uri)}");
+            ctx.CurrentCalculatedStepName = GetStepId(step, uri, ctx);
+            ctx.Console.WriteLine($"Executing {ctx.CurrentCalculatedStepName.Value}");
             List<KeyValueDescriptor> headers = [];
             foreach (var header in step.Headers)
                 headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), ctx.VariableValues, ctx.ExecutionResults)));
@@ -50,7 +55,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValues, ctx.ExecutionResults)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
             {
-                ctx.ExecutionResults.TryAdd(step.Name ?? string.Empty, new VariablePostProcessingWriterStrategy(!string.IsNullOrWhiteSpace(step.Name)));
+                ctx.ExecutionResults.TryAdd(ctx.CurrentCalculatedStepName.Value, new VariablePostProcessingWriterStrategy(ctx.CurrentCalculatedStepName.IsGiven));
                 await SendRequestAsync(httpBehavior, requestDetails, body, ctx);
             }
             else
@@ -80,7 +85,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
     {
         if (body is not null)
             requestDetails = requestDetails with { Content = body };
-        var writer = ctx.ExecutionResults[ctx.CurrentStep!.Name ?? string.Empty];
+        var writer = ctx.ExecutionResults[ctx.CurrentCalculatedStepName.Value];
         var client = new HttpMessageSender(writer, ctx.CookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
         await client.SendRequestAsync(requestDetails);
         await writer.CompleteAsync(CancellationToken.None);
@@ -108,5 +113,11 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             console.WriteLine(violation);
     }
 
-    private static string GetStepId(FrozenExecutionStep step, Uri uri) => step.Name ?? $"{step.Method} {uri} at L{step.LineNumber}";
+    private static (string Value, bool IsGiven) GetStepId(FrozenExecutionStep step, Uri uri, ExecutionContext ctx)
+    {
+        if (!string.IsNullOrWhiteSpace(step.Name))
+            return (VariablePreprocessor.Evaluate(step.Name, ctx.VariableValues, ctx.ExecutionResults), true);
+        else
+            return ($"{step.Method} {uri} at L{step.LineNumber}", false);
+    }
 }

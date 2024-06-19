@@ -1,7 +1,7 @@
 ### Test
 @path = /delay
 @baseUrl = localhost:5001
-@custom = hello
+@custom = comparePerformance
 
 ###
 # @name jsonSample
@@ -16,7 +16,6 @@ GET https://{{baseUrl}}/echo HTTP/2
 {{nextRequest}}
 
 ###
-# @name {{custom}}
 GET https://{{baseUrl}} HTTP/2
 
 ###
@@ -26,7 +25,7 @@ GET https://{{baseUrl}} HTTP/2
 GET https://{{baseUrl}} HTTP/2
 
 ###
-# @name basePerformance.json
+# @name basePerformance
 # @clientsCount 10
 # @requestCount 100
 POST https://{{baseUrl}}/post
@@ -34,9 +33,17 @@ POST https://{{baseUrl}}/post
 {"data":"hello world"}
 
 ###
-DIFF hello basePerformance.json
+DIFF comparePerformance basePerformance
 
 ###
 GET https://{{baseUrl}} HTTP/3
 
 ###
+
+# @name validation
+# @clientsCount 10
+# @requestCount 100
+# @assert mean < 0.001us stddev < 0.001ns requestSec > 0 throughput > 0 successStatus == 100
+GET https://{{baseUrl}}/echo HTTP/2
+
+{{nextRequest}}
