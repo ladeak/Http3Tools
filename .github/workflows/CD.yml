@@ -59,7 +59,7 @@ jobs:
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
         dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttpExecutor.exe src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
+        mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttpExecutor.exe src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
         dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttpExecutor src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
     - name: Publish VSCE
