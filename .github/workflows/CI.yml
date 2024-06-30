@@ -39,3 +39,26 @@ jobs:
         npm install
         npm run vsce-deploy
         popd
+  cross-compile-windows-aot:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Set VERSION variable from tag
+      run: echo "VERSION=${{env:GITHUB_REF/refs\/tags\/v/}}" >> $env:GITHUB_ENV
+    - name: Publish for GitHub
+      run: |
+        # CHttp Aot Windows
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-x64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-arm64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+          files: |
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-arm64-aot.exe
