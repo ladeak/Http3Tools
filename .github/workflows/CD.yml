@@ -22,16 +22,11 @@ jobs:
       run: |
         echo $GITHUB_REF_NAME
         $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
-        echo "VERSION=${ver}" >> $GITHUB_ENV
+        echo "VERSION=${ver}"
+        echo "VERSION=${ver}" >> $env:GITHUB_ENV
     - name: Publish for GitHub
       run: |
         # CHttp Aot Windows
-        echo ${ver}
-        echo "${ver}"
-        echo "hi"
-        echo "${env.Version}"
-        echo "${Version}"
-        echo "hello"
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-x64
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-arm64
