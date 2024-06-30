@@ -74,7 +74,7 @@ internal static class VariablePreprocessor
                 return;
             }
 
-            // Remove ToString() call in .NET 9 https://github.com/dotnet/runtime/issues/27229
+            // TODO: Remove ToString() call in .NET 9 https://github.com/dotnet/runtime/issues/27229
             var key = source.Slice(startIndex + 2, endIndex - 2).Trim().ToString();
 
             // Default replacement is the textual form of the vairable.
