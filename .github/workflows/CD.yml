@@ -30,8 +30,8 @@ jobs:
         echo "${ver}"
         echo "hi"
         echo "${env.Version}"
+        echo "${Version}"
         echo "hello"
-        echo "${{Version}}"
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-x64
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-arm64
