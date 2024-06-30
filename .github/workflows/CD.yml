@@ -30,7 +30,6 @@ jobs:
         echo "${ver}"
         echo "hi"
         echo "${env.Version}"
-        echo "${Version}"
         echo "hello"
         echo "${{Version}}"
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-x64
