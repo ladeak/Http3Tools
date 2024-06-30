@@ -22,8 +22,10 @@ jobs:
       run: |
         echo "$GITHUB_REF_NAME"
         $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
-        echo $ver
-        echo "VERSION=$ver" >> $GITHUB_ENV
+        echo ${ver}
+        echo "hello"
+        echo "${ver}"
+        echo "VERSION=${ver}" >> $GITHUB_ENV
     - name: Publish for GitHub
       run: |
         # CHttp Aot Windows
