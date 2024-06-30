@@ -116,8 +116,8 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
           files: |
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-win-x64-aot
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-win-arm64-aot
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-win-x64-aot.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-win-arm64-aot.exe
 
 
 
