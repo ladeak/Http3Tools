@@ -8,7 +8,6 @@ public class MemoryArrayContent : HttpContent
 
     public MemoryArrayContent(Memory<byte> content)
     {
-        ArgumentNullException.ThrowIfNull(content);
         _content = content;
     }
 
