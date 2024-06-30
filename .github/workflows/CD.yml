@@ -10,6 +10,89 @@ env:
   DOTNET_VERSION: 9.0.x
   GH_PACKAGE_VERSION: net9.0
 jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    - name: Set VERSION variable from tag
+      run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+    - name: Build CHttp
+      run: |
+        dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+        dotnet build src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+    - name: Pack CHttp
+      run:  |
+        dotnet pack src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+        dotnet pack src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+        dotnet pack src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+    - name: Push Nuget
+      run: |
+        dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+        dotnet nuget push src/Http3Parts/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+        dotnet nuget push src/CHttpExecutor/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+      env:
+        nuget_api_key: ${{ secrets.NUGET_API_KEY }}
+    - name: Publish for GitHub
+      run: |
+        # CHttp
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION}  -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
+        # CHttp Aot Linux
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION} -p:PublishAot=true --runtime linux-x64
+        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
+        # CHttpExecutor
+        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttpExecutor.exe src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
+        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttpExecutor src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
+    - name: Publish VSCE
+      run: |
+        pushd ./src/VSCodeExt/
+        npm install
+        npm run vsce-deploy ${VERSION}
+        popd
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+          files: |
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64-aot
+            src/VSCodeExt/chttp-vsce.vsix
+            src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
+            src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
+
   cross-compile-windows-aot:
     runs-on: windows-latest
     steps:
@@ -20,9 +103,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Set VERSION variable from tag
       run: |
-        echo $GITHUB_REF_NAME
         $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
-        echo "VERSION=${ver}"
         echo "VERSION=${ver}" >> $env:GITHUB_ENV
     - name: Publish for GitHub
       run: |
