@@ -102,7 +102,7 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Set VERSION variable from tag
-      run: echo "VERSION=${env:GITHUB_REF/refs\/tags\/v/}" >> $env:GITHUB_ENV
+      run: echo "VERSION=${{env:GITHUB_REF/refs\/tags\/v/}}" >> $env:GITHUB_ENV
     - name: Publish for GitHub
       run: |
         # CHttp Aot Windows
@@ -115,4 +115,4 @@ jobs:
       with:
           files: |
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-arm64-aot.exe
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
