@@ -21,7 +21,7 @@ jobs:
     - name: Set VERSION variable from tag
       run: |
         echo "$GITHUB_REF_NAME"
-        $ver = "${{GITHUB.REF_NAME}}" -replace '/refs/tags/v', ''
+        $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
         echo $ver
         echo "VERSION=$ver" >> $GITHUB_ENV
     - name: Publish for GitHub
