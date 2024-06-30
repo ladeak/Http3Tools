@@ -19,7 +19,7 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Set VERSION variable from tag
-      run: echo "VERSION=${{ env:GITHUB_REF }}" >> $env:GITHUB_ENV
+      run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $env:GITHUB_ENV
     - name: Publish for GitHub
       run: |
         # CHttp Aot Windows
