@@ -18,10 +18,10 @@ public class H3ClientTests
     [QuicSupportedFact]
     public async Task Test_VanillaRequest()
     {
-        using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
+        using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5002);
         await app.StartAsync();
         await using (var client = new H3Client())
-            await client.TestAsync(new Uri("https://localhost:5001"));
+            await client.TestAsync(new Uri("https://localhost:5002"));
         await app.StopAsync();
     }
 
