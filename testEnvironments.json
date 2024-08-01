@@ -6,7 +6,7 @@
     {
       "name": "WSL Ubuntu",
       "type": "wsl",
-      "wslDistribution": "Ubuntu"
+      "wslDistribution": "Ubuntu-22.04"
     }
   ]
 }
