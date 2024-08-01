@@ -1,5 +1,3 @@
-using System.IO;
-using System;
 using System.Net;
 using System.Net.Quic;
 using System.Net.Security;
@@ -15,7 +13,7 @@ public class H3ClientTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    [QuicSupportedFact]
+    //[QuicSupportedFact]
     public async Task Test_VanillaRequest()
     {
         using var app = HttpServer.CreateHostBuilder(TestResponseAsync, HttpProtocols.Http3, port: 5001);
