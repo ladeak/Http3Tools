@@ -35,6 +35,10 @@ public class H3Client : IAsyncDisposable
         {
             await (_inboundConnectionHandler ?? Task.CompletedTask);
         }
+        catch (QuicException ex)
+        {
+            // Wed dispose here
+        }
         catch (OperationCanceledException)
         {
             // Because _inboundCts is cancelled above.
@@ -272,9 +276,8 @@ public class H3Client : IAsyncDisposable
                 var inbound = await connectionCtx.QuicConnection.AcceptInboundStreamAsync(token);
                 _ = Task.Run(() => ProcessIncomingStream(connectionCtx, inbound, token), token);
             }
-            catch (QuicException ex) when (_inboundCts.IsCancellationRequested)
+            catch (QuicException) when (_inboundCts.IsCancellationRequested)
             {
-                throw new Exception($"{ex.Message}, {ex.TransportErrorCode}, {ex.QuicError}, {ex.ApplicationErrorCode}, {ex.HelpLink}, {ex.Data}, {ex.HResult}");
                 // Shutting down connection due to dispose.
             }
             catch (OperationCanceledException)
