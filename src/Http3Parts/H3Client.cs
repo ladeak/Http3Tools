@@ -37,7 +37,7 @@ public class H3Client : IAsyncDisposable
         }
         catch (QuicException ex)
         {
-            // Wed dispose here
+            // Being disposed here
         }
         catch (OperationCanceledException)
         {
