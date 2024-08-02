@@ -272,8 +272,9 @@ public class H3Client : IAsyncDisposable
                 var inbound = await connectionCtx.QuicConnection.AcceptInboundStreamAsync(token);
                 _ = Task.Run(() => ProcessIncomingStream(connectionCtx, inbound, token), token);
             }
-            catch (QuicException) when (_inboundCts.IsCancellationRequested)
+            catch (QuicException ex) when (_inboundCts.IsCancellationRequested)
             {
+                throw new Exception($"{ex.Message}, {ex.TransportErrorCode}, {ex.QuicError}, {ex.ApplicationErrorCode}, {ex.HelpLink}, {ex.Data}, {ex.HResult}");
                 // Shutting down connection due to dispose.
             }
             catch (OperationCanceledException)
@@ -312,7 +313,7 @@ public class H3Client : IAsyncDisposable
     {
         return new QuicClientConnectionOptions
         {
-            MaxInboundBidirectionalStreams = 1,
+            MaxInboundBidirectionalStreams = 5,
             MaxInboundUnidirectionalStreams = 5,
             RemoteEndPoint = remoteEndPoint,
             ClientAuthenticationOptions = new SslClientAuthenticationOptions
@@ -323,8 +324,8 @@ public class H3Client : IAsyncDisposable
                 },
                 RemoteCertificateValidationCallback = (_, _, _, _) => true
             },
-            DefaultStreamErrorCode = (long)Http3ErrorCode.RequestCancelled,
-            DefaultCloseErrorCode = (long)Http3ErrorCode.NoError,
+            DefaultStreamErrorCode = (long)Http3ErrorCode.ConnectError,
+            DefaultCloseErrorCode = (long)Http3ErrorCode.ProtocolError,
         };
     }
 
