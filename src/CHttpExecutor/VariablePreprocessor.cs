@@ -11,9 +11,9 @@ internal static class VariablePreprocessor
 {
     private static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { WriteIndented = false };
 
-    public static IReadOnlyCollection<string> GetVariableNames(ReadOnlySpan<char> source)
+    public static IReadOnlyCollection<Range> GetVariableNameRanges(ReadOnlySpan<char> source)
     {
-        List<string> variableNames = new();
+        List<Range> variableNames = new();
         while (source.Length > 0)
         {
             var startIndex = source.IndexOf("{{");
@@ -22,7 +22,7 @@ internal static class VariablePreprocessor
             var endIndex = source.Slice(startIndex).IndexOf("}}");
             if (endIndex == -1)
                 break;
-            variableNames.Add(source[(startIndex + 2)..endIndex].Trim().ToString());
+            variableNames.Add(new Range(startIndex + 2, endIndex));
             source = source.Slice(endIndex + 2);
         }
         return variableNames;
@@ -42,8 +42,8 @@ internal static class VariablePreprocessor
 
     public static string Evaluate(
         ReadOnlySpan<char> source,
-        IReadOnlyDictionary<string, string> values,
-        IReadOnlyDictionary<string, VariablePostProcessingWriterStrategy> responses)
+        Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> values,
+        Dictionary<string, VariablePostProcessingWriterStrategy>.AlternateLookup<ReadOnlySpan<char>> responses)
     {
         var buffer = new PooledArrayBufferWriter<char>();
         Evaluate(source, values, responses, buffer);
@@ -52,8 +52,8 @@ internal static class VariablePreprocessor
 
     private static void Evaluate(
         ReadOnlySpan<char> source,
-        IReadOnlyDictionary<string, string> values,
-        IReadOnlyDictionary<string, VariablePostProcessingWriterStrategy> responses,
+        Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> values,
+        Dictionary<string, VariablePostProcessingWriterStrategy>.AlternateLookup<ReadOnlySpan<char>> responses,
         PooledArrayBufferWriter<char> destination)
     {
         while (source.Length > 0)
@@ -74,8 +74,7 @@ internal static class VariablePreprocessor
                 return;
             }
 
-            // TODO: Remove ToString() call in .NET 9 https://github.com/dotnet/runtime/issues/27229
-            var key = source.Slice(startIndex + 2, endIndex - 2).Trim().ToString();
+            var key = source.Slice(startIndex + 2, endIndex - 2).Trim();
 
             // Default replacement is the textual form of the vairable.
             var replacement = source.Slice(startIndex, endIndex + 2);

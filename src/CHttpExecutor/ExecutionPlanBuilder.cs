@@ -36,7 +36,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
 
     private List<FrozenExecutionStep> _steps = new();
 
-    private HashSet<string> _variables = new();
+    private HashSet<string> _variables = new(StringComparer.Ordinal);
 
     private ExecutionStep _currentStep = new() { LineNumber = 1 };
 
@@ -245,13 +245,38 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
     private void ValidateVariableExistance(ReadOnlySpan<char> source)
     {
         // Can be a named variable or a step name
-        var undefinedVar = VariablePreprocessor.GetVariableNames(source)
-            .Where(x => !_variables.Contains(x))
-            .Where(x => !_steps.Any(s => s.Name != null && x.StartsWith(s.Name)))
-            .Where(x => !(_currentStep.Name != null && x.StartsWith(_currentStep.Name))).FirstOrDefault();
+        //var undefinedVar = VariablePreprocessor.GetVariableNames(source)
+        //    .Where(x => !_variables.Contains(x))
+        //    .Where(x => !_steps.Any(s => s.Name != null && x.StartsWith(s.Name)))
+        //    .Where(x => !(_currentStep.Name != null && x.StartsWith(_currentStep.Name))).FirstOrDefault();
+        var variablesLookup = _variables.GetAlternateLookup<string, ReadOnlySpan<char>>();
+        foreach (Range varNameRange in VariablePreprocessor.GetVariableNameRanges(source))
+        {
+            bool matched = false;
+            var x = source[varNameRange].Trim();
+            if (variablesLookup.Contains(x))
+            {
+                matched = true;
+            }
+            else if (_currentStep.Name != null && x.StartsWith(_currentStep.Name))
+            {
+                matched = true;
+            }
+            else
+            {
+                foreach (var s in _steps)
+                {
+                    if (s.Name != null && x.StartsWith(s.Name))
+                    {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
 
-        if (undefinedVar != null)
-            throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"{undefinedVar} is not yet defined"));
+            if (!matched)
+                throw new ArgumentException(string.Format(null, ErrorFormat, _currentStep.LineNumber, _currentStep.Name, $"{x} is not yet defined"));
+        }
     }
 
     private Assertion ParseAssert(ref ReadOnlySpan<char> parameters)

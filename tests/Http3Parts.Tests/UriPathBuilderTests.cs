@@ -219,14 +219,92 @@ public class UriPathBuilderTests
         Assert.Equal($"{BaseUrl}/a/b/1/{query}", UriPathBuilder.CreateCanonical($"{BaseUrl}a/b/{segment}/a/..{query}"));
         Assert.Equal($"{BaseUrl}/a/b/1/a/{query}", UriPathBuilder.CreateCanonical($"{BaseUrl}a/b/{segment}/a/./{query}"));
         Assert.Equal($"{BaseUrl}/a/b/1/a/{query}", UriPathBuilder.CreateCanonical($"{BaseUrl}a/b/{segment}/a/.{query}"));
+        Assert.Equal($"a/", UriPathBuilder.CreateCanonical($"a/.."));
+        Assert.Equal($"a/", UriPathBuilder.CreateCanonical($"a/../.."));
+        Assert.Equal($"a/", UriPathBuilder.CreateCanonical($"a/./.."));
+        Assert.Equal($"a/", UriPathBuilder.CreateCanonical($"a/../."));
+        Assert.Equal($"/a", UriPathBuilder.CreateCanonical($"/.././a"));
+        Assert.Equal($"a", UriPathBuilder.CreateCanonical($"a"));
+        Assert.Equal($".", UriPathBuilder.CreateCanonical($"."));
+        Assert.Equal($"..", UriPathBuilder.CreateCanonical($".."));
+        Assert.Equal($"file://..", UriPathBuilder.CreateCanonical($"file://.."));
+        Assert.Equal($"file://.", UriPathBuilder.CreateCanonical($"file://."));
+        Assert.Equal($"file:///", UriPathBuilder.CreateCanonical($"file:///"));
+        Assert.Equal($"file:///", UriPathBuilder.CreateCanonical($"file:///.."));
+        Assert.Equal("../a/", UriPathBuilder.CreateCanonical($"../a/."));
+        Assert.Equal("file:/a/", UriPathBuilder.CreateCanonical($"file:/../a/."));
+        Assert.Equal("file:/a/", UriPathBuilder.CreateCanonical($"file:/./a/."));
+        Assert.Equal("file:/", UriPathBuilder.CreateCanonical($"file:/./a/.."));
+        Assert.Equal("file:/", UriPathBuilder.CreateCanonical($"file:/../.."));
     }
 
     [Fact]
-    public void Test()
+    public void GenericTest()
     {
         string segment = "/someId";
         Assert.Equal("https://localhost:5000/path/entity/someId", UriPathBuilder.Create($"https://localhost:5000/path/entity/{segment}"));
-        Assert.Equal("https://localhost:5000/path/entity/someId", UriPathBuilder.Create($"https://localhost:5000/path/entity/{segment}"));
+        Assert.Equal("https://localhost:5000/path/entity/someId", UriPathBuilder.Create($"https://localhost:5000/path/entity{segment}"));
+    }
+
+    [Fact]
+    public void CreateCanonicalized()
+    {
+        string segment = "/someId";
+        string dotDotSegment = "..";
+        string dotSegment = ".";
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}{dotSegment}"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}/{dotSegment}"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}{dotSegment}/"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}/{dotSegment}/"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/root/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path{dotDotSegment}"));
+        Assert.Equal("https://localhost:5000/root/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path/{dotDotSegment}"));
+        Assert.Equal("https://localhost:5000/root/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path{dotDotSegment}/"));
+        Assert.Equal("https://localhost:5000/root/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path/{dotDotSegment}/"));
+        Assert.Equal("http://localhost:5000/root/", UriPathBuilder.CreateCanonical($"http://localhost:5000/root/path/{dotDotSegment}/"));
+    }
+
+    [Fact]
+    public void MultiCreateCanonicalized()
+    {
+        string segment = "/someId";
+        string dotDotSegment = "..";
+        string dotSegment = ".";
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}{dotSegment}{dotSegment}"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}/{dotSegment}{dotSegment}"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}{dotSegment}{dotSegment}/"));
+        Assert.Equal("https://localhost:5000/path/entity/someId/", UriPathBuilder.CreateCanonical($"https://localhost:5000/path/entity/{segment}/{dotSegment}{dotSegment}/"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}{dotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}{dotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}/{dotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}/{dotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000{dotDotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/{dotDotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root{dotDotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/{dotDotSegment}{dotDotSegment}path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root{dotDotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/path", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/{dotDotSegment}{dotDotSegment}/path"));
+        Assert.Equal("https://localhost:5000/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path{dotDotSegment}{dotDotSegment}"));
+        Assert.Equal("https://localhost:5000/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path/{dotDotSegment}{dotDotSegment}"));
+        Assert.Equal("https://localhost:5000/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path{dotDotSegment}/{dotDotSegment}"));
+        Assert.Equal("https://localhost:5000/", UriPathBuilder.CreateCanonical($"https://localhost:5000/root/path/{dotDotSegment}/{dotDotSegment}"));
     }
 
     private struct MyFormattable : IFormattable

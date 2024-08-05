@@ -75,13 +75,27 @@ public ref struct UriPathInterpolatedStringHandler
 
     public string ToCanonicalAndClear()
     {
+        const int schemaSeparatorLength = 3;
         var text = Text;
         var end = text.IndexOf('?');
         if (end < 0)
             end = _pos;
-        var start = text.IndexOf('/');
+
+        int start;
+        var schemaStart = text.IndexOf("://");
+        if (schemaStart >= 0 && text.Length > schemaStart + schemaSeparatorLength)
+        {
+            schemaStart += schemaSeparatorLength;
+            start = text[schemaStart..].IndexOf('/');
+        }
+        else
+        {
+            start = text.IndexOf('/');
+            schemaStart = 0;
+        }
         if (start >= 0)
         {
+            start += schemaStart;
             var pathLength = PathNormalizer.RemoveDotSegments(_chars[start..end]);
             if (pathLength < (end - start))
                 _chars[end..].TryCopyTo(_chars[(start + pathLength)..]);
@@ -411,10 +425,10 @@ internal static class PathNormalizer
             }
             else
             {
-                // No dot segment, copy the matched /. and bump the read pointer
-                slashDot.CopyTo(src[writtenLength..]);
-                writtenLength += 2;
-                readPointer = nextIndex;
+                // No dot segment, copy the matched /. and the next character and bump the read pointer
+                src.Slice(readPointer, 3).CopyTo(src[writtenLength..]);
+                writtenLength += 3;
+                readPointer = nextIndex + 1;
             }
             return false;
         }
@@ -448,10 +462,10 @@ internal static class PathNormalizer
             }
             else
             {
-                // No dot segment, copy the /. and bump the read pointer.
-                slashDot.CopyTo(src[writtenLength..]);
-                writtenLength += 2;
-                readPointer = nextIndex;
+                // No dot segment, copy the /. and the last character.
+                src[readPointer..].CopyTo(src[writtenLength..]);
+                writtenLength += 3;
+                return true;
             }
         }
         // Ending with /.

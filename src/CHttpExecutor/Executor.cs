@@ -11,19 +11,32 @@ namespace CHttpExecutor;
 
 internal class ExecutionContext
 {
+    public ExecutionContext()
+    {
+        // TODO: Drop StringComparer.Ordinal .NET 9 https://github.com/dotnet/runtime/issues/27229
+        VariableValues = new(StringComparer.Ordinal);
+        VariableValuesLookup = VariableValues.GetAlternateLookup<string, string, ReadOnlySpan<char>>();
+        ExecutionResults = new(StringComparer.Ordinal);
+        ExecutionResultsLookup = ExecutionResults.GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>();
+    }
+
     public IFileSystem FileSystem { get; } = new MemoryFileSystem();
 
     public required IConsole Console { get; init; }
 
     public ICookieContainer CookieContainer { get; } = new MemoryCookieContainer();
 
-    public Dictionary<string, string> VariableValues { get; } = new();
+    public Dictionary<string, string> VariableValues { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> VariableValuesLookup { get; }
 
     public FrozenExecutionStep? CurrentStep { get; set; }
 
     public (string Value, bool IsGiven) CurrentCalculatedStepName { get; set; } = (string.Empty, false);
 
-    public Dictionary<string, VariablePostProcessingWriterStrategy> ExecutionResults { get; set; } = new();
+    public Dictionary<string, VariablePostProcessingWriterStrategy> ExecutionResults { get; }
+
+    public Dictionary<string, VariablePostProcessingWriterStrategy>.AlternateLookup<ReadOnlySpan<char>> ExecutionResultsLookup { get; }
 
     public List<string> AssertionViolations { get; } = new();
 }
@@ -41,18 +54,18 @@ internal class Executor(ExecutionPlan plan, IConsole console)
                 ctx.VariableValues[newVar.Name] = newVar.Value;
 
             // Variable preprocessing
-            var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, ctx.VariableValues, ctx.ExecutionResults));
+            var uri = new Uri(VariablePreprocessor.Evaluate(step.Uri, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup));
             ctx.CurrentCalculatedStepName = GetStepId(step, uri, ctx);
             ctx.Console.WriteLine($"Executing {ctx.CurrentCalculatedStepName.Value}");
             List<KeyValueDescriptor> headers = [];
             foreach (var header in step.Headers)
-                headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), ctx.VariableValues, ctx.ExecutionResults)));
+                headers.Add(new(header.GetKey(), VariablePreprocessor.Evaluate(header.GetValue(), ctx.VariableValuesLookup, ctx.ExecutionResultsLookup)));
             var timeout = ProcessVariable(step.Timeout, ctx, nameof(step.Timeout));
             var enableRedirects = ProcessVariable(step.EnableRedirects, ctx, nameof(step.EnableRedirects));
             var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, ctx, nameof(step.NoCertificateValidation));
             var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1));
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
-            HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValues, ctx.ExecutionResults)).ToArray()) : null;
+            HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
             {
                 ctx.ExecutionResults.TryAdd(ctx.CurrentCalculatedStepName.Value, new VariablePostProcessingWriterStrategy(ctx.CurrentCalculatedStepName.IsGiven));
@@ -76,7 +89,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
     {
         if (value.HasValue)
             return value.Value;
-        else if (T.TryParse(VariablePreprocessor.Evaluate(value.VariableValue, ctx.VariableValues, ctx.ExecutionResults).AsSpan(), null, out T? result))
+        else if (T.TryParse(VariablePreprocessor.Evaluate(value.VariableValue, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup).AsSpan(), null, out T? result))
             return result;
         throw new ArgumentException($"Invalid value set for {name}");
     }
@@ -116,7 +129,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
     private static (string Value, bool IsGiven) GetStepId(FrozenExecutionStep step, Uri uri, ExecutionContext ctx)
     {
         if (!string.IsNullOrWhiteSpace(step.Name))
-            return (VariablePreprocessor.Evaluate(step.Name, ctx.VariableValues, ctx.ExecutionResults), true);
+            return (VariablePreprocessor.Evaluate(step.Name, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup), true);
         else
             return ($"{step.Method} {uri} at L{step.LineNumber}", false);
     }
