@@ -27,7 +27,7 @@ jobs:
     - name: Install Package libmsquic
       run: |
         sudo apt update
-        sudo apt install -y libmsquic=2.3.4
+        sudo apt install -y libmsquic
       shell: sh
     - name: Build
       run: dotnet build Http3Tools.sln --configuration ${{ env.CONFIGURATION }}
