@@ -249,7 +249,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
         //    .Where(x => !_variables.Contains(x))
         //    .Where(x => !_steps.Any(s => s.Name != null && x.StartsWith(s.Name)))
         //    .Where(x => !(_currentStep.Name != null && x.StartsWith(_currentStep.Name))).FirstOrDefault();
-        var variablesLookup = _variables.GetAlternateLookup<string, ReadOnlySpan<char>>();
+        var variablesLookup = _variables.GetAlternateLookup<ReadOnlySpan<char>>();
         foreach (Range varNameRange in VariablePreprocessor.GetVariableNameRanges(source))
         {
             bool matched = false;

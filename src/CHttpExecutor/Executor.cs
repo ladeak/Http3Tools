@@ -15,9 +15,9 @@ internal class ExecutionContext
     {
         // TODO: Drop StringComparer.Ordinal .NET 9 https://github.com/dotnet/runtime/issues/27229
         VariableValues = new(StringComparer.Ordinal);
-        VariableValuesLookup = VariableValues.GetAlternateLookup<string, string, ReadOnlySpan<char>>();
+        VariableValuesLookup = VariableValues.GetAlternateLookup<ReadOnlySpan<char>>();
         ExecutionResults = new(StringComparer.Ordinal);
-        ExecutionResultsLookup = ExecutionResults.GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>();
+        ExecutionResultsLookup = ExecutionResults.GetAlternateLookup<ReadOnlySpan<char>>();
     }
 
     public IFileSystem FileSystem { get; } = new MemoryFileSystem();

@@ -20,8 +20,8 @@ public class VariablePreprocessorTests
         {
             { "host", "localhost" }
         };
-        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal(expected, result);
     }
 
@@ -41,8 +41,8 @@ public class VariablePreprocessorTests
         {
             { "host", "localhost" }
         };
-        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal(expected, result);
     }
 
@@ -58,8 +58,8 @@ public class VariablePreprocessorTests
             { "host", "localhost" },
             { "port", "5000" }
         };
-        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate(input, variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal(expected, result);
     }
 
@@ -71,8 +71,8 @@ public class VariablePreprocessorTests
         {
             { "host", "{{$envVarHost}}" }
         };
-        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("https://localhost/", result);
     }
 
@@ -84,8 +84,8 @@ public class VariablePreprocessorTests
             { "something", "localhost" },
             { "host", "{{ something }}" }
         };
-        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("https://localhost/", result);
     }
 
@@ -98,8 +98,8 @@ public class VariablePreprocessorTests
             { "someOtherVariable", "localhost" },
             { "host", "{{$ envVarHost  }}" }
         };
-        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate("https://{{host}}/", variables.GetAlternateLookup<ReadOnlySpan<char>>(),
+            new Dictionary<string, VariablePostProcessingWriterStrategy>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("https://localhost/", result);
     }
 
@@ -114,8 +114,8 @@ public class VariablePreprocessorTests
         {
             { "first",  responseWriter }
         };
-        var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data}}/", new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            responses.GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+        var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data}}/", new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>(),
+            responses.GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("https://hello/", result);
     }
 
@@ -131,8 +131,8 @@ public class VariablePreprocessorTests
             { "first",  responseWriter }
         };
         var result = VariablePreprocessor.Evaluate("https://{{first.response.body.$.Data[?@.Val<1].Name}}/",
-            new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            responses.GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+            new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>(),
+            responses.GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("https://test0/", result);
     }
 
@@ -152,8 +152,8 @@ public class VariablePreprocessorTests
             { "first",  responseWriter }
         };
         var result = VariablePreprocessor.Evaluate("{{first.response.Headers.my}}{{first.response.headers.content-type}}",
-            new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<string, string, ReadOnlySpan<char>>(),
-            responses.GetAlternateLookup<string, VariablePostProcessingWriterStrategy, ReadOnlySpan<char>>());
+            new Dictionary<string, string>(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>(),
+            responses.GetAlternateLookup<ReadOnlySpan<char>>());
         Assert.Equal("value-application/json", result);
     }
 }
