@@ -44,6 +44,7 @@ internal sealed class PersistentCookieContainer : ICookieContainer
 		var cookies = _container.GetAllCookies().Select(x => (PersistedCookie)x).ToArray();
 		using var stream = FileSystem.Open(Name, FileMode.Create, FileAccess.Write);
 		await JsonSerializer.SerializeAsync(stream, new PersistedCookies(cookies), KnownJsonType.Default.PersistedCookies);
+		await stream.FlushAsync();
 		return;
 	}
 }
