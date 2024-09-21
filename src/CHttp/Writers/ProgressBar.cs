@@ -5,7 +5,6 @@ namespace CHttp.Writers;
 internal sealed class ProgressBar<T> where T : struct
 {
     private readonly int _length;
-    private readonly char[] _complete;
     private readonly IConsole _console;
     private readonly IAwaiter _awaiter;
     private T _value;
@@ -17,7 +16,6 @@ internal sealed class ProgressBar<T> where T : struct
         _console = console ?? new CHttpConsole();
         _awaiter = awaiter ?? new Awaiter();
         _length = Math.Min(50, _console.WindowWidth);
-        _complete = "100%".PadRight(_length).ToArray();
     }
 
     public async Task RunAsync<U>(CancellationToken token = default) where U : INumberFormatter<T>
@@ -51,7 +49,7 @@ internal sealed class ProgressBar<T> where T : struct
             await _awaiter.WaitAsync(TimeSpan.FromMilliseconds(50));
         } while (!token.IsCancellationRequested);
         _console.SetCursorPosition(position.Left, position.Top);
-        _console.Write(_complete);
+        _console.Write("100%".PadRight(_length));
         _console.Write(U.FormatSize(_value));
         _console.WriteLine();
         _console.CursorVisible = true;

@@ -10,13 +10,11 @@ internal interface IConsole
 
     void SetCursorPosition(int left, int top);
 
-    void Write(char[] buffer);
-
-    void Write(string buffer);
-
     void WriteLine();
 
-    void WriteLine(string value);
+    void Write(ReadOnlySpan<char> buffer);
 
-    ConsoleColor ForegroundColor { get; set; } 
+    void WriteLine(ReadOnlySpan<char> value);
+
+    ConsoleColor ForegroundColor { get; set; }
 }

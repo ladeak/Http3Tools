@@ -12,11 +12,9 @@ internal class CHttpConsole : IConsole
 
     public void SetCursorPosition(int left, int top) => Console.SetCursorPosition(left, top);
 
-    public void Write(char[] buffer) => Console.Write(buffer);
-
-    public void Write(string buffer) => Console.Write(buffer);
+    public void Write(ReadOnlySpan<char> buffer) => Console.Out.Write(buffer);
 
     public void WriteLine() => Console.WriteLine();
 
-    public void WriteLine(string value) => Console.WriteLine(value);
+    public void WriteLine(ReadOnlySpan<char> value) => Console.Out.WriteLine(value);
 }

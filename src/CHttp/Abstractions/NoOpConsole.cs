@@ -1,4 +1,5 @@
-﻿namespace CHttp.Abstractions;
+﻿
+namespace CHttp.Abstractions;
 
 internal class NoOpConsole : IConsole
 {
@@ -12,11 +13,7 @@ internal class NoOpConsole : IConsole
     {
     }
 
-    public void Write(char[] buffer)
-    {
-    }
-
-    public void Write(string buffer)
+    public void Write(ReadOnlySpan<char> buffer)
     {
     }
 
@@ -24,7 +21,7 @@ internal class NoOpConsole : IConsole
     {
     }
 
-    public void WriteLine(string value)
+    public void WriteLine(ReadOnlySpan<char> value)
     {
     }
 }

@@ -31,17 +31,9 @@ public class TestConsoleAsOuput : IConsole
         // NoOp
     }
 
-    public void Write(char[] buffer) => _sb.Append(buffer);
-
-    public void Write(string buffer)
-    {
-        _sb.Append(buffer);
-    }
-
     public void WriteLine() => _sb.AppendLine();
 
-    public void WriteLine(string value)
-    {
-        _sb.AppendLine(value);
-    }
+    public void Write(ReadOnlySpan<char> buffer) => _sb.Append(buffer);
+
+    public void WriteLine(ReadOnlySpan<char> value) { _sb.Append(value); _sb.AppendLine(); }
 }

@@ -35,22 +35,16 @@ public class TestConsolePerWrite : IConsole
 
     public void SetCursorPosition(int left, int top)
     {
-        // NoOp
-    }
-
-    public void Write(char[] buffer) => _sb.Append(FilterDate(buffer.AsSpan()));
-
-    public void Write(string buffer)
-    {
-        _sb.Append(FilterDate(buffer.AsSpan()));
         _sb.AppendLine();
     }
 
+    public void Write(ReadOnlySpan<char> buffer) => _sb.Append(FilterDate(buffer));
+
     public void WriteLine() => _sb.AppendLine();
 
-    public void WriteLine(string value)
+    public void WriteLine(ReadOnlySpan<char> value)
     {
-        _sb.Append(FilterDate(value.AsSpan()));
+        _sb.Append(FilterDate(value));
         _sb.AppendLine();
     }
 
