@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\CHttpServer\CHttpServer.csproj" />
+    <ProjectReference Include="..\CHttpServer\CHttpServer.csproj" />
   </ItemGroup>
 
 </Project>
