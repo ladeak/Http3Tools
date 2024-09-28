@@ -1,9 +1,8 @@
+using CHttpServer;
+
 var builder = WebApplication.CreateBuilder(args);
-
+builder.WebHost.UseCHttpServer(o => o.Port = 5001);
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-
 app.UseHttpsRedirection();
 
 var summaries = new[]
