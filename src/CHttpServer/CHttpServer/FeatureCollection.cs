@@ -12,7 +12,9 @@ public class FeatureCollection : IFeatureCollection
     {
         get
         {
-            return _features[key];
+            if(!_features.TryGetValue(key, out var value))
+                return null;
+            return value;
         }
         set
         {
@@ -31,7 +33,7 @@ public class FeatureCollection : IFeatureCollection
 
     public TFeature? Get<TFeature>()
     {
-        return (TFeature?)_features[typeof(TFeature)];
+        return (TFeature?)this[typeof(TFeature)];
     }
 
     public IEnumerator<KeyValuePair<Type, object>> GetEnumerator()
@@ -50,5 +52,14 @@ public class FeatureCollection : IFeatureCollection
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
+    }
+
+    public FeatureCollection Copy()
+    {
+        return new FeatureCollection()
+        {
+            // TODO copy
+            //_features
+        };
     }
 }

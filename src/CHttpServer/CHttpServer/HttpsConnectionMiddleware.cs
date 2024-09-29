@@ -10,9 +10,9 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
-using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 
 namespace CHttpServer;
@@ -38,7 +38,6 @@ internal sealed class HttpsConnectionMiddleware
 
         // capture the certificate now so it can't be switched after validation
         _serverCertificate = options.ServerCertificate;
-        //_serverCertificateSelector = options.ServerCertificateSelector;
 
         // If a selector is provided then ignore the cert, it may be a default cert.
         if (_serverCertificateSelector != null)
@@ -50,13 +49,6 @@ internal sealed class HttpsConnectionMiddleware
         {
             Debug.Assert(_serverCertificate != null);
             var certificate = _serverCertificate;
-            if (!certificate.HasPrivateKey)
-            {
-                // SslStream historically has logic to deal with certificate missing private keys.
-                // By resolving the SslStreamCertificateContext eagerly, we circumvent this logic so
-                // try to resolve the certificate from the store if there's no private key in the cert.
-                certificate = LocateCertificateWithPrivateKey(certificate);
-            }
 
             // This might be do blocking IO but it'll resolve the certificate chain up front before any connections are
             // made to the server
@@ -82,11 +74,11 @@ internal sealed class HttpsConnectionMiddleware
             context.Features.Get<IMemoryPoolFeature>()?.MemoryPool ?? MemoryPool<byte>.Shared);
         var sslStream = sslDuplexPipe.Stream;
 
-        //var feature = new TlsConnectionFeature(sslStream, context);
-        //context.Features.Set<ITlsConnectionFeature>(feature);
-        //context.Features.Set<ITlsHandshakeFeature>(feature);
-        //context.Features.Set<ITlsApplicationProtocolFeature>(feature);
-        //context.Features.Set<ISslStreamFeature>(feature);
+        var feature = new CHttpTlsConnectionFeature(sslStream);
+        context.Features.Set<ITlsConnectionFeature>(feature);
+        context.Features.Set<ITlsHandshakeFeature>(feature);
+        context.Features.Set<ITlsApplicationProtocolFeature>(feature);
+        context.Features.Set<ISslStreamFeature>(feature);
 
         var startTimestamp = Stopwatch.GetTimestamp();
         try
@@ -135,64 +127,6 @@ internal sealed class HttpsConnectionMiddleware
         }
     }
 
-    private X509Certificate2 LocateCertificateWithPrivateKey(X509Certificate2 certificate)
-    {
-        Debug.Assert(!certificate.HasPrivateKey, "This should only be called with certificates that don't have a private key");
-        X509Store? OpenStore(StoreLocation storeLocation)
-        {
-            try
-            {
-                var store = new X509Store(StoreName.My, storeLocation);
-                store.Open(OpenFlags.ReadOnly);
-                return store;
-            }
-            catch (Exception exception) when (exception is CryptographicException || exception is SecurityException)
-            {
-                return null;
-            }
-        }
-
-        try
-        {
-            var store = OpenStore(StoreLocation.LocalMachine);
-
-            if (store != null)
-            {
-                using (store)
-                {
-                    var certs = store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, validOnly: false);
-
-                    if (certs.Count > 0 && certs[0].HasPrivateKey)
-                    {
-                        return certs[0];
-                    }
-                }
-            }
-
-            store = OpenStore(StoreLocation.CurrentUser);
-
-            if (store != null)
-            {
-                using (store)
-                {
-                    var certs = store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, validOnly: false);
-
-                    if (certs.Count > 0 && certs[0].HasPrivateKey)
-                    {
-                        return certs[0];
-                    }
-                }
-            }
-        }
-        catch (CryptographicException)
-        {
-            throw;
-        }
-
-        // Return the cert, and it will fail later
-        return certificate;
-    }
-
     internal static void ConfigureAlpn(SslServerAuthenticationOptions serverOptions)
     {
         serverOptions.ApplicationProtocols = [SslApplicationProtocol.Http2];
@@ -238,25 +172,11 @@ internal sealed class HttpsConnectionMiddleware
 
     private Task DoOptionsBasedHandshakeAsync(CHttpConnectionContext context, SslStream sslStream, CancellationToken cancellationToken)
     {
-        Debug.Assert(_options != null, "Middleware must be created with options.");
-
-        // Adapt to the SslStream signature
-        ServerCertificateSelectionCallback? selector = null;
-        if (_serverCertificateSelector != null)
-        {
-            selector = (sender, name) =>
-            {
-                //feature.HostName = name ?? string.Empty;
-                var cert = _serverCertificateSelector(context, name);
-                return cert!;
-            };
-        }
-
         var sslOptions = new SslServerAuthenticationOptions
         {
             ServerCertificate = _serverCertificate,
             ServerCertificateContext = _serverCertificateContext,
-            ServerCertificateSelectionCallback = selector,
+            ServerCertificateSelectionCallback = null,
             ClientCertificateRequired = _options.ClientCertificateMode == ClientCertificateMode.AllowCertificate
                 || _options.ClientCertificateMode == ClientCertificateMode.RequireCertificate,
             EnabledSslProtocols = _options.SslProtocols,
@@ -264,17 +184,12 @@ internal sealed class HttpsConnectionMiddleware
         };
 
         ConfigureAlpn(sslOptions);
-
-        //_options.OnAuthenticate?.Invoke(context, sslOptions);
-
         return sslStream.AuthenticateAsServerAsync(sslOptions, cancellationToken);
     }
 
 
     private bool RemoteCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
     {
-        Debug.Assert(_options != null, "Middleware must be created with options.");
-
         return RemoteCertificateValidationCallback(_options.ClientCertificateMode, _options.ClientCertificateValidation, certificate, chain, sslPolicyErrors);
     }
 
@@ -283,8 +198,8 @@ internal sealed class HttpsConnectionMiddleware
         StreamPipeReaderOptions inputPipeOptions = new StreamPipeReaderOptions
         (
             pool: memoryPool,
-            bufferSize: 4096 * 2,
-            minimumReadSize: 4096,
+            bufferSize: 8192 * 2,
+            minimumReadSize: 8192,
             leaveOpen: true,
             useZeroByteReads: true
         );
@@ -314,38 +229,92 @@ internal sealed class HttpsConnectionMiddleware
     }
 }
 
-internal sealed class HttpConnection<TContext> where TContext : notnull
-{
-    private readonly IHttpApplication<TContext> _application;
 
-    public HttpConnection(IHttpApplication<TContext> application)
+internal sealed class CHttpTlsConnectionFeature : ITlsConnectionFeature, ITlsApplicationProtocolFeature, ITlsHandshakeFeature, ISslStreamFeature
+{
+    private readonly SslStream _sslStream;
+    private X509Certificate2? _clientCert;
+
+    public CHttpTlsConnectionFeature(SslStream sslStream)
     {
-        _application = application;
+        ArgumentNullException.ThrowIfNull(sslStream);
+        _sslStream = sslStream;
     }
 
-    public Task OnConnectionAsync(CHttpConnectionContext connectionContext)
+    internal bool AllowDelayedClientCertificateNegotation { get; set; }
+
+    public X509Certificate2? ClientCertificate
     {
-        throw new NotImplementedException();
-        //var memoryPoolFeature = connectionContext.Features.Get<IMemoryPoolFeature>();
-        //var protocols = connectionContext.Features.Get<HttpProtocolsFeature>()?.HttpProtocols ?? _endpointDefaultProtocols;
-        //var metricContext = connectionContext.Features.GetRequiredFeature<IConnectionMetricsContextFeature>().MetricsContext;
-        //var localEndPoint = connectionContext.LocalEndPoint as IPEndPoint;
+        get
+        {
+            return _clientCert ??= ConvertToX509Certificate2(_sslStream.RemoteCertificate);
+        }
+        set
+        {
+            _clientCert = value;
+        }
+    }
 
-        //var httpConnectionContext = new HttpConnectionContext(
-        //    connectionContext.ConnectionId,
-        //    protocols,
-        //    altSvcHeader,
-        //    connectionContext,
-        //    _serviceContext,
-        //    connectionContext.Features,
-        //    memoryPoolFeature?.MemoryPool ?? System.Buffers.MemoryPool<byte>.Shared,
-        //    localEndPoint,
-        //    connectionContext.RemoteEndPoint as IPEndPoint,
-        //    metricContext);
-        //httpConnectionContext.Transport = connectionContext.Transport;
+    public string HostName { get; set; } = string.Empty;
 
-        //var connection = new HttpConnection(httpConnectionContext);
+    public ReadOnlyMemory<byte> ApplicationProtocol => _sslStream.NegotiatedApplicationProtocol.Protocol;
 
-        //return connection.ProcessRequestsAsync(_application);
+    public SslProtocols Protocol => _sslStream.SslProtocol;
+
+    public SslStream SslStream => _sslStream;
+
+    // We don't store the values for these because they could be changed by a renegotiation.
+
+    public TlsCipherSuite? NegotiatedCipherSuite => _sslStream.NegotiatedCipherSuite;
+
+    public CipherAlgorithmType CipherAlgorithm => _sslStream.CipherAlgorithm;
+
+    public int CipherStrength => _sslStream.CipherStrength;
+
+    public HashAlgorithmType HashAlgorithm => _sslStream.HashAlgorithm;
+
+    public int HashStrength => _sslStream.HashStrength;
+
+    public ExchangeAlgorithmType KeyExchangeAlgorithm => _sslStream.KeyExchangeAlgorithm;
+
+    public int KeyExchangeStrength => _sslStream.KeyExchangeStrength;
+
+    public Task<X509Certificate2?> GetClientCertificateAsync(CancellationToken cancellationToken)
+    {
+        if (ClientCertificate != null
+            || !AllowDelayedClientCertificateNegotation
+            || _sslStream.NegotiatedApplicationProtocol == SslApplicationProtocol.Http2)
+        {
+            return Task.FromResult(ClientCertificate);
+        }
+
+        return GetClientCertificateAsyncCore(cancellationToken);
+    }
+
+    private async Task<X509Certificate2?> GetClientCertificateAsyncCore(CancellationToken cancellationToken)
+    {
+        try
+        {
+#pragma warning disable CA1416 // Validate platform compatibility
+            await _sslStream.NegotiateClientCertificateAsync(cancellationToken);
+#pragma warning restore CA1416 // Validate platform compatibility
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // NegotiateClientCertificateAsync might not be supported on all platforms.
+            // Don't attempt to recover by creating a new connection. Instead, just throw error directly to the app.
+            throw;
+        }
+        return ClientCertificate;
+    }
+
+    private static X509Certificate2? ConvertToX509Certificate2(X509Certificate? certificate)
+    {
+        return certificate switch
+        {
+            null => null,
+            X509Certificate2 cert2 => cert2,
+            _ => new X509Certificate2(certificate),
+        };
     }
 }
