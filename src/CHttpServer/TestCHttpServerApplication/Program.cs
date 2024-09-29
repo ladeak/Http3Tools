@@ -1,7 +1,7 @@
 using CHttpServer;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseCHttpServer(o => o.Port = 5001);
+builder.WebHost.UseCHttpServer(o => {});
 var app = builder.Build();
 app.UseHttpsRedirection();
 

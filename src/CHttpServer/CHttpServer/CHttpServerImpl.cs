@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http.Features;
@@ -23,6 +23,7 @@ public class CHttpServerImpl : IServer
         _features = new FeatureCollection();
         var serverAddresses = new ServerAddressesFeature();
         Features.Set<IServerAddressesFeature>(serverAddresses);
+        Features.Set<IMemoryPoolFeature>(new CHttpMemoryPool());
         _connectionManager = new ConnectionsManager();
     }
 
@@ -53,12 +54,12 @@ public class CHttpServerImpl : IServer
         }
         var endpoint = new IPEndPoint(ip, uri?.Port ?? _options.Port ?? 5001);
 
-        var listenSocket = new Socket(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        var listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         if (endpoint.Address.Equals(IPAddress.IPv6Any))
         {
             listenSocket.DualMode = true;
         }
-
+        listenSocket.Bind(endpoint);
         if (addresses != null && !addresses.IsReadOnly && addresses.Count == 0)
             addresses.Add($"https://{endpoint.Address}:{endpoint.Port}");
         listenSocket.Listen(512);
@@ -66,8 +67,11 @@ public class CHttpServerImpl : IServer
 
         cancellationToken.Register(() => _cancellationTokenSource.Cancel());
 
-        var httpConnection = new HttpConnection<TContext>(application);
-        var httpsMiddleware = new HttpsConnectionMiddleware(httpConnection.OnConnectionAsync, new Microsoft.AspNetCore.Server.Kestrel.Https.HttpsConnectionAdapterOptions());
+        var httpConnection = new Http2Connection<TContext>(application);
+        var httpsMiddleware = new HttpsConnectionMiddleware(httpConnection.OnConnectionAsync, new Microsoft.AspNetCore.Server.Kestrel.Https.HttpsConnectionAdapterOptions()
+        {
+            ServerCertificate = _options.GetCertificate()
+        });
         Func<CHttpConnectionContext, Task> connectionDelegate = httpsMiddleware.OnConnectionAsync;
 
         _ = StartAcceptAsync<TContext>(connectionDelegate);
@@ -90,14 +94,15 @@ public class CHttpServerImpl : IServer
             var connectionId = _connectionManager.GetNewConnectionId();
             var connectionContext = new CHttpConnectionContext()
             {
-                 Features = _features,
-                 Transport = networkStream,
-                 ConnectionId = connectionId
+                Features = _features.
+                Transport = networkStream,
+                ConnectionId = connectionId
             };
             var chttpConnection = new CHttpConnection<TContext>(connectionContext, _connectionManager, connectionDelegate);
             _connectionManager.AddConnection(connectionId, chttpConnection);
 
-            ThreadPool.UnsafeQueueUserWorkItem(chttpConnection, preferLocal: false);
+            chttpConnection.Execute();
+            //ThreadPool.UnsafeQueueUserWorkItem(chttpConnection, preferLocal: false);
         }
     }
 

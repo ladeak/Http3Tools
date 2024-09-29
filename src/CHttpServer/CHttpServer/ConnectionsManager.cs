@@ -53,10 +53,9 @@ public class ConnectionsManager
 
     public void Heartbeat()
     {
-        List<Task> connectionAbortions = new List<Task>();
         foreach (var connection in _connections)
         {
-            connectionAbortions.Add(connection.Value.AbortAsync());
+            connection.Value.Heartbeat();
         }
     }
 }
