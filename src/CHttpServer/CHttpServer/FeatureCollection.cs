@@ -53,13 +53,4 @@ public class FeatureCollection : IFeatureCollection
     {
         return GetEnumerator();
     }
-
-    public FeatureCollection Copy()
-    {
-        return new FeatureCollection()
-        {
-            // TODO copy
-            //_features
-        };
-    }
 }

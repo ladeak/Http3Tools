@@ -67,7 +67,7 @@ public class CHttpServerImpl : IServer
 
         cancellationToken.Register(() => _cancellationTokenSource.Cancel());
 
-        var httpConnection = new Http2Connection<TContext>(application);
+        var httpConnection = new ConnectionDispatcher<TContext>(application);
         var httpsMiddleware = new HttpsConnectionMiddleware(httpConnection.OnConnectionAsync, new Microsoft.AspNetCore.Server.Kestrel.Https.HttpsConnectionAdapterOptions()
         {
             ServerCertificate = _options.GetCertificate()
