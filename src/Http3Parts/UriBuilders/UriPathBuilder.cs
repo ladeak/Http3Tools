@@ -34,13 +34,13 @@ public ref struct UriPathInterpolatedStringHandler
 {
     private const char Slash = '/';
     private const string Ordinal = "ordinal";
+    private const string Query = "query";
     private const int GuessedLengthPerHole = 11;
     private const int MinimumArrayPoolLength = 256;
     private char[]? _arrayToReturnToPool;
     private Span<char> _chars;
     private int _pos;
-    private ReadOnlySpan<char> _baseUrl;
-    private ReadOnlySpan<char> _queryString;
+    private bool _isQuery = false;
 
     public UriPathInterpolatedStringHandler(int literalLength, int formattedCount)
     {
@@ -53,15 +53,6 @@ public ref struct UriPathInterpolatedStringHandler
         _chars = initialBuffer;
         _arrayToReturnToPool = null;
         _pos = 0;
-    }
-
-    public UriPathInterpolatedStringHandler(int literalLength, int formattedCount, ReadOnlySpan<char> baseUrl, ReadOnlySpan<char> queryString)
-    {
-        _chars = _arrayToReturnToPool = ArrayPool<char>.Shared.Rent(GetDefaultLength(literalLength, formattedCount));
-        _arrayToReturnToPool = null;
-        _pos = 0;
-        _baseUrl = baseUrl;
-        _queryString = queryString;
     }
 
     public override string ToString() => new string(Text);
@@ -132,7 +123,6 @@ public ref struct UriPathInterpolatedStringHandler
         AppendFormatted(source);
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AppendFormatted<T>(T value)
     {
@@ -143,6 +133,11 @@ public ref struct UriPathInterpolatedStringHandler
     public void AppendFormatted<T>(T value, string? format)
     {
         string? s;
+        if (format == Query)
+        {
+            _isQuery = true;
+            format = Ordinal;
+        }
         if (value is IFormattable)
         {
             if (value is ISpanFormattable spanFormattableValue)
@@ -151,14 +146,14 @@ public ref struct UriPathInterpolatedStringHandler
                 // However, most formatted values are the built-in types which do not emit a starting slash,
                 // Hence add a slash and remove it later if the formatted value written a slash too.
                 int charsWritten;
-                if (!TryResolveSlashes())
+                if (format != Ordinal && !TryResolveSlashes())
                 {
                     Grow();
                     var result = TryResolveSlashes();
                     Debug.Assert(result);
                 }
 
-                while (!spanFormattableValue.TryFormat(_chars.Slice(_pos), out charsWritten, format, null))
+                while (!spanFormattableValue.TryFormat(_chars.Slice(_pos), out charsWritten, format != Ordinal ? format : null, null))
                     Grow();
 
                 // Remove duplicate slashes _pos points to the first char of the formatted value.
@@ -183,7 +178,9 @@ public ref struct UriPathInterpolatedStringHandler
         if (s is not null)
         {
             if (format == Ordinal)
+            {
                 AppendFormattedOrdinal(s.AsSpan());
+            }
             else
                 AppendFormatted(s.AsSpan());
         }
@@ -233,14 +230,6 @@ public ref struct UriPathInterpolatedStringHandler
         _pos += value.Length;
     }
 
-    private void GrowAndAppendOrdinal(scoped ReadOnlySpan<char> value)
-    {
-        var minRequired = value.Length + _pos;
-        Grow(minRequired);
-        value.CopyTo(_chars.Slice(_pos));
-        _pos += value.Length;
-    }
-
     private void Grow()
     {
         var minRequired = _chars.Length * 2;
@@ -265,14 +254,14 @@ public ref struct UriPathInterpolatedStringHandler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool DoesRequireSlash(scoped ReadOnlySpan<char> value)
     {
-        return _pos > 0 && _chars[_pos - 1] != Slash && value[0] != Slash;
+        return _pos > 0 && _chars[_pos - 1] != Slash && value[0] != Slash && !_isQuery;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryResolveSlashes(scoped ReadOnlySpan<char> value)
     {
         // Ignore slashes at the beginning of string.
-        if (_pos <= 0)
+        if (_pos <= 0 || _isQuery)
             return true;
 
         var lastSlash = _chars[_pos - 1] == Slash;
@@ -292,7 +281,7 @@ public ref struct UriPathInterpolatedStringHandler
     private bool TryResolveSlashes()
     {
         // Ignore slashes at the beginning of string.
-        if (_pos <= 0)
+        if (_pos <= 0 || _isQuery)
             return true;
 
         // Expectation if the user omits the last slash: it would come from the formatted value.

@@ -17,6 +17,9 @@ public class UriPathBuilderTests
         Assert.Equal($"/a/{segment}", UriPathBuilder.Create($"/a/{segment}"));
         Assert.Equal($"/{segment}", UriPathBuilder.Create($"/{segment}"));
         Assert.Equal($"{segment}", UriPathBuilder.Create($"{segment}"));
+        Assert.Equal($"{segment}/?q0=1&q1=1", UriPathBuilder.Create($"{segment}?q0={segment:query}&q1={segment:query}"));
+        Assert.Equal($"{segment}/?q0=1&q1=1", UriPathBuilder.Create($"{segment}?q0={segment:query}&q1={segment}"));
+        Assert.Equal($"{segment}?q0=1&q1=1", UriPathBuilder.Create($"{segment}{'?':query}q0={segment}&q1={segment}"));
     }
 
     [Fact]
@@ -53,6 +56,9 @@ public class UriPathBuilderTests
         Assert.Equal($"/a/1", UriPathBuilder.Create($"/a{segment}"));
         Assert.Equal($"/1", UriPathBuilder.Create($"/{segment}"));
         Assert.Equal($"1", UriPathBuilder.Create($"{segment}"));
+        Assert.Equal($"1/?q=1", UriPathBuilder.Create($"{segment}?q={segment:query}"));
+        Assert.Equal($"1/?q=1&q1=1", UriPathBuilder.Create($"{segment}?q={segment:query}&q1={segment}"));
+        Assert.Equal($"1?q=1", UriPathBuilder.Create($"{segment}{'?':query}q={segment}"));
     }
 
     [Fact]
@@ -65,6 +71,9 @@ public class UriPathBuilderTests
         Assert.Equal($"/a/1", UriPathBuilder.Create($"/a{segment}"));
         Assert.Equal($"/1", UriPathBuilder.Create($"/{segment}"));
         Assert.Equal($"1", UriPathBuilder.Create($"{segment}"));
+        Assert.Equal($"1/?q=1", UriPathBuilder.Create($"{segment}?q={segment:query}"));
+        Assert.Equal($"1/?q=1&q1=1", UriPathBuilder.Create($"{segment}?q={segment:query}&q1={segment}"));
+        Assert.Equal($"1?q=1", UriPathBuilder.Create($"{segment}{'?':query}q={segment}"));
     }
 
     [Fact]
@@ -72,6 +81,7 @@ public class UriPathBuilderTests
     {
         double segment = 1;
         Assert.Equal($"{BaseUrl}/a/{segment:0.00}/a", UriPathBuilder.Create($"{BaseUrl}/a/{segment:0.00}/a"));
+        Assert.Equal($"1?q={1:0.00}", UriPathBuilder.Create($"{segment}{'?':query}q={segment:0.00}"));
     }
 
     [Fact]
@@ -82,7 +92,7 @@ public class UriPathBuilderTests
     }
 
     [Fact]
-    public void DateTimeFormatO()
+    public void DateTimeFormat()
     {
         DateTime segment = new DateTime(2024, 07, 21);
         Assert.Equal($"{BaseUrl}/a/{segment:O}/a", UriPathBuilder.Create($"{BaseUrl}/a/{segment:O}/a"));
