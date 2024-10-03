@@ -1,10 +1,5 @@
 ﻿namespace CHttpServer;
 
-/// <summary>
-/// Represents an HTTP/2 frame. The expected use pattern is that it will be instantiated once
-/// and then, each time a frame is received or sent, it is reset with a PrepareX method.
-/// This type is not responsible for binary serialization or deserialization.
-/// </summary>
 /// <remarks>
 /// From https://tools.ietf.org/html/rfc7540#section-4.1:
 ///    +-----------------------------------------------+
@@ -19,13 +14,13 @@
 /// </remarks>
 internal class Http2Frame
 {
-    public int PayloadLength { get; set; }
+    public uint PayloadLength { get; set; }
 
     public Http2FrameType Type { get; set; }
 
     public byte Flags { get; set; }
 
-    public int StreamId { get; set; }
+    public uint StreamId { get; set; }
 
     // GoAway
 
@@ -33,7 +28,7 @@ internal class Http2Frame
 
     public Http2ErrorCode GoAwayErrorCode { get; set; }
 
-    public void GoAway(int lastStreamId, Http2ErrorCode errorCode)
+    public void SetGoAway(int lastStreamId, Http2ErrorCode errorCode)
     {
         PayloadLength = 8;
         Type = Http2FrameType.GOAWAY;
@@ -43,7 +38,9 @@ internal class Http2Frame
         GoAwayErrorCode = errorCode;
     }
 
-    public void SettingsAck(Http2ErrorCode errorCode)
+    // Settings
+
+    public void SetSettingsAck()
     {
         PayloadLength = 0;
         Type = Http2FrameType.SETTINGS;
@@ -51,10 +48,11 @@ internal class Http2Frame
         StreamId = 0;
     }
 
-    public void Settings(int lastStreamId, Http2ErrorCode errorCode)
+    public void SetSettings(uint size)
     {
         Type = Http2FrameType.SETTINGS;
         Flags = 0;
         StreamId = 0;
+        PayloadLength = size;
     }
 }

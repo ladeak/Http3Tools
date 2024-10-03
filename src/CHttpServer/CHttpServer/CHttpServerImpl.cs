@@ -94,9 +94,10 @@ public class CHttpServerImpl : IServer
             var connectionId = _connectionManager.GetNewConnectionId();
             var connectionContext = new CHttpConnectionContext()
             {
-                Features = _features.
+                Features = _features.Copy(),
                 Transport = networkStream,
-                ConnectionId = connectionId
+                ConnectionId = connectionId,
+                ServerOptions = _options,
             };
             var chttpConnection = new CHttpConnection<TContext>(connectionContext, _connectionManager, connectionDelegate);
             _connectionManager.AddConnection(connectionId, chttpConnection);

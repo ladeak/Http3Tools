@@ -1,22 +1,23 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipelines;
-using System.Net.Sockets;
 using Microsoft.AspNetCore.Connections.Features;
 
 namespace CHttpServer;
 
-public class CHttpConnectionContext
+internal class CHttpConnectionContext
 {
-    internal FeatureCollection Features { get; init; }
+    internal required FeatureCollection Features { get; init; }
 
-    internal Stream Transport { get; set; }
+    internal Stream? Transport { get; set; }
 
-    internal IDuplexPipe TransportPipe { get; set; }
+    internal IDuplexPipe? TransportPipe { get; set; }
 
-    internal long ConnectionId { get; set; }
+    internal required long ConnectionId { get; init; }
+
+    internal required CHttpServerOptions ServerOptions { get; set; }
 }
 
-public class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
+internal class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
 {
     private readonly CHttpConnectionContext _connectionContext;
     private readonly ConnectionsManager _connectionsManager;
@@ -55,10 +56,7 @@ public class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectio
         _ = ExecuteAsync();
     }
 
-    public async Task ExecuteAsync()
-    {
-        await _connectionDelegate(_connectionContext);
-    }
+    public Task ExecuteAsync() => _connectionDelegate(_connectionContext);
 
     public void Heartbeat()
     {
@@ -77,8 +75,7 @@ public class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectio
     }
 }
 
-
-public class CHttpConnection<TContext> : CHttpConnection
+internal sealed class CHttpConnection<TContext> : CHttpConnection
 {
     public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttpConnectionContext, Task> connectionDelegate) : base(connectionContext, connectionsManager, connectionDelegate)
     {
