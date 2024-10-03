@@ -49,6 +49,14 @@ public class FeatureCollection : IFeatureCollection
         this[typeof(TFeature)] = instance;
     }
 
+    internal FeatureCollection Copy()
+    {
+        var copy = new FeatureCollection();
+        foreach (var pair in _features)
+            copy._features.Add(pair.Key, pair.Value);
+        return copy;
+    }
+
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();

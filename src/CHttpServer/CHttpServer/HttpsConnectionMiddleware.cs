@@ -93,7 +93,7 @@ internal sealed class HttpsConnectionMiddleware
             await sslStream.DisposeAsync();
             return;
         }
-        catch (IOException)
+        catch (IOException e)
         {
             await sslStream.DisposeAsync();
             return;

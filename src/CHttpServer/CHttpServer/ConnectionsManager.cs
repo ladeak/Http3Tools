@@ -2,7 +2,7 @@
 
 namespace CHttpServer;
 
-public class ConnectionsManager
+internal sealed class ConnectionsManager
 {
     private readonly ConcurrentDictionary<long, CHttpConnection> _connections = new ConcurrentDictionary<long, CHttpConnection>();
 
