@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 
-namespace CHttpServer;
+namespace CHttpServer.System.Net.Http.HPack;
 
 internal sealed class DynamicHPackEncoder
 {
@@ -1065,6 +1065,8 @@ internal static class IntegerEncoder
 
 internal static class H2StaticTable
 {
+    public static ref readonly HeaderField Get(int index) => ref s_staticDecoderTable[index];
+
     // Values for encoding.
     // Unused values are omitted.
     public const int Authority = 1;
@@ -1130,8 +1132,8 @@ internal static class H2StaticTable
         Encoding.ASCII.GetBytes(name),
         value.Length != 0 ? Encoding.ASCII.GetBytes(value) : Array.Empty<byte>());
 
-    private static readonly HeaderField[] s_staticDecoderTable = new HeaderField[]
-    {
+    private static readonly HeaderField[] s_staticDecoderTable =
+    [
             CreateHeaderField(1, ":authority", ""),
             CreateHeaderField(2, ":method", "GET"),
             CreateHeaderField(3, ":method", "POST"),
@@ -1193,7 +1195,7 @@ internal static class H2StaticTable
             CreateHeaderField(59, "vary", ""),
             CreateHeaderField(60, "via", ""),
             CreateHeaderField(61, "www-authenticate", "")
-    };
+    ];
 
     public static bool TryGetStatusIndex(int status, out int index)
     {
