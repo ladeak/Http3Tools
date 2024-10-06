@@ -1,15 +1,16 @@
-﻿using System.Numerics;
-using System.Runtime;
+﻿using System.Reflection.PortableExecutable;
 using System.Security.Authentication;
+using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer;
 
-internal sealed class Http2Connection
+internal sealed partial class Http2Connection
 {
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
+    internal const uint MaxWindowUpdateSize = 2_147_483_647;
 
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
 
@@ -17,17 +18,21 @@ internal sealed class Http2Connection
     private readonly Stream _inputStream;
     private readonly int _streamIdIndex;
     private readonly bool _aborted;
+    private readonly HPackDecoder _hpackDecoder;
 
     private byte[] _buffer;
     private FrameWriter? _writer;
     private Http2Frame _readFrame;
     private Http2SettingsPayload _h2Settings;
+    private Dictionary<uint, Http2Stream> _streams;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
     {
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
+        _streams = [];
         _h2Settings = new();
+        _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: (int)_h2Settings.MaxFrameSize);
         _buffer = new byte[_h2Settings.MaxFrameSize];
         _inputStream = connectionContext.Transport!;
         _aborted = false;
@@ -36,7 +41,7 @@ internal sealed class Http2Connection
 
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application)
     {
-        _writer = new FrameWriter(_context);
+        _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
         try
         {
@@ -54,6 +59,11 @@ internal sealed class Http2Connection
         catch (Http2ConnectionException)
         {
             errorCode = Http2ErrorCode.CONNECT_ERROR;
+        }
+        catch (Http2FlowControlException)
+        {
+            // GOAWAY frame with an error code of FLOW_CONTROL_ERROR
+            errorCode = Http2ErrorCode.FLOW_CONTROL_ERROR;
         }
         catch (Http2ProtocolException)
         {
@@ -73,11 +83,59 @@ internal sealed class Http2Connection
         }
     }
 
-    private Task ProcessFrame()
+    private ValueTask ProcessFrame()
     {
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
-        return Task.CompletedTask;
+        if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
+            return ProcessWindowUpdateFrame();
+        if (_readFrame.Type == Http2FrameType.HEADERS)
+            return ProcessHeaderFrame();
+        return ValueTask.CompletedTask;
+    }
+
+    private async ValueTask ProcessHeaderFrame()
+    {
+        //+---------------+
+        //| Pad Length ? (8) |
+        //+-+-------------+-----------------------------------------------+
+        //| E | Stream Dependency ? (31) |
+        //+-+-------------+-----------------------------------------------+
+        //| Weight ? (8) |
+        //+-+-------------+-----------------------------------------------+
+        //| Header Block Fragment(*)...
+        //+---------------------------------------------------------------+
+        //| Padding(*)...
+        //+---------------------------------------------------------------+
+        var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
+        await _inputStream.ReadExactlyAsync(memory);
+        int payloadStart = 0;
+        int paddingLength = 0;
+        if (_readFrame.HasPadding)
+        {
+            payloadStart = 1;
+            paddingLength = memory.Span[0];
+        }
+        if (_readFrame.HasPriorty)
+            payloadStart += 5;
+        _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), _readFrame.EndHeaders, this);
+    }
+
+    private async ValueTask ProcessWindowUpdateFrame()
+    {
+        if (_readFrame.PayloadLength != 4)
+            throw new Http2ProtocolException();
+        var memory = _buffer.AsMemory(0, 4);
+        await _inputStream.ReadExactlyAsync(memory);
+        var updateSize = IntegerSerializer.ReadUInt32BigEndian(memory.Span);
+        if (updateSize > MaxWindowUpdateSize)
+            throw new Http2ProtocolException();
+
+        var streamId = _readFrame.StreamId;
+        if (streamId > 0)
+            _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
+        else
+            _writer!.UpdateConnectionWindowSize(updateSize);
     }
 
     private async Task ReadFrameHeader()
@@ -93,7 +151,7 @@ internal sealed class Http2Connection
         _readFrame.StreamId = streamId;
     }
 
-    private async Task ProcessSettingsFrame()
+    private async ValueTask ProcessSettingsFrame()
     {
         if (_h2Settings.SettingsReceived)
             throw new Http2ConnectionException("Don't allow settings to change mid-connection");
@@ -162,29 +220,41 @@ internal sealed class Http2Connection
     }
 }
 
-internal struct Http2SettingsPayload
+public class Http2Stream
 {
-    public Http2SettingsPayload()
+    private enum StreamState
     {
-        HeaderTableSize = 0;
-        EnablePush = 0;
-        MaxConcurrentStream = 100;
-        InitialWindowSize = 65_535 * 2;
-        MaxFrameSize = 16_384 * 2;
-        SettingsReceived = false;
+        Open,
+        HalfOpenRemote,
+        HalfOpenLocal,
+        Closed,
     }
 
-    public uint HeaderTableSize { get; set; }
+    private uint _windowSize;
+    private StreamState _state;
 
-    public uint EnablePush { get; set; }
+    public Http2Stream(uint streamId, uint initialWindowSize)
+    {
+        _windowSize = initialWindowSize;
+        _state = StreamState.Open;
+    }
 
-    public uint MaxConcurrentStream { get; set; }
+    public void ProcessHeader()
+    {
 
-    public uint InitialWindowSize { get; set; } 
+    }
 
-    public uint MaxFrameSize { get; set; }
+    public void UpdateWindowSize(uint updateSize)
+    {
+        if (updateSize == 0)
+            throw new Http2ProtocolException(); //Stream error
 
-    public uint MaxHeaderListSize { get; set; }
-
-    public bool SettingsReceived { get; set; }
+        var updatedValue = _windowSize + updateSize;
+        if (updatedValue > Http2Connection.MaxWindowUpdateSize)
+        {
+            // RST_STREAM with an error code of FLOW_CONTROL_ERROR
+            // Reset instead of throwing?
+            throw new Http2FlowControlException();
+        }
+    }
 }

@@ -55,4 +55,12 @@ internal class Http2Frame
         StreamId = 0;
         PayloadLength = size;
     }
+
+    // Headers
+
+    public bool EndHeaders => (Flags & 0x04) != 0;
+
+    public bool HasPadding => (Flags & 0x08) != 0;
+
+    public bool HasPriorty => (Flags & 0x20) != 0;
 }

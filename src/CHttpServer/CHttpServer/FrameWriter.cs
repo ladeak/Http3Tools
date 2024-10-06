@@ -1,21 +1,40 @@
-﻿using System;
-using System.Drawing;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 
 namespace CHttpServer;
 
 internal sealed class FrameWriter
 {
+    private const int FrameHeaderSize = 9;
+
     private readonly CHttpConnectionContext _context;
     private readonly Http2Frame _frame;
     private readonly PipeWriter _destination;
-    private const int FrameHeaderSize = 9;
 
-    public FrameWriter(CHttpConnectionContext context)
+    private uint _connectionWindowSize;
+    private readonly Lock _connectionWindowLock;
+
+    public FrameWriter(CHttpConnectionContext context, uint connectionWindowSize)
     {
         _context = context;
         _destination = context.TransportPipe!.Output;
         _frame = new Http2Frame();
+        _connectionWindowLock = new Lock();
+        _connectionWindowSize = connectionWindowSize;
+    }
+
+    internal void UpdateConnectionWindowSize(uint updateSize)
+    {
+        if (updateSize == 0)
+            throw new Http2ConnectionException("Window Update Size must not be 0.");
+
+        lock (_connectionWindowLock)
+        {
+            var updatedValue = _connectionWindowSize + updateSize;
+            if (updatedValue > Http2Connection.MaxWindowUpdateSize)
+                throw new Http2FlowControlException();
+
+            _connectionWindowSize = updatedValue;
+        }
     }
 
     internal void WriteGoAway(int lastStreamId, Http2ErrorCode errorCode)

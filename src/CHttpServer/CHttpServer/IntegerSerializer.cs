@@ -18,12 +18,12 @@ public static class IntegerSerializer
 
     public static bool WriteUInt24BigEndian(Span<byte> destination, uint value)
     {
-        if(destination.Length < 3 || value > (uint.MaxValue >> 8))
+        if (destination.Length < 3 || value > 0xFF_FF_FF)
             return false;
 
-        ref byte start = ref MemoryMarshal.GetReference(destination);
-        Unsafe.WriteUnaligned(ref start, value);
-        destination.Reverse();
+        destination[2] = (byte)value;
+        destination[1] = (byte)(value >> 8);
+        destination[0] = (byte)(value >> 16);
         return true;
     }
 }
