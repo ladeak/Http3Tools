@@ -1,5 +1,4 @@
-﻿using System.Reflection.PortableExecutable;
-using System.Security.Authentication;
+﻿using System.Security.Authentication;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -25,12 +24,14 @@ internal sealed partial class Http2Connection
     private Http2Frame _readFrame;
     private Http2SettingsPayload _h2Settings;
     private Dictionary<uint, Http2Stream> _streams;
+    private Http2Stream _currentStream;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
     {
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
         _streams = [];
+        _currentStream = new Http2Stream<object>(0, 0, this);
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: (int)_h2Settings.MaxFrameSize);
         _buffer = new byte[_h2Settings.MaxFrameSize];
@@ -52,7 +53,7 @@ internal sealed partial class Http2Connection
             while (!_aborted)
             {
                 await ReadFrameHeader();
-                await ProcessFrame();
+                await ProcessFrame(application);
             }
 
         }
@@ -83,18 +84,18 @@ internal sealed partial class Http2Connection
         }
     }
 
-    private ValueTask ProcessFrame()
+    private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application)
     {
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
         if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
             return ProcessWindowUpdateFrame();
         if (_readFrame.Type == Http2FrameType.HEADERS)
-            return ProcessHeaderFrame();
+            return ProcessHeaderFrame(application);
         return ValueTask.CompletedTask;
     }
 
-    private async ValueTask ProcessHeaderFrame()
+    private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application)
     {
         //+---------------+
         //| Pad Length ? (8) |
@@ -118,7 +119,25 @@ internal sealed partial class Http2Connection
         }
         if (_readFrame.HasPriorty)
             payloadStart += 5;
-        _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), _readFrame.EndHeaders, this);
+
+        if ((_currentStream.StreamId == _readFrame.StreamId || _currentStream.RequestEndHeaders)
+            || _streams.ContainsKey(_readFrame.StreamId))
+        {
+            throw new Http2ProtocolException();
+        }
+
+        _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, application);
+        _streams.Add(_readFrame.StreamId, _currentStream);
+        bool endHeaders = _readFrame.EndHeaders;
+        _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
+        if (endHeaders)
+            _currentStream.RequestEndHeadersReceived();
+        StartStream();
+    }
+
+    private void StartStream()
+    {
+        ThreadPool.UnsafeQueueUserWorkItem(_currentStream, preferLocal: false);
     }
 
     private async ValueTask ProcessWindowUpdateFrame()
@@ -216,45 +235,6 @@ internal sealed partial class Http2Connection
         if (tlsFeature == null || tlsFeature.Protocol < SslProtocols.Tls12)
         {
             throw new Http2ConnectionException("TLS required");
-        }
-    }
-}
-
-public class Http2Stream
-{
-    private enum StreamState
-    {
-        Open,
-        HalfOpenRemote,
-        HalfOpenLocal,
-        Closed,
-    }
-
-    private uint _windowSize;
-    private StreamState _state;
-
-    public Http2Stream(uint streamId, uint initialWindowSize)
-    {
-        _windowSize = initialWindowSize;
-        _state = StreamState.Open;
-    }
-
-    public void ProcessHeader()
-    {
-
-    }
-
-    public void UpdateWindowSize(uint updateSize)
-    {
-        if (updateSize == 0)
-            throw new Http2ProtocolException(); //Stream error
-
-        var updatedValue = _windowSize + updateSize;
-        if (updatedValue > Http2Connection.MaxWindowUpdateSize)
-        {
-            // RST_STREAM with an error code of FLOW_CONTROL_ERROR
-            // Reset instead of throwing?
-            throw new Http2FlowControlException();
         }
     }
 }

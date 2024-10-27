@@ -101,9 +101,11 @@ public class CHttpServerImpl : IServer
             };
             var chttpConnection = new CHttpConnection<TContext>(connectionContext, _connectionManager, connectionDelegate);
             _connectionManager.AddConnection(connectionId, chttpConnection);
-
+#if DEBUG
             chttpConnection.Execute();
-            //ThreadPool.UnsafeQueueUserWorkItem(chttpConnection, preferLocal: false);
+#else
+            ThreadPool.UnsafeQueueUserWorkItem(chttpConnection, preferLocal: false);
+#endif
         }
     }
 
