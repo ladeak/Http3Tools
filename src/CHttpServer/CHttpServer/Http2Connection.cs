@@ -31,7 +31,7 @@ internal sealed partial class Http2Connection
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
         _streams = [];
-        _currentStream = new Http2Stream<object>(0, 0, this);
+        _currentStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: (int)_h2Settings.MaxFrameSize);
         _buffer = new byte[_h2Settings.MaxFrameSize];
@@ -40,7 +40,7 @@ internal sealed partial class Http2Connection
         _readFrame = new();
     }
 
-    public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application)
+    public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
@@ -84,7 +84,7 @@ internal sealed partial class Http2Connection
         }
     }
 
-    private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application)
+    private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
@@ -95,7 +95,7 @@ internal sealed partial class Http2Connection
         return ValueTask.CompletedTask;
     }
 
-    private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application)
+    private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         //+---------------+
         //| Pad Length ? (8) |
@@ -126,7 +126,7 @@ internal sealed partial class Http2Connection
             throw new Http2ProtocolException();
         }
 
-        _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, application);
+        _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, _context.Features, application);
         _streams.Add(_readFrame.StreamId, _currentStream);
         bool endHeaders = _readFrame.EndHeaders;
         _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);

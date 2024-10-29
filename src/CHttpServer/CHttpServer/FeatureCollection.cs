@@ -36,6 +36,8 @@ public class FeatureCollection : IFeatureCollection
         return (TFeature?)this[typeof(TFeature)];
     }
 
+    public void Add<TFeature>(TFeature value) => this[typeof(TFeature)] = value;
+
     public IEnumerator<KeyValuePair<Type, object>> GetEnumerator()
     {
         foreach (var pair in _features)
