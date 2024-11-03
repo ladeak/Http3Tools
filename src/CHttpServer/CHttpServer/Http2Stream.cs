@@ -4,6 +4,7 @@ using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 namespace CHttpServer;
 
@@ -21,6 +22,7 @@ internal class Http2Stream<TContext> : Http2Stream where TContext : notnull
         _featureCollection.Add<IHttpResponseFeature>(this);
         _featureCollection.Add<IHttpResponseBodyFeature>(this);
         _featureCollection.Add<IHttpResponseTrailersFeature>(this);
+        _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
     }
 
     protected override Task RunApplicationAsync()
@@ -95,13 +97,21 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         switch (pseudoHeader)
         {
             case Http2Connection.PseudoHeaderFields.Authority:
-                _requestHeaders.Add("Authority", value.ToArray());
+                _requestHeaders.Add("Host", value.ToArray());
                 break;
             case Http2Connection.PseudoHeaderFields.Path:
                 SetPath(value);
                 break;
-        }
+            case Http2Connection.PseudoHeaderFields.None:
 
+                switch (header.StaticTableIndex)
+                {
+                    case H2StaticTable.ContentType:
+                        _requestHeaders.Add(Microsoft.Net.Http.Headers.HeaderNames.ContentType, value);
+                        break;
+                };
+                break;
+        }
     }
 
     private const byte QuestionMarkByte = (byte)'?';
@@ -125,9 +135,11 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     }
 }
 
-internal partial class Http2Stream : IHttpRequestFeature
+internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature
 {
     private HeaderCollection _requestHeaders;
+
+    private Pipe _requestContentPipe = new();
 
     public string Protocol { get => "HTTP/2"; set => throw new NotSupportedException(); }
     public string Scheme { get; set; } = string.Empty;
@@ -137,7 +149,9 @@ internal partial class Http2Stream : IHttpRequestFeature
     public string QueryString { get; set; } = string.Empty;
     public string RawTarget { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     public IHeaderDictionary Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
-    public Stream Body { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public Stream Body { get => _requestContentPipe.Reader.AsStream(); set => throw new NotSupportedException(); }
+
+    public bool CanHaveBody => Headers.ToList().Count > 0;
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature

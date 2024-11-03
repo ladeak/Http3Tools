@@ -19,7 +19,7 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public ICollection<StringValues> Values => new List<StringValues>(this.Select(x => x.Value));
 
-    public int Count => _headersRaw.Count;
+    public int Count { get; private set; }
 
     public bool IsReadOnly => _readonly;
 
@@ -35,6 +35,7 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         {
             ValidateReadOnly();
             _headers.Add(key, value);
+            Count++;
         }
     }
 
@@ -44,6 +45,7 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         ValidateReadOnly();
         _headers.Add(key, value);
+        Count++;
     }
 
     private void ValidateReadOnly()
@@ -63,7 +65,9 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         ValidateReadOnly();
         var result = _headers.Remove(key);
-        result &= _headersRaw.Remove(key);
+        result |= _headersRaw.Remove(key);
+        if (result)
+            Count--;
         return result;
     }
 
@@ -86,6 +90,7 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         ValidateReadOnly();
         _headersRaw.Add(key, value);
+        Count++;
     }
 
     public void Add(string key, ReadOnlySpan<byte> rawValue)
@@ -93,6 +98,15 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         ValidateReadOnly();
         var value = new StringValues(Encoding.Latin1.GetString(rawValue));
         _headers.TryAdd(key, value);
+        Count++;
+    }
+
+    public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> rawValue)
+    {
+        ValidateReadOnly();
+        var value = new StringValues(Encoding.Latin1.GetString(rawValue));
+        _headers.TryAdd(Encoding.Latin1.GetString(key), value);
+        Count++;
     }
 
     public void Clear()
@@ -100,6 +114,7 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         ValidateReadOnly();
         _headers.Clear();
         _headersRaw.Clear();
+        Count = 0;
     }
 
     public bool Contains(KeyValuePair<string, StringValues> item)
@@ -129,14 +144,12 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         _enumerator = _headers.GetEnumerator();
         _enumeratorRaw = _headersRaw.GetEnumerator();
-        _currentIndex = -1;
         _passedParsed = false;
         return this;
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    private int _currentIndex = -1;
     private bool _passedParsed = false;
     private Dictionary<string, StringValues>.Enumerator _enumerator;
     private Dictionary<string, byte[]>.Enumerator _enumeratorRaw;
@@ -147,7 +160,6 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public bool MoveNext()
     {
-        _currentIndex++;
         bool hasNext;
         if (!_passedParsed)
         {

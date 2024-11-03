@@ -92,7 +92,13 @@ internal sealed partial class Http2Connection
             return ProcessWindowUpdateFrame();
         if (_readFrame.Type == Http2FrameType.HEADERS)
             return ProcessHeaderFrame(application);
+        if (_readFrame.Type == Http2FrameType.DATA)
+            return ProcessDataFrame();
         return ValueTask.CompletedTask;
+    }
+
+    private async ValueTask ProcessDataFrame()
+    {
     }
 
     private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
