@@ -1,4 +1,5 @@
-﻿using System.IO.Pipelines;
+﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -139,7 +140,7 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 {
     private HeaderCollection _requestHeaders;
 
-    private Pipe _requestContentPipe = new();
+    private Pipe _requestContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
     public string Protocol { get => "HTTP/2"; set => throw new NotSupportedException(); }
     public string Scheme { get; set; } = string.Empty;
@@ -152,11 +153,14 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public Stream Body { get => _requestContentPipe.Reader.AsStream(); set => throw new NotSupportedException(); }
 
     public bool CanHaveBody => Headers.ToList().Count > 0;
+
+    public PipeWriter RequestPipe => _requestContentPipe.Writer;
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
     private HeaderCollection _responseHeaders;
+    private Pipe _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
     public int StatusCode { get; set; }
     public string? ReasonPhrase { get; set; }
@@ -165,7 +169,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public Stream Stream => throw new NotImplementedException();
 
-    public PipeWriter Writer => throw new NotImplementedException();
+    public PipeWriter Writer => _responseContentPipe.Writer;
 
     public IHeaderDictionary Trailers { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 

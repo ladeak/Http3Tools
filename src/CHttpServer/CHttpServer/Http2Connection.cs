@@ -2,6 +2,7 @@
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.SignalR.Protocol;
 
 namespace CHttpServer;
 
@@ -99,6 +100,19 @@ internal sealed partial class Http2Connection
 
     private async ValueTask ProcessDataFrame()
     {
+        var streamId = _readFrame.StreamId;
+        if (!_streams.TryGetValue(streamId, out var httpStream))
+            throw new Http2ConnectionException("StreamId does not exist");
+
+        if (_readFrame.EndStream)
+        {
+            httpStream.RequestPipe.Complete();
+            return;
+        }
+
+        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.MaxFrameSize).Slice(0, (int)_readFrame.PayloadLength); // framesize max
+        await _inputStream.ReadExactlyAsync(buffer);
+        httpStream.RequestPipe.Advance(buffer.Length);
     }
 
     private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull

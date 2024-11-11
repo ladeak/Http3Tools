@@ -57,6 +57,7 @@ internal class Http2Frame
     }
 
     // Headers
+    public bool EndStream => (Flags & 0x01) != 0;
 
     public bool EndHeaders => (Flags & 0x04) != 0;
 
