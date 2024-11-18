@@ -73,6 +73,7 @@ internal sealed partial class Http2Connection
         }
         catch (Exception e)
         {
+            // TODO cancel streams
         }
         finally
         {

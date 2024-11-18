@@ -46,6 +46,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     private readonly Http2Connection _connection;
     private uint _windowSize;
     private StreamState _state;
+    private CancellationTokenSource _cts;
 
     public Http2Stream(uint streamId, uint initialWindowSize, Http2Connection connection)
     {
@@ -54,6 +55,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _state = StreamState.Open;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
+        _cts = new();
     }
 
     public uint StreamId { get; }
@@ -132,11 +134,18 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     public async void Execute()
     {
+        _requestHeaders.SetReadOnly();
         await RunApplicationAsync();
+        await StartAsync(_cts.Token);
+    }
+
+    public void Abort()
+    {
+        _cts.Cancel();
     }
 }
 
-internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature
+internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature, IHttpRequestLifetimeFeature
 {
     private HeaderCollection _requestHeaders;
 
@@ -149,17 +158,20 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public string Path { get; set; } = string.Empty;
     public string QueryString { get; set; } = string.Empty;
     public string RawTarget { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-    public IHeaderDictionary Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
+    IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
     public Stream Body { get => _requestContentPipe.Reader.AsStream(); set => throw new NotSupportedException(); }
 
-    public bool CanHaveBody => Headers.ToList().Count > 0;
+    public bool CanHaveBody => true;
 
     public PipeWriter RequestPipe => _requestContentPipe.Writer;
+
+    public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
     private HeaderCollection _responseHeaders;
+    private HeaderCollection _responseTrailers;
     private Pipe _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
     public int StatusCode { get; set; }
@@ -167,11 +179,29 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public bool HasStarted { get; private set; }
 
-    public Stream Stream => throw new NotImplementedException();
+    public Stream Stream => Writer.AsStream();
 
     public PipeWriter Writer => _responseContentPipe.Writer;
 
-    public IHeaderDictionary Trailers { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public IHeaderDictionary Trailers
+    {
+        get
+        {
+            _responseTrailers = new();
+            return _responseHeaders;
+        }
+        set => throw new NotSupportedException();
+    }
+
+    IHeaderDictionary IHttpResponseFeature.Headers
+    {
+        get
+        {
+            _responseHeaders ??= new();
+            return _responseHeaders;
+        }
+        set => throw new NotSupportedException();
+    }
 
     public Task CompleteAsync()
     {
@@ -185,12 +215,15 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public void OnCompleted(Func<object, Task> callback, object state)
     {
-        throw new NotImplementedException();
     }
+
+    private Func<object, Task> _onStartignCallback;
+    private object _onStartingState;
 
     public void OnStarting(Func<object, Task> callback, object state)
     {
-        throw new NotImplementedException();
+        _onStartignCallback = callback;
+        _onStartingState = state;
     }
 
     public Task SendFileAsync(string path, long offset, long? count, CancellationToken cancellationToken = default)
@@ -198,8 +231,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         throw new NotImplementedException();
     }
 
-    public Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        await (_onStartignCallback?.Invoke(_state) ?? Task.CompletedTask);
+        HasStarted = true;
+        _responseHeaders.SetReadOnly();
     }
 }

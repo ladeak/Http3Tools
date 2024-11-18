@@ -34,8 +34,10 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         set
         {
             ValidateReadOnly();
-            _headers.Add(key, value);
-            Count++;
+            if (_headers.TryAdd(key, value))
+                Count++;
+            else
+                _headers[key] = value;
         }
     }
 

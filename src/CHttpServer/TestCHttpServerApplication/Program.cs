@@ -24,7 +24,7 @@ app.MapGet("/a", () =>
     return forecast;
 });
 
-app.MapPost("/a", ([FromBody] SampleRequest a) =>
+app.MapPost("/a", ([FromBody] SampleRequest a, CancellationToken token) =>
 {
     var forecast = Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
@@ -34,7 +34,7 @@ app.MapPost("/a", ([FromBody] SampleRequest a) =>
             summaries[Random.Shared.Next(summaries.Length)]
         ))
         .ToArray();
-    return forecast;
+    return TypedResults.Ok(forecast);
 });
 
 app.Run();
