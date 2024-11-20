@@ -24,19 +24,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 20.x
-    - name: Install Package libmsquic
-      run: |
-        sudo apt update
-        sudo apt install -y libmsquic
-      shell: sh
     - name: Build
       run: dotnet build Http3Tools.sln -c ${{ env.CONFIGURATION }}
     - name: Test
-      run: |
-        dotnet run --project tests/CHttp.Tests/CHttp.Tests.csproj -c ${{ env.CONFIGURATION }}
-        dotnet run --project tests/Http3Parts.Tests/Http3Parts.Tests.csproj -c ${{ env.CONFIGURATION }}
-        dotnet run --project tests/CHttpExecutor.Tests/CHttpExecutor.Tests.csproj -c ${{ env.CONFIGURATION }}
-        dotnet run --project tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj -c ${{ env.CONFIGURATION }}
+      run: dotnet test Http3Tools.sln -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
         pushd ./src/VSCodeExt/
