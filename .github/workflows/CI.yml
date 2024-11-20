@@ -24,6 +24,11 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 20.x
+    - name: Install Package libmsquic
+      run: |
+        sudo apt update
+        sudo apt install -y libmsquic
+      shell: sh
     - name: Build
       run: dotnet build Http3Tools.sln -c ${{ env.CONFIGURATION }}
     - name: Test
