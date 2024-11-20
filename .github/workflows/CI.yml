@@ -33,9 +33,9 @@ jobs:
       run: dotnet build Http3Tools.sln -c ${{ env.CONFIGURATION }}
     - name: Test
       run: |
-        - dotnet run --project ./tests/CHttp.Tests/CHttp.Tests.csproj -c ${{ env.CONFIGURATION }}
-        - dotnet run --project ./tests/Http3Parts.Tests/Http3Parts.Tests.csproj -c ${{ env.CONFIGURATION }}
-        - dotnet run --project ./tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj -c ${{ env.CONFIGURATION }}
+        - dotnet run --project tests/CHttp.Tests/CHttp.Tests.csproj -c ${{ env.CONFIGURATION }}
+        - dotnet run --project tests/Http3Parts.Tests/Http3Parts.Tests.csproj -c ${{ env.CONFIGURATION }}
+        - dotnet run --project tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
         pushd ./src/VSCodeExt/
