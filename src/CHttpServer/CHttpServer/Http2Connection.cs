@@ -1,4 +1,5 @@
-﻿using System.Security.Authentication;
+﻿using System;
+using System.Security.Authentication;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -99,36 +100,53 @@ internal sealed partial class Http2Connection
         return ValueTask.CompletedTask;
     }
 
+    // +---------------+
+    // |Pad Length? (8)|
+    // +---------------+-----------------------------------------------+
+    // |                            Data(*)                         ...
+    // +---------------------------------------------------------------+
+    // |                           Padding(*)                       ...
+    // +---------------------------------------------------------------+
     private async ValueTask ProcessDataFrame()
     {
         var streamId = _readFrame.StreamId;
         if (!_streams.TryGetValue(streamId, out var httpStream))
-            throw new Http2ConnectionException("StreamId does not exist");
+            throw new Http2ProtocolException();
+
+        int paddingLength = 0;
+        if (_readFrame.HasPadding)
+        {
+            await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 1));
+            paddingLength = _buffer[0];
+            if (paddingLength > _readFrame.PayloadLength)
+                throw new Http2ConnectionException("Invalid data pad length");
+        }
+
+        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.MaxFrameSize)
+            .Slice(0, (int)_readFrame.PayloadLength); // framesize max
+        await _inputStream.ReadExactlyAsync(buffer);
+        httpStream.RequestPipe.Advance(buffer.Length - paddingLength); // Padding is read but not advanced.
 
         if (_readFrame.EndStream)
         {
-            httpStream.RequestPipe.Complete();
+            httpStream.CompleteRequestStream();
             return;
         }
-
-        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.MaxFrameSize).Slice(0, (int)_readFrame.PayloadLength); // framesize max
-        await _inputStream.ReadExactlyAsync(buffer);
-        httpStream.RequestPipe.Advance(buffer.Length);
     }
 
     private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        //+---------------+
-        //| Pad Length ? (8) |
-        //+-+-------------+-----------------------------------------------+
-        //| E | Stream Dependency ? (31) |
-        //+-+-------------+-----------------------------------------------+
-        //| Weight ? (8) |
-        //+-+-------------+-----------------------------------------------+
-        //| Header Block Fragment(*)...
-        //+---------------------------------------------------------------+
-        //| Padding(*)...
-        //+---------------------------------------------------------------+
+        // +---------------+
+        // | Pad Length ? (8) |
+        // +-+-------------+-----------------------------------------------+
+        // | E | Stream Dependency ? (31) |
+        // +-+-------------+-----------------------------------------------+
+        // | Weight ? (8) |
+        // +-+-------------+-----------------------------------------------+
+        // | Header Block Fragment(*)...
+        // +---------------------------------------------------------------+
+        // | Padding(*)...
+        // +---------------------------------------------------------------+
         var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
         await _inputStream.ReadExactlyAsync(memory);
         int payloadStart = 0;

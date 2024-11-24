@@ -5,7 +5,6 @@ using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 namespace CHttpServer;
 
@@ -35,12 +34,12 @@ internal class Http2Stream<TContext> : Http2Stream where TContext : notnull
 
 internal abstract partial class Http2Stream : IThreadPoolWorkItem
 {
-    private enum StreamState
+    private enum StreamState : byte
     {
-        Open,
-        HalfOpenRemote,
-        HalfOpenLocal,
-        Closed,
+        Open = 0,
+        HalfOpenLocal = 1,
+        HalfOpenRemote = 2,
+        Closed = 4,
     }
 
     private readonly Http2Connection _connection;
@@ -142,6 +141,13 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     public void Abort()
     {
         _cts.Cancel();
+        _state = StreamState.Closed;
+    }
+
+    public void CompleteRequestStream()
+    {
+        _requestContentPipe.Writer.Complete();
+        _state = StreamState.HalfOpenRemote;
     }
 }
 
@@ -163,7 +169,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     public bool CanHaveBody => true;
 
-    public PipeWriter RequestPipe => _requestContentPipe.Writer;
+    public PipeWriter RequestPipe => _state <= StreamState.HalfOpenLocal ?
+        _requestContentPipe.Writer : throw new Http2ConnectionException("STREAM CLOSED");
 
     public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
 }
@@ -205,7 +212,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public Task CompleteAsync()
     {
-        throw new NotImplementedException();
+        return _onCompletedCallback?.Invoke(_onCompletedState) ?? Task.CompletedTask;
     }
 
     public void DisableBuffering()
@@ -213,8 +220,13 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         throw new NotImplementedException();
     }
 
+    private Func<object, Task> _onCompletedCallback;
+    private object _onCompletedState;
+
     public void OnCompleted(Func<object, Task> callback, object state)
     {
+        _onCompletedCallback = callback;
+        _onCompletedState = state;
     }
 
     private Func<object, Task> _onStartignCallback;
@@ -233,7 +245,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        await (_onStartignCallback?.Invoke(_state) ?? Task.CompletedTask);
+        await (_onStartignCallback?.Invoke(_onStartingState) ?? Task.CompletedTask);
         HasStarted = true;
         _responseHeaders.SetReadOnly();
     }
