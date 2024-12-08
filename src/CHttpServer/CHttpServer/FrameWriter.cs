@@ -49,7 +49,7 @@ internal sealed class FrameWriter
         _frame.SetSettings(size);
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
-        buffer = buffer[9..];
+        buffer = buffer[FrameHeaderSize..];
 
         buffer = WriteSetting(buffer, 1, payload.HeaderTableSize);
         buffer = WriteSetting(buffer, 2, payload.EnablePush);
@@ -74,6 +74,16 @@ internal sealed class FrameWriter
         var buffer = _destination.GetSpan(FrameHeaderSize);
         WriteFrameHeader(buffer);
         _destination.Advance(FrameHeaderSize);
+    }
+
+    internal void WriteResponseHeader(uint streamId, Memory<byte> headers)
+    {
+        int totalSize = headers.Length + FrameHeaderSize;
+        _frame.SetResponseHeaders(streamId, totalSize);
+        var buffer = _destination.GetSpan(totalSize);
+        WriteFrameHeader(buffer);
+        buffer = buffer[FrameHeaderSize..];
+        headers.Span.CopyTo(buffer);
     }
 
     private void WriteFrameHeader(Span<byte> destination)

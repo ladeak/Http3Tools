@@ -5,6 +5,7 @@ using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Http.Headers;
 
 namespace CHttpServer;
 
@@ -43,6 +44,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     }
 
     private readonly Http2Connection _connection;
+    private readonly Http2ResponseWriter _writer;
     private uint _windowSize;
     private StreamState _state;
     private CancellationTokenSource _cts;
@@ -51,6 +53,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _windowSize = initialWindowSize;
         _connection = connection;
+        _writer = connection.ResponseWriter!;
         _state = StreamState.Open;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
@@ -177,8 +180,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
-    private HeaderCollection _responseHeaders;
-    private HeaderCollection _responseTrailers;
+    private HeaderCollection? _responseHeaders;
+    private HeaderCollection? _responseTrailers;
     private Pipe _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
     public int StatusCode { get; set; }
@@ -194,8 +197,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         get
         {
-            _responseTrailers = new();
-            return _responseHeaders;
+            _responseTrailers ??= new();
+            return _responseTrailers;
         }
         set => throw new NotSupportedException();
     }
@@ -212,7 +215,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public Task CompleteAsync()
     {
-        return _onCompletedCallback?.Invoke(_onCompletedState) ?? Task.CompletedTask;
+        return _onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask;
     }
 
     public void DisableBuffering()
@@ -220,8 +223,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         throw new NotImplementedException();
     }
 
-    private Func<object, Task> _onCompletedCallback;
-    private object _onCompletedState;
+    private Func<object, Task>? _onCompletedCallback;
+    private object? _onCompletedState;
 
     public void OnCompleted(Func<object, Task> callback, object state)
     {
@@ -229,8 +232,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _onCompletedState = state;
     }
 
-    private Func<object, Task> _onStartignCallback;
-    private object _onStartingState;
+    private Func<object, Task>? _onStartignCallback;
+    private object? _onStartingState;
 
     public void OnStarting(Func<object, Task> callback, object state)
     {
@@ -245,8 +248,12 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        await (_onStartignCallback?.Invoke(_onStartingState) ?? Task.CompletedTask);
+        await (_onStartignCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
         HasStarted = true;
+        _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
+        
+        // send headers
+
     }
 }

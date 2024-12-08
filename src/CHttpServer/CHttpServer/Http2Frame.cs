@@ -14,6 +14,9 @@
 /// </remarks>
 internal class Http2Frame
 {
+    private const byte EndStreamFlag = 0x01;
+    private const byte EndHeadersFlag = 0x04;
+
     public uint PayloadLength { get; set; }
 
     public Http2FrameType Type { get; set; }
@@ -38,6 +41,14 @@ internal class Http2Frame
         GoAwayErrorCode = errorCode;
     }
 
+    public void SetResponseHeaders(uint streamId, int payloadLength)
+    {
+        Type = Http2FrameType.HEADERS;
+        EndHeaders = true;
+        StreamId = streamId;
+        PayloadLength = (uint)payloadLength;
+    }
+
     // Settings
 
     public void SetSettingsAck()
@@ -57,9 +68,9 @@ internal class Http2Frame
     }
 
     // Headers
-    public bool EndStream => (Flags & 0x01) != 0;
+    public bool EndStream { get => (Flags & EndStreamFlag) != 0; set => Flags |= EndStreamFlag; }
 
-    public bool EndHeaders => (Flags & 0x04) != 0;
+    public bool EndHeaders { get => (Flags & EndHeadersFlag) != 0; set => Flags |= EndHeadersFlag; }
 
     public bool HasPadding => (Flags & 0x08) != 0;
 

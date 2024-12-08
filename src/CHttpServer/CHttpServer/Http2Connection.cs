@@ -1,9 +1,7 @@
-﻿using System;
-using System.Security.Authentication;
+﻿using System.Security.Authentication;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.SignalR.Protocol;
 
 namespace CHttpServer;
 
@@ -24,6 +22,7 @@ internal sealed partial class Http2Connection
     private byte[] _buffer;
     private FrameWriter? _writer;
     private Http2Frame _readFrame;
+    private Http2ResponseWriter? _responseWriter;
     private Http2SettingsPayload _h2Settings;
     private Dictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
@@ -42,9 +41,12 @@ internal sealed partial class Http2Connection
         _readFrame = new();
     }
 
+    internal Http2ResponseWriter? ResponseWriter => _responseWriter;
+
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
+        _responseWriter = new Http2ResponseWriter(_writer);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
         try
         {
@@ -81,7 +83,6 @@ internal sealed partial class Http2Connection
             if (errorCode != Http2ErrorCode.NO_ERROR)
             {
                 // todo close stream
-                // todo write goaway
                 _writer.WriteGoAway(_streamIdIndex, errorCode);
             }
         }
@@ -272,8 +273,6 @@ internal sealed partial class Http2Connection
     {
         var tlsFeature = _context.Features.Get<ITlsHandshakeFeature>();
         if (tlsFeature == null || tlsFeature.Protocol < SslProtocols.Tls12)
-        {
             throw new Http2ConnectionException("TLS required");
-        }
     }
 }
