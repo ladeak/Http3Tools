@@ -34,7 +34,8 @@ public record struct Summary
     private long _endTime;
     public long EndTime
     {
-        get => _endTime; set
+        get => _endTime;
+        set
         {
             if (_endTime != default || StartTime == default)
                 return;

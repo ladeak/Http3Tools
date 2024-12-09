@@ -1,6 +1,6 @@
-﻿using Http3Parts.UriBuilders;
+﻿using CHttp.UriBuilders;
 
-namespace Http3Parts.Tests;
+namespace CHttp.Tests;
 
 public class UriPathBuilderTests
 {

@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 
-namespace Http3Parts.UriBuilders;
+namespace CHttp.UriBuilders;
 
 public static class UriPathBuilder
 {
