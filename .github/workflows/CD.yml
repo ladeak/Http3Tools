@@ -27,17 +27,17 @@ jobs:
     - name: Build CHttp
       run: |
         dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
-        dotnet build src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttp.Parts/CHttp.Parts.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
         dotnet build src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
     - name: Pack CHttp
       run:  |
         dotnet pack src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
-        dotnet pack src/Http3Parts/Http3Parts.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+        dotnet pack src/CHttp.Parts/CHttp.Parts.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
         dotnet pack src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
     - name: Push Nuget
       run: |
         dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
-        dotnet nuget push src/Http3Parts/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+        dotnet nuget push src/CHttp.Parts/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
         dotnet nuget push src/CHttpExecutor/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
       env:
         nuget_api_key: ${{ secrets.NUGET_API_KEY }}

@@ -1,6 +1,6 @@
 ﻿using System.Buffers;
 
-namespace Http3Parts;
+namespace CHttp.Parts.UriBuilders;
 
 public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 {

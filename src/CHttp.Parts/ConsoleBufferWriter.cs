@@ -1,5 +1,7 @@
 ﻿using System.Buffers;
 
+namespace CHttp.Parts.UriBuilders;
+
 public sealed class ConsoleBufferWriter : IBufferWriter<char>
 {
     private const int DefaultInitialBufferSize = 4096 * 2;
