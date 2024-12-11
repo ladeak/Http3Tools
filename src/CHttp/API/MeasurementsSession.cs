@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Runtime.InteropServices;
 using CHttp.Abstractions;
 using CHttp.Performance.Data;
 using CHttp.Performance.Statitics;
@@ -23,41 +24,32 @@ public class MeasurementsSession
         _url = url;
     }
 
-    public Summary StartMeasurement()
+    public void StartMeasurement()
     {
         if (_summaries.Count > 0 && _summaries.Last().EndTime == default)
             throw new InvalidOperationException("Current Summary is not completed");
         var summary = new Summary(_url);
         _summaries.Add(summary);
-        return summary;
     }
 
-    public void EndMeasurement(Summary summary, HttpStatusCode statusCode = HttpStatusCode.OK) => summary.RequestCompleted(statusCode);
+    public void EndMeasurement(HttpStatusCode statusCode = HttpStatusCode.OK)
+    {
+        ref var summary = ref CollectionsMarshal.AsSpan(_summaries)[^1];
+        summary.RequestCompleted(statusCode);
+    }
+
+    public IReadOnlyCollection<Summary> GetSession() => _summaries.ToList();
 
     public ValueTask PrintStatsAsync()
     {
         var printer = new StatisticsPrinter(_console);
-        var results = new PerformanceMeasurementResults()
-        {
-            Summaries = _summaries,
-            TotalBytesRead = 0,
-            MaxConnections = 1,
-            Behavior = new PerformanceBehavior(_summaries.Count, 1, false)
-        };
-        return printer.SummarizeResultsAsync(results);
+        return printer.SummarizeResultsAsync(CreateMeasurementResults(_summaries));
     }
 
     public ValueTask SaveAsync(string filePath)
     {
         var printer = new FilePrinter(filePath, _fileSystem);
-        var results = new PerformanceMeasurementResults()
-        {
-            Summaries = _summaries,
-            TotalBytesRead = 0,
-            MaxConnections = 1,
-            Behavior = new PerformanceBehavior(1, _summaries.Count, false)
-        };
-        return printer.SummarizeResultsAsync(results);
+        return printer.SummarizeResultsAsync(CreateMeasurementResults(_summaries));
     }
 
     public async ValueTask DiffAsync(string filePath0, string filePath1)
@@ -67,4 +59,20 @@ public class MeasurementsSession
         var session1 = await PerformanceFileHandler.LoadAsync(_fileSystem, filePath1);
         printer.Compare(session0, session1);
     }
+
+    public void Diff(IReadOnlyCollection<Summary> session0, IReadOnlyCollection<Summary> session1)
+    {
+        var printer = new DiffPrinter(_console);
+        printer.Compare(CreateMeasurementResults(session0), CreateMeasurementResults(session1));
+    }
+
+    private static PerformanceMeasurementResults CreateMeasurementResults(IReadOnlyCollection<Summary> summaries) =>
+        new PerformanceMeasurementResults()
+        {
+            Summaries = summaries,
+            TotalBytesRead = 0,
+            MaxConnections = 1,
+            Behavior = new PerformanceBehavior(summaries.Count, 1, false)
+        };
+
 }
