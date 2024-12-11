@@ -131,6 +131,7 @@ public class MeasurementSessionTests
         }
         var s0 = sut.GetSession();
         var s1 = sut.GetSession();
+        Assert.NotSame(s0, s1);
 
         sut.Diff(s1, s1);
         Assert.NotNull(testConsole.Text);
