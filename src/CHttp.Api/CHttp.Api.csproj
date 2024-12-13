@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
     <NoWarn>1701;1702;CA1416</NoWarn>
-    <RootNamespace>CHttp.Parts</RootNamespace>
-    <PackageId>LaDeak.CHttp.Parts</PackageId>
+    <RootNamespace>CHttp.Api</RootNamespace>
+    <PackageId>LaDeak.CHttp.Api</PackageId>
     <Authors>LaDeak</Authors>
     <PackageOutputPath>./nupkg</PackageOutputPath>
   </PropertyGroup>

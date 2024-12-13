@@ -5,7 +5,7 @@ using CHttp.Performance.Data;
 using CHttp.Tests;
 using Xunit;
 
-namespace CHttp.Parts.Tests;
+namespace CHttp.Api.Tests;
 
 public class MeasurementSessionTests
 {
