@@ -1,8 +1,8 @@
-# Http3Tools
+# CHttpTools
 
 CHttp is a tool to send HTTP requests. The tool is based on .NET8 and .NET9, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
-## Getting Started
+## Getting Startedh
 
 ### Install as a .NET Tool
 
@@ -276,6 +276,27 @@ ASSERTION VIOLATION
 error: Mean is not < 1.000ns
 error: StdDev is not < 0.001ns
 ```
+
+## API usage
+
+`MeasurementsSession` allows to apply the same logic used by the CHttp CLI, dotnet tool and VS Extension in C# projects.
+
+```csharp
+var session = new MeasurementsSession("https://localhost:5001");
+
+for (int i = 0; i < 10; i++)
+{
+    session.StartMeasurement();
+    // Execute measured code...
+    session.EndMeasurement(HttpStatusCode.BadRequest);
+}
+await session.PrintStatsAsync();
+```
+
+- Use `DiffAsync` to create diffs from files - this allows to compare files programatically from sources of measurements.
+- Use `SaveAsync` to save a measurement session into a file.
+- Use `PrintStatsAsync` to print the results on the console.
+- `GetSession` and `Diff` methods allow to compare measurement sessions in memory.
 
 ## Develop
 
