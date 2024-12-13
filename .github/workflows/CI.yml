@@ -34,7 +34,7 @@ jobs:
     - name: Test
       run: |
         dotnet run --no-build --project tests/CHttp.Tests/CHttp.Tests.csproj -c ${{ env.CONFIGURATION }}
-        dotnet run --no-build --project tests/CHttp.Parts.Tests/CHttp.Parts.Tests.csproj -c ${{ env.CONFIGURATION }}
+        dotnet run --no-build --project tests/CHttp.Api.Tests/CHttp.Api.Tests.csproj -c ${{ env.CONFIGURATION }}
         dotnet run --no-build --project tests/CHttpExecutor.Tests/CHttpExecutor.Tests.csproj -c ${{ env.CONFIGURATION }}
         dotnet run --no-build --project tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
