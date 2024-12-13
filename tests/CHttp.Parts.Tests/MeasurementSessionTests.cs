@@ -1,10 +1,11 @@
 ﻿using System.Net;
 using System.Text.Json;
 using CHttp.Abstractions;
-using CHttp.API;
 using CHttp.Performance.Data;
+using CHttp.Tests;
+using Xunit;
 
-namespace CHttp.Tests.API;
+namespace CHttp.Parts.Tests;
 
 public class MeasurementSessionTests
 {

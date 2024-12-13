@@ -6,7 +6,7 @@ using CHttp.Performance.Data;
 using CHttp.Performance.Statitics;
 using CHttp.Writers;
 
-namespace CHttp.API;
+namespace CHttp.Parts;
 
 public class PerformanceMeasureClient
 {

@@ -22,4 +22,12 @@
     <PackageReference Include="System.IO.Pipelines" Version="9.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="CHttp.Parts.Tests"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CHttp\CHttp.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -27,6 +27,8 @@
     <InternalsVisibleTo Include="CHttp.Tests" />
     <InternalsVisibleTo Include="CHttpExtension" />
     <InternalsVisibleTo Include="CHttpExecutor" />
+    <InternalsVisibleTo Include="CHttp.Parts" />
+    <InternalsVisibleTo Include="CHttp.Parts.Tests" />
     <InternalsVisibleTo Include="CHttpExecutor.Tests" />
   </ItemGroup>
 

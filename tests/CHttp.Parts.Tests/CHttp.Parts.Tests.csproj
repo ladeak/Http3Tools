@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CHttp.Parts\CHttp.Parts.csproj" />
+    <ProjectReference Include="..\CHttp.Tests\CHttp.Tests.csproj" />
   </ItemGroup>
 
 </Project>
