@@ -20,14 +20,20 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.0" />
     <PackageReference Include="System.IO.Pipelines" Version="9.0.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="CHttp.Parts.Tests"/>
+    <InternalsVisibleTo Include="CHttp.Parts.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CHttp\CHttp.csproj" />
+    <Compile Include="..\CHttp\Abstractions\*.cs" LinkBase="Abstractions\" />
+    <Compile Include="..\CHttp\Data\*.cs" LinkBase="Data\" />
+    <Compile Include="..\CHttp\EventListeners\*.cs" LinkBase="EventListeners\" />
+    <Compile Include="..\CHttp\Writers\*.cs" LinkBase="Writers\" />
+    <Compile Include="..\CHttp\Http\*.cs" LinkBase="Http\" />
+    <Compile Include="..\CHttp\Performance\**\*.cs" LinkBase="Performance\" />
   </ItemGroup>
 
 </Project>

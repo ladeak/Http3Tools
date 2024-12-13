@@ -4,7 +4,7 @@ using CHttp.Abstractions;
 using CHttp.Performance.Data;
 using CHttp.Performance.Statitics;
 
-namespace CHttp.Parts;
+namespace CHttp;
 
 public class MeasurementsSession
 {

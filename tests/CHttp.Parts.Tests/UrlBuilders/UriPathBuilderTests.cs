@@ -1,4 +1,4 @@
-﻿using CHttp.Parts;
+﻿using CHttp.UriBuilders;
 using Xunit;
 
 namespace CHttp.Tests;

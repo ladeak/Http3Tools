@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\CHttp.Tests\TestConsoleAsOuput.cs" Link="TestConsoleAsOuput.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
@@ -24,7 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CHttp.Parts\CHttp.Parts.csproj" />
-    <ProjectReference Include="..\CHttp.Tests\CHttp.Tests.csproj" />
   </ItemGroup>
 
 </Project>
