@@ -25,9 +25,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCHttpServerApplication"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttpServer", "src\CHttpServer\CHttpServer\CHttpServer.csproj", "{F064E3C6-5E65-42E3-989C-303A0E457361}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Parts", "src\CHttp.Parts\CHttp.Parts.csproj", "{7CE3D9BD-C360-FE83-4108-9ED510DE4276}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Api", "src\CHttp.Api\CHttp.Api.csproj", "{7CE3D9BD-C360-FE83-4108-9ED510DE4276}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Parts.Tests", "tests\CHttp.Parts.Tests\CHttp.Parts.Tests.csproj", "{5FE08E81-1392-6B23-7CE9-EB0E23746616}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Api.Tests", "tests\CHttp.Api.Tests\CHttp.Api.Tests.csproj", "{5FE08E81-1392-6B23-7CE9-EB0E23746616}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

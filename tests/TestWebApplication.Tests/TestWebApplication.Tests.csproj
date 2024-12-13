@@ -20,8 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CHttp.Parts\CHttp.Parts.csproj" />
-    <ProjectReference Include="..\..\src\CHttp\CHttp.csproj" />
+    <ProjectReference Include="..\..\src\CHttp.Api\CHttp.Api.csproj" />
     <ProjectReference Include="..\TestWebApplication\TestWebApplication.csproj" />
   </ItemGroup>
 

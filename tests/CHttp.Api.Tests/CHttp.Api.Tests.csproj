@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CHttp.Parts\CHttp.Parts.csproj" />
+    <ProjectReference Include="..\..\src\CHttp.Api\CHttp.Api.csproj" />
   </ItemGroup>
 
 </Project>

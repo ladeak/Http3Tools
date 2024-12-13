@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="CHttp.Parts.Tests" />
+    <InternalsVisibleTo Include="CHttp.Api.Tests" />
   </ItemGroup>
 
   <ItemGroup>
