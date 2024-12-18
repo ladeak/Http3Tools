@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace CHttp.Data;
 
-public record struct Ratio<T> where T : IBinaryNumber<T>
+internal record struct Ratio<T> where T : IBinaryNumber<T>
 {
     private readonly long _createdTimestamp;
     private readonly TimeSpan _remaining;
