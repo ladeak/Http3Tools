@@ -1,6 +1,6 @@
 ﻿namespace CHttp.Data;
 
-public class KeyValueDescriptor
+internal class KeyValueDescriptor
 {
     private readonly string _name;
 

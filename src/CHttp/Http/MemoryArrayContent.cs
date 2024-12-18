@@ -2,7 +2,7 @@
 
 namespace CHttp.Http;
 
-public class MemoryArrayContent : HttpContent
+internal class MemoryArrayContent : HttpContent
 {
     public readonly Memory<byte> _content;
 

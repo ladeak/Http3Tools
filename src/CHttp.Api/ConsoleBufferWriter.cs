@@ -1,6 +1,6 @@
 ﻿using System.Buffers;
 
-namespace CHttp.UriBuilders;
+namespace CHttp;
 
 public sealed class ConsoleBufferWriter : IBufferWriter<char>
 {

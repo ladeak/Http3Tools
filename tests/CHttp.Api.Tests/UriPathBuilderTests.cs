@@ -1,7 +1,6 @@
-﻿using CHttp.UriBuilders;
-using Xunit;
+﻿using Xunit;
 
-namespace CHttp.Tests;
+namespace CHttp.Api.Tests;
 
 public class UriPathBuilderTests
 {

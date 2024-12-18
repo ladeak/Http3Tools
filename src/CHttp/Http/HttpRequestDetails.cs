@@ -2,7 +2,7 @@
 
 namespace CHttp.Http;
 
-public record HttpRequestDetails(HttpMethod Method, Uri Uri, Version Version, IEnumerable<KeyValueDescriptor> Headers)
+internal record HttpRequestDetails(HttpMethod Method, Uri Uri, Version Version, IEnumerable<KeyValueDescriptor> Headers)
 {
     public HttpContent? Content { get; init; }
 }

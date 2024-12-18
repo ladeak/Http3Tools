@@ -66,6 +66,12 @@ public class MeasurementsSession
         printer.Compare(CreateMeasurementResults(session0), CreateMeasurementResults(session1));
     }
 
+    public void Diff(IReadOnlyCollection<Summary> other)
+    {
+        var printer = new DiffPrinter(_console);
+        printer.Compare(CreateMeasurementResults(GetSession()), CreateMeasurementResults(other));
+    }
+
     private static PerformanceMeasurementResults CreateMeasurementResults(IReadOnlyCollection<Summary> summaries) =>
         new PerformanceMeasurementResults()
         {

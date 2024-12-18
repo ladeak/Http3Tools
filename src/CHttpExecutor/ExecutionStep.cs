@@ -6,7 +6,7 @@ namespace CHttpExecutor;
 
 internal record ExecutionPlan(IReadOnlyCollection<FrozenExecutionStep> Steps, HashSet<string> Variables);
 
-public record class VarValue<T>
+internal record class VarValue<T>
     where T : ISpanParsable<T>
 {
     public static bool TryCreate(ReadOnlySpan<char> source, out VarValue<T> value)
@@ -38,13 +38,13 @@ public record class VarValue<T>
     public bool HasValue => VariableValue == null;
 }
 
-public static class VarValue
+internal static class VarValue
 {
     public static VarValue<bool> True = new VarValue<bool>(true);
     public static VarValue<bool> False = new VarValue<bool>(false);
 }
 
-public class ExecutionStep
+internal class ExecutionStep
 {
     private static VarValue<double> DefaultTimeout = new VarValue<double>(TimeoutInSeconds);
 

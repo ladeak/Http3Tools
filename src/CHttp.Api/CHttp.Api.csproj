@@ -36,4 +36,8 @@
     <Compile Include="..\CHttp\Performance\**\*.cs" LinkBase="Performance\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="UrlBuilders\" />
+  </ItemGroup>
+
 </Project>

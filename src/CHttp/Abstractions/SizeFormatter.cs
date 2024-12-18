@@ -4,7 +4,7 @@ using CHttp.Data;
 
 namespace CHttp.Abstractions;
 
-public interface INumberFormatter<T>
+internal interface INumberFormatter<T>
 {
     public static abstract string FormatSize(T value);
 
@@ -13,7 +13,7 @@ public interface INumberFormatter<T>
     public static abstract bool TryFormatSize(T value, Span<char> destination, out int count);
 }
 
-public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
+internal class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
 {
     private const int Alignment = 4;
     private static readonly T KiloByte = T.CreateChecked(1024);
@@ -107,7 +107,7 @@ public class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
     }
 }
 
-public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
+internal class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
 {
     private const int Alignment = 7;
 
@@ -131,7 +131,7 @@ public class CountFormatter<T> : INumberFormatter<T> where T : IBinaryInteger<T>
     }
 }
 
-public class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInteger<T>
+internal class RatioFormatter<T> : INumberFormatter<Ratio<T>> where T : IBinaryInteger<T>
 {
     private const int Alignment = 7;
     private const int AlignmentSec = 5;
