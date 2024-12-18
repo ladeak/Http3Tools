@@ -1,6 +1,6 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Http.Headers;
-using CHttp.Abstractions;
+using CHttp.Data;
 
 namespace CHttp.Writers;
 

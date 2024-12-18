@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Runtime.InteropServices;
 using CHttp.Abstractions;
+using CHttp.Data;
 using CHttp.Performance.Data;
 using CHttp.Performance.Statitics;
 

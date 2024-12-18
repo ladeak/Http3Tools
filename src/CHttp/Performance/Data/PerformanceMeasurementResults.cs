@@ -1,4 +1,4 @@
-﻿using CHttp.Abstractions;
+﻿using CHttp.Data;
 
 namespace CHttp.Performance.Data;
 

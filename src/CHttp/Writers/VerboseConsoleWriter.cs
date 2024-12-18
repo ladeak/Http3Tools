@@ -3,6 +3,7 @@ using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
 using CHttp.Abstractions;
+using CHttp.Data;
 
 namespace CHttp.Writers;
 

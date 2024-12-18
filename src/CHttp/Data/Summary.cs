@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using CHttp.Data;
+using CHttp.Abstractions;
 
-namespace CHttp.Abstractions;
+namespace CHttp.Data;
 
 public record struct Summary
 {
