@@ -46,7 +46,7 @@ internal sealed partial class Http2Connection
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
-        _responseWriter = new Http2ResponseWriter(_writer);
+        _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.MaxFrameSize);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
         try
         {

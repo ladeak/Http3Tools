@@ -5,7 +5,7 @@ using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Http.Headers;
+using static CHttpServer.System.Net.Http.HPack.H2StaticTable;
 
 namespace CHttpServer;
 
@@ -51,6 +51,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     public Http2Stream(uint streamId, uint initialWindowSize, Http2Connection connection)
     {
+        StreamId = streamId;
         _windowSize = initialWindowSize;
         _connection = connection;
         _writer = connection.ResponseWriter!;
@@ -252,8 +253,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         HasStarted = true;
         _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
-        
-        // send headers
 
+        // send headers
+        await _writer.WriteHeadersAsync(StreamId, StatusCode, _responseHeaders);
+
+        _onCompletedCallback?.Invoke(_onCompletedState!);
     }
 }

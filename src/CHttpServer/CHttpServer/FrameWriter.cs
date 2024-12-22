@@ -79,12 +79,17 @@ internal sealed class FrameWriter
     internal void WriteResponseHeader(uint streamId, Memory<byte> headers)
     {
         int totalSize = headers.Length + FrameHeaderSize;
-        _frame.SetResponseHeaders(streamId, totalSize);
+        _frame.SetResponseHeaders(streamId, headers.Length);
+        _frame.EndHeaders = true;
+        _frame.EndStream = true;
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];
         headers.Span.CopyTo(buffer);
+        _destination.Advance(totalSize);
     }
+
+    internal ValueTask<FlushResult> FlushAsync() => _destination.FlushAsync();
 
     private void WriteFrameHeader(Span<byte> destination)
     {

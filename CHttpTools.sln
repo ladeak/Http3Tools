@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Api", "src\CHttp.Api\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttp.Api.Tests", "tests\CHttp.Api.Tests\CHttp.Api.Tests.csproj", "{5FE08E81-1392-6B23-7CE9-EB0E23746616}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHttpServer.Tests", "tests\CHttpServer.Tests\CHttpServer.Tests.csproj", "{BDB3DA39-D8C3-4165-8D65-2489A12E6817}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,10 @@ Global
 		{5FE08E81-1392-6B23-7CE9-EB0E23746616}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FE08E81-1392-6B23-7CE9-EB0E23746616}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FE08E81-1392-6B23-7CE9-EB0E23746616}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDB3DA39-D8C3-4165-8D65-2489A12E6817}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDB3DA39-D8C3-4165-8D65-2489A12E6817}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDB3DA39-D8C3-4165-8D65-2489A12E6817}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDB3DA39-D8C3-4165-8D65-2489A12E6817}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -90,6 +96,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{AC32247C-B8A0-4ECE-BA5B-F197AC8042F9} = {3058D078-6005-44F8-929D-C42CF343903D}
 		{F064E3C6-5E65-42E3-989C-303A0E457361} = {3058D078-6005-44F8-929D-C42CF343903D}
+		{BDB3DA39-D8C3-4165-8D65-2489A12E6817} = {3058D078-6005-44F8-929D-C42CF343903D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E8352F3F-FBF3-4E2C-AEE3-5E03AF2BEAE3}

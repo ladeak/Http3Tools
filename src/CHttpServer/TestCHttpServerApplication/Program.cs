@@ -21,7 +21,8 @@ app.MapGet("/a", () =>
             summaries[Random.Shared.Next(summaries.Length)]
         ))
         .ToArray();
-    return forecast;
+    //return forecast;
+    return TypedResults.Ok(forecast);
 });
 
 app.MapPost("/a", ([FromBody] SampleRequest a, CancellationToken token) =>

@@ -44,7 +44,7 @@ internal class Http2Frame
     public void SetResponseHeaders(uint streamId, int payloadLength)
     {
         Type = Http2FrameType.HEADERS;
-        EndHeaders = true;
+        Flags = 0;
         StreamId = streamId;
         PayloadLength = (uint)payloadLength;
     }

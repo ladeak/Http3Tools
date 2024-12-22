@@ -20,7 +20,7 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
     public void OnStaticIndexedHeader(int index)
     {
         var header = H2StaticTable.Get(index - 1);
-        var pseudoHeader = GetPseudoHeaderField(header.StaticTableIndex ?? 0);
+        var pseudoHeader = GetPseudoHeaderField(header.StaticTableIndex);
         UpdateHeaderParsingState(pseudoHeader);
         _currentStream.SetStaticHeader(header, pseudoHeader);
     }
@@ -28,7 +28,7 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
     public void OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
     {
         var header = H2StaticTable.Get(index - 1);
-        var pseudoHeader = GetPseudoHeaderField(header.StaticTableIndex ?? 0);
+        var pseudoHeader = GetPseudoHeaderField(header.StaticTableIndex);
         UpdateHeaderParsingState(pseudoHeader);
         _currentStream.SetStaticHeader(header, pseudoHeader, value);
     }
