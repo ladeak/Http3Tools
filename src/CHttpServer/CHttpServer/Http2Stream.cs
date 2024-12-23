@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -206,13 +207,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     IHeaderDictionary IHttpResponseFeature.Headers
     {
-        get
-        {
-            _responseHeaders ??= new();
-            return _responseHeaders;
-        }
+        get => Headers;
         set => throw new NotSupportedException();
     }
+
+    public HeaderCollection Headers => _responseHeaders ??= new();
 
     public Task CompleteAsync()
     {
@@ -255,7 +254,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _responseHeaders.SetReadOnly();
 
         // send headers
-        await _writer.WriteHeadersAsync(StreamId, StatusCode, _responseHeaders);
+        _writer.ScheduleWriteHeaders(this);
 
         _onCompletedCallback?.Invoke(_onCompletedState!);
     }

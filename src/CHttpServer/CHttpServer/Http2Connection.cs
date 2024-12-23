@@ -47,6 +47,8 @@ internal sealed partial class Http2Connection
     {
         _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
         _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.MaxFrameSize);
+        CancellationTokenSource cts = new();
+        var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
         try
         {
@@ -76,15 +78,18 @@ internal sealed partial class Http2Connection
         }
         catch (Exception e)
         {
-            // TODO cancel streams
         }
         finally
         {
+            // TODO cancel streams
+
             if (errorCode != Http2ErrorCode.NO_ERROR)
             {
                 // todo close stream
                 _writer.WriteGoAway(_streamIdIndex, errorCode);
             }
+            cts.Cancel();
+            await responseWriting;
         }
     }
 
