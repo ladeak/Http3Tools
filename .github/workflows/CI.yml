@@ -37,6 +37,7 @@ jobs:
         dotnet run --no-build --project tests/CHttp.Api.Tests/CHttp.Api.Tests.csproj -c ${{ env.CONFIGURATION }}
         dotnet run --no-build --project tests/CHttpExecutor.Tests/CHttpExecutor.Tests.csproj -c ${{ env.CONFIGURATION }}
         dotnet run --no-build --project tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj -c ${{ env.CONFIGURATION }}
+        dotnet run --no-build --project tests/CHttpServer.Tests/CHttpServer.Tests.csproj -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
         pushd ./src/VSCodeExt/

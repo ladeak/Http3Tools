@@ -185,7 +185,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private HeaderCollection? _responseTrailers;
     private Pipe _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
-    public int StatusCode { get; set; }
+    public int StatusCode { get; set; } = 200;
     public string? ReasonPhrase { get; set; }
 
     public bool HasStarted { get; private set; }
