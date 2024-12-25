@@ -195,6 +195,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public PipeWriter Writer => _responseContentPipe.Writer;
 
+    public PipeReader ResponseContent => _responseContentPipe.Reader;
+
     public IHeaderDictionary Trailers
     {
         get
@@ -255,6 +257,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
         // send headers
         _writer.ScheduleWriteHeaders(this);
+        _writer.ScheduleWriteData(this);
 
         _onCompletedCallback?.Invoke(_onCompletedState!);
     }

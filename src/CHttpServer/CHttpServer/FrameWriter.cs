@@ -1,4 +1,6 @@
-﻿using System.IO.Pipelines;
+﻿using System.Buffers;
+using System.IO.Pipelines;
+using System.Reflection.PortableExecutable;
 
 namespace CHttpServer;
 
@@ -76,12 +78,25 @@ internal sealed class FrameWriter
         _destination.Advance(FrameHeaderSize);
     }
 
-    internal void WriteResponseHeader(uint streamId, Memory<byte> headers)
+    internal void WriteData(uint streamId, ReadOnlySequence<byte> data, bool endStream)
+    {
+        var dataLength = (int)data.Length; // Cast is safe as it fits in frame.
+        int totalSize = dataLength + FrameHeaderSize;
+        _frame.SetData(streamId, dataLength);
+        _frame.EndStream = endStream;
+        var buffer = _destination.GetSpan(totalSize);
+        WriteFrameHeader(buffer);
+        buffer = buffer[FrameHeaderSize..];
+        data.CopyTo(buffer);
+        _destination.Advance(totalSize);
+    }
+
+    internal void WriteResponseHeader(uint streamId, Memory<byte> headers, bool endStream)
     {
         int totalSize = headers.Length + FrameHeaderSize;
         _frame.SetResponseHeaders(streamId, headers.Length);
         _frame.EndHeaders = true;
-        _frame.EndStream = true;
+        _frame.EndStream = endStream;
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];

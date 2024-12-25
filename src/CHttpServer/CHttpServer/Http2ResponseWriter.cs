@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.IO;
 using System.Text;
 using System.Threading.Channels;
 using CHttpServer.System.Net.Http.HPack;
@@ -8,6 +9,7 @@ namespace CHttpServer;
 internal class Http2ResponseWriter
 {
     private const string WriteHeaders = nameof(WriteHeaders);
+    private const string WriteData = nameof(WriteData);
 
     private record StreamWriteRequest(Http2Stream Stream, string OperationName);
 
@@ -29,23 +31,61 @@ internal class Http2ResponseWriter
     public async Task RunAsync(CancellationToken token)
     {
         _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
-        await foreach (var request in _channel.Reader.ReadAllAsync(token))
+        try
         {
-            if (request.OperationName == WriteHeaders)
-                await WriteHeadersAsync(request.Stream.StreamId, request.Stream.StatusCode, request.Stream.Headers);
+            await foreach (var request in _channel.Reader.ReadAllAsync(token))
+            {
+                if (request.OperationName == WriteData)
+                    await WriteDataAsync(request.Stream);
+                else if (request.OperationName == WriteHeaders)
+                    await WriteHeadersAsync(request.Stream);
+            }
         }
-        ArrayPool<byte>.Shared.Return(_buffer);
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(_buffer);
+        }
     }
 
     public void ScheduleWriteHeaders(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteHeaders));
 
-    private async Task WriteHeadersAsync(uint streamId, int statusCode, HeaderCollection headers)
+    public void ScheduleWriteData(Http2Stream source) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteData));
+
+    private async Task WriteDataAsync(Http2Stream stream)
+    {
+        while (true)
+        {
+            if (!stream.ResponseContent.TryRead(out var readResult))
+                return;
+
+            if (readResult.IsCanceled)
+                return;
+
+            var responseContent = readResult.Buffer;
+            while (responseContent.Length > _maxFrameSize)
+            {
+                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, _maxFrameSize), endStream: false);
+                responseContent = responseContent.Slice(_maxFrameSize);
+            }
+
+            // TODO: end stream if no trailers
+            _frameWriter.WriteData(stream.StreamId, responseContent, endStream: true);
+            await _frameWriter.FlushAsync();
+
+            if (readResult.IsCompleted)
+                return;
+        }
+    }
+
+
+    private async Task WriteHeadersAsync(Http2Stream stream)
     {
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
-        HPackEncoder.EncodeStatusHeader(statusCode, buffer, out var writtenLength);
+        HPackEncoder.EncodeStatusHeader(stream.StatusCode, buffer, out var writtenLength);
         int totalLength = writtenLength;
-        foreach (var header in headers)
+        foreach (var header in stream.Headers)
         {
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
@@ -54,7 +94,9 @@ internal class Http2ResponseWriter
                 header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength);
             totalLength += writtenLength;
         }
-        _frameWriter.WriteResponseHeader(streamId, _buffer.AsMemory(0, totalLength));
+
+        // TODO: end stream if no data?
+        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
         await _frameWriter.FlushAsync();
     }
 

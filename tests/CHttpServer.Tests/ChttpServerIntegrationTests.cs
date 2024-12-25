@@ -38,7 +38,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
-        Assert.Equal("content", content);
+        Assert.Equal("\"some content\"", content);
     }
 
     [Fact]

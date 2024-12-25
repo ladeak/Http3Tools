@@ -16,7 +16,6 @@ internal sealed partial class Http2Connection
     private readonly CHttpConnectionContext _context;
     private readonly Stream _inputStream;
     private readonly int _streamIdIndex;
-    private readonly bool _aborted;
     private readonly HPackDecoder _hpackDecoder;
 
     private byte[] _buffer;
@@ -26,6 +25,7 @@ internal sealed partial class Http2Connection
     private Http2SettingsPayload _h2Settings;
     private Dictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
+    private bool _aborted;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
     {
@@ -83,18 +83,29 @@ internal sealed partial class Http2Connection
         {
             // TODO cancel streams
 
+            cts.Cancel();
+            if (!responseWriting.IsCompleted)
+            {
+                await responseWriting;
+            }
+
             if (errorCode != Http2ErrorCode.NO_ERROR)
             {
                 // todo close stream
                 _writer.WriteGoAway(_streamIdIndex, errorCode);
             }
-            cts.Cancel();
-            await responseWriting;
         }
     }
 
     private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
+        if (_readFrame.StreamId == 0 && _readFrame.EndStream)
+        {
+            _aborted = true;
+            return ValueTask.CompletedTask;
+        }
+
+
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
         if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
