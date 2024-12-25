@@ -76,19 +76,27 @@ internal class Http2Frame
     }
 
     // Headers
-    public bool EndStream { get => (Flags & EndStreamFlag) != 0; set
+    public bool EndStream
+    {
+        get => (Flags & EndStreamFlag) != 0;
+        set
         {
             if (value)
                 Flags |= EndStreamFlag;
+            else
+                unchecked { Flags &= (byte)~EndStreamFlag; }
         }
     }
 
     public bool EndHeaders
     {
-        get => (Flags & EndHeadersFlag) != 0; set
+        get => (Flags & EndHeadersFlag) != 0;
+        set
         {
             if (value)
                 Flags |= EndHeadersFlag;
+            else
+                unchecked { Flags &= (byte)~EndHeadersFlag; }
         }
     }
 
