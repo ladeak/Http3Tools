@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
-using System.Reflection.PortableExecutable;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CHttpServer;
 
@@ -78,12 +79,11 @@ internal sealed class FrameWriter
         _destination.Advance(FrameHeaderSize);
     }
 
-    internal void WriteData(uint streamId, ReadOnlySequence<byte> data, bool endStream)
+    internal void WriteData(uint streamId, ReadOnlySequence<byte> data)
     {
         var dataLength = (int)data.Length; // Cast is safe as it fits in frame.
         int totalSize = dataLength + FrameHeaderSize;
         _frame.SetData(streamId, dataLength);
-        _frame.EndStream = endStream;
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];
@@ -101,6 +101,17 @@ internal sealed class FrameWriter
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];
         headers.Span.CopyTo(buffer);
+        _destination.Advance(totalSize);
+    }
+
+    internal void WriteEndStream(uint streamId)
+    {
+        int totalSize = FrameHeaderSize;
+        _frame.SetData(streamId, 0);
+        _frame.EndStream = true;
+        var buffer = _destination.GetSpan(totalSize);
+        WriteFrameHeader(buffer);
+        buffer = buffer[FrameHeaderSize..];
         _destination.Advance(totalSize);
     }
 

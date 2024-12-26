@@ -1,4 +1,6 @@
-﻿using System.Security.Authentication;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Security.Authentication;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -7,6 +9,14 @@ namespace CHttpServer;
 
 internal sealed partial class Http2Connection
 {
+    private enum ConnectionState : byte
+    {
+        Open = 0,
+        HalfOpenLocal = 1,
+        HalfOpenRemote = 2,
+        Closed = 4,
+    }
+
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
     internal const uint MaxWindowUpdateSize = 2_147_483_647;
@@ -23,9 +33,10 @@ internal sealed partial class Http2Connection
     private Http2Frame _readFrame;
     private Http2ResponseWriter? _responseWriter;
     private Http2SettingsPayload _h2Settings;
-    private Dictionary<uint, Http2Stream> _streams;
+    private ConcurrentDictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
-    private bool _aborted;
+    private ConnectionState _state; // state associated with the connection's stream
+    private volatile bool _aborted;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
     {
@@ -38,6 +49,7 @@ internal sealed partial class Http2Connection
         _buffer = new byte[_h2Settings.MaxFrameSize];
         _inputStream = connectionContext.Transport!;
         _aborted = false;
+        _state = ConnectionState.Open;
         _readFrame = new();
     }
 
@@ -88,12 +100,7 @@ internal sealed partial class Http2Connection
             {
                 await responseWriting;
             }
-
-            if (errorCode != Http2ErrorCode.NO_ERROR)
-            {
-                // todo close stream
-                _writer.WriteGoAway(_streamIdIndex, errorCode);
-            }
+            _writer.WriteGoAway(_streamIdIndex, errorCode);
         }
     }
 
@@ -101,10 +108,9 @@ internal sealed partial class Http2Connection
     {
         if (_readFrame.StreamId == 0 && _readFrame.EndStream)
         {
-            _aborted = true;
+            _state = ConnectionState.HalfOpenRemote;
             return ValueTask.CompletedTask;
         }
-
 
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
@@ -126,6 +132,9 @@ internal sealed partial class Http2Connection
     // +---------------------------------------------------------------+
     private async ValueTask ProcessDataFrame()
     {
+        if (_state != ConnectionState.Open)
+            throw new Http2ProtocolException();
+
         var streamId = _readFrame.StreamId;
         if (!_streams.TryGetValue(streamId, out var httpStream))
             throw new Http2ProtocolException();
@@ -153,6 +162,9 @@ internal sealed partial class Http2Connection
 
     private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
+        if (_state != ConnectionState.Open)
+            throw new Http2ProtocolException();
+
         // +---------------+
         // | Pad Length ? (8) |
         // +-+-------------+-----------------------------------------------+
@@ -183,7 +195,8 @@ internal sealed partial class Http2Connection
         }
 
         _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, _context.Features, application);
-        _streams.Add(_readFrame.StreamId, _currentStream);
+        var addResult = _streams.TryAdd(_readFrame.StreamId, _currentStream);
+        Debug.Assert(addResult);
         bool endHeaders = _readFrame.EndHeaders;
         _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
         if (endHeaders)
@@ -290,5 +303,13 @@ internal sealed partial class Http2Connection
         var tlsFeature = _context.Features.Get<ITlsHandshakeFeature>();
         if (tlsFeature == null || tlsFeature.Protocol < SslProtocols.Tls12)
             throw new Http2ConnectionException("TLS required");
+    }
+
+    internal void OnStreamCompleted(Http2Stream stream)
+    {
+        var removed = _streams.TryRemove(stream.StreamId, out _);
+        Debug.Assert(removed);
+        if (_streams.Count == 0 && _state != ConnectionState.Open)
+            _aborted = true;
     }
 }

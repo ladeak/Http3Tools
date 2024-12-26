@@ -1,12 +1,10 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Reflection.PortableExecutable;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using static CHttpServer.System.Net.Http.HPack.H2StaticTable;
 
 namespace CHttpServer;
 
@@ -59,6 +57,9 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _state = StreamState.Open;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
+
+        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
+        _responseContentPipeWriter = new(_responseContentPipe.Writer, () => _applicationStartedResponse.Release(1));
         _cts = new();
     }
 
@@ -140,7 +141,8 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _requestHeaders.SetReadOnly();
         await RunApplicationAsync();
-        await StartAsync(_cts.Token);
+        _responseContentPipeWriter.Complete();
+        await CompleteAsync();
     }
 
     public void Abort()
@@ -182,18 +184,23 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
+    private readonly Pipe _responseContentPipe;
+    private readonly Http2StreamPipeWriter _responseContentPipeWriter;
+    private readonly SemaphoreSlim _applicationStartedResponse = new(0);
+
+    private bool _hasStarted = false;
+    private Task? _responseWritingTask;
     private HeaderCollection? _responseHeaders;
     private HeaderCollection? _responseTrailers;
-    private Pipe _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
 
     public int StatusCode { get; set; } = 200;
     public string? ReasonPhrase { get; set; }
 
-    public bool HasStarted { get; private set; }
+    public bool HasStarted => _hasStarted;
 
-    public Stream Stream => Writer.AsStream();
+    public Stream Stream => throw new NotSupportedException($"Write with the {nameof(IHttpResponseBodyFeature.Writer)}");
 
-    public PipeWriter Writer => _responseContentPipe.Writer;
+    public PipeWriter Writer => _responseContentPipeWriter;
 
     public PipeReader ResponseContent => _responseContentPipe.Reader;
 
@@ -215,10 +222,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public HeaderCollection Headers => _responseHeaders ??= new();
 
-    public Task CompleteAsync()
-    {
-        return _onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask;
-    }
+    internal bool HasResponseContent => _responseContentPipeWriter.HasData;
 
     public void DisableBuffering()
     {
@@ -234,31 +238,93 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _onCompletedState = state;
     }
 
-    private Func<object, Task>? _onStartignCallback;
+    private Func<object, Task>? _onStartingCallback;
     private object? _onStartingState;
 
     public void OnStarting(Func<object, Task> callback, object state)
     {
-        _onStartignCallback = callback;
+        _onStartingCallback = callback;
         _onStartingState = state;
     }
 
     public Task SendFileAsync(string path, long offset, long? count, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        await (_onStartignCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
-        HasStarted = true;
+        if (Interlocked.CompareExchange(ref _hasStarted, true, false))
+            return;
+        await (_onStartingCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
         _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
-
-        // send headers
-        _writer.ScheduleWriteHeaders(this);
-        _writer.ScheduleWriteData(this);
-
-        _onCompletedCallback?.Invoke(_onCompletedState!);
+        cancellationToken.Register(() => _cts.Cancel());
+        _responseWritingTask = StartResponseAsync(_cts.Token);
     }
+
+    public Task CompleteAsync() =>
+        _responseWritingTask ?? throw new InvalidOperationException("StartAsync() should be invoked before CompleteAsync()");
+
+    private async Task StartResponseAsync(CancellationToken cancellationToken = default)
+    {
+        _writer.ScheduleWriteHeaders(this);
+        while (!cancellationToken.IsCancellationRequested && !_responseContentPipeWriter.IsCompleted)
+        {
+            await _applicationStartedResponse.WaitAsync(cancellationToken);
+
+            // Send response content on the connection.
+            _writer.ScheduleWriteData(this);
+        }
+
+        if (_responseTrailers != null)
+            _responseTrailers.SetReadOnly();
+        else
+            _writer.ScheduleEndStream(this);
+
+        await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
+
+        _state = StreamState.Closed;
+        _connection.OnStreamCompleted(this);
+    }
+}
+
+
+public class Http2StreamPipeWriter(PipeWriter writer, Action writeStartedCallback) : PipeWriter
+{
+    private readonly PipeWriter _writer = writer;
+    private readonly Action _writeStartedCallback = writeStartedCallback;
+    private volatile bool _hasData;
+    private volatile bool _completed;
+
+    public bool HasData => _hasData;
+
+    public bool IsCompleted => _completed;
+
+    public override void Advance(int bytes)
+    {
+        _writer.Advance(bytes);
+        _hasData = true;
+    }
+
+    public override void CancelPendingFlush() =>
+        _writer.CancelPendingFlush();
+
+    public override void Complete(Exception? exception = null)
+    {
+        _writer.Complete(exception);
+        _completed = true;
+        _writeStartedCallback();
+    }
+
+    public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _writer.FlushAsync(cancellationToken);
+        _writeStartedCallback();
+        return result;
+    }
+
+    public override Memory<byte> GetMemory(int sizeHint = 0) => _writer.GetMemory(sizeHint);
+
+    public override Span<byte> GetSpan(int sizeHint = 0) => _writer.GetSpan(sizeHint);
 }

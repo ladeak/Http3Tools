@@ -10,6 +10,7 @@ internal class Http2ResponseWriter
 {
     private const string WriteHeaders = nameof(WriteHeaders);
     private const string WriteData = nameof(WriteData);
+    private const string WriteEndStream = nameof(WriteEndStream);
 
     private record StreamWriteRequest(Http2Stream Stream, string OperationName);
 
@@ -39,7 +40,13 @@ internal class Http2ResponseWriter
                     await WriteDataAsync(request.Stream);
                 else if (request.OperationName == WriteHeaders)
                     await WriteHeadersAsync(request.Stream);
+                else if (request.OperationName == WriteEndStream)
+                    await WriteEndStreamAsync(request.Stream);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Channel is closed by the connection.
         }
         finally
         {
@@ -53,32 +60,41 @@ internal class Http2ResponseWriter
     public void ScheduleWriteData(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteData));
 
+    public void ScheduleEndStream(Http2Stream source) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteEndStream));
+
     private async Task WriteDataAsync(Http2Stream stream)
     {
-        while (true)
+        long writtenCount = 0;
+        while (stream.ResponseContent.TryRead(out var readResult))
         {
-            if (!stream.ResponseContent.TryRead(out var readResult))
-                return;
-
-            if (readResult.IsCanceled)
-                return;
-
             var responseContent = readResult.Buffer;
+            if (readResult.IsCanceled || (readResult.IsCompleted && responseContent.IsEmpty))
+                break;
+
+            writtenCount += responseContent.Length;
             while (responseContent.Length > _maxFrameSize)
             {
-                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, _maxFrameSize), endStream: false);
+                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, _maxFrameSize));
                 responseContent = responseContent.Slice(_maxFrameSize);
             }
 
-            // TODO: end stream if no trailers
-            _frameWriter.WriteData(stream.StreamId, responseContent, endStream: true);
-            await _frameWriter.FlushAsync();
+            _frameWriter.WriteData(stream.StreamId, responseContent);
+
+            stream.ResponseContent.AdvanceTo(readResult.Buffer.End);
 
             if (readResult.IsCompleted)
-                return;
+                break;
         }
+        if (writtenCount > 0)
+            await _frameWriter.FlushAsync();
     }
 
+    private async Task WriteEndStreamAsync(Http2Stream stream)
+    {
+        _frameWriter.WriteEndStream(stream.StreamId);
+        await _frameWriter.FlushAsync();
+    }
 
     private async Task WriteHeadersAsync(Http2Stream stream)
     {
@@ -95,8 +111,7 @@ internal class Http2ResponseWriter
             totalLength += writtenLength;
         }
 
-        // TODO: end stream if no data?
-        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
+        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: !stream.HasResponseContent);
         await _frameWriter.FlushAsync();
     }
 
