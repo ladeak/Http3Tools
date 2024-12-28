@@ -96,6 +96,36 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Equal("some contentsome content2", content);
     }
+
+    [Fact]
+    public async Task IAsyncEnumerable()
+    {
+        var client = new HttpClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/iasyncenumerable") { Version = HttpVersion.Version20 };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("""
+                     ["some content","some content"]
+                     """, content);
+    }
+
+    [Fact]
+    public async Task Get_Content_TwiceSerial_SameConnection()
+    {
+        var client = new HttpClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content);
+
+        request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+        response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content);
+    }
 }
 
 public class TestServer : IAsyncDisposable, IDisposable
@@ -136,6 +166,18 @@ public class TestServer : IAsyncDisposable, IDisposable
             await ctx.Response.WriteAsync("some content");
             await Task.Delay(1000);
             await ctx.Response.WriteAsync("some content2");
+        });
+        _app.MapGet("/iasyncenumerable", (HttpContext ctx) =>
+        {
+            async IAsyncEnumerable<string> GetStream()
+            {
+                foreach (var i in Enumerable.Range(0, 2))
+                {
+                    await Task.Delay(1000);
+                    yield return "some content";
+                }
+            }
+            return GetStream();
         });
         return _app.RunAsync();
     }

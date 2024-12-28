@@ -59,7 +59,12 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _requestHeaders = new HeaderCollection();
 
         _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _responseContentPipeWriter = new(_responseContentPipe.Writer, () => _applicationStartedResponse.Release(1));
+        _responseContentPipeWriter = new(_responseContentPipe.Writer, () =>
+        {
+            if (!_hasStarted)
+                _ = StartAsync();
+            _applicationStartedResponse.Release(1);
+        });
         _cts = new();
     }
 
@@ -264,18 +269,19 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     }
 
     public Task CompleteAsync() =>
-        _responseWritingTask ?? throw new InvalidOperationException("StartAsync() should be invoked before CompleteAsync()");
+        _responseWritingTask ?? StartResponseAsync();
 
     private async Task StartResponseAsync(CancellationToken cancellationToken = default)
     {
         _writer.ScheduleWriteHeaders(this);
-        while (!cancellationToken.IsCancellationRequested && !_responseContentPipeWriter.IsCompleted)
+        do
         {
             await _applicationStartedResponse.WaitAsync(cancellationToken);
 
             // Send response content on the connection.
             _writer.ScheduleWriteData(this);
         }
+        while (!cancellationToken.IsCancellationRequested && !_responseContentPipeWriter.IsCompleted);
 
         if (_responseTrailers != null)
             _responseTrailers.SetReadOnly();
@@ -296,6 +302,7 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action writeStartedCallbac
     private readonly Action _writeStartedCallback = writeStartedCallback;
     private volatile bool _hasData;
     private volatile bool _completed;
+    private long _unflushedBytes;
 
     public bool HasData => _hasData;
 
@@ -305,15 +312,21 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action writeStartedCallbac
     {
         _writer.Advance(bytes);
         _hasData = true;
+        _unflushedBytes += bytes;
     }
 
     public override void CancelPendingFlush() =>
         _writer.CancelPendingFlush();
 
+    public override bool CanGetUnflushedBytes => true;
+
+    public override long UnflushedBytes => _unflushedBytes;
+
     public override void Complete(Exception? exception = null)
     {
         _writer.Complete(exception);
         _completed = true;
+        _unflushedBytes = 0;
         _writeStartedCallback();
     }
 
@@ -321,6 +334,7 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action writeStartedCallbac
     {
         var result = await _writer.FlushAsync(cancellationToken);
         _writeStartedCallback();
+        _unflushedBytes = 0;
         return result;
     }
 

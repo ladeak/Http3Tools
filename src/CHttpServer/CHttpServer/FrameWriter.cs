@@ -1,7 +1,5 @@
 ﻿using System.Buffers;
-using System.Diagnostics;
 using System.IO.Pipelines;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CHttpServer;
 
@@ -40,9 +38,23 @@ internal sealed class FrameWriter
         }
     }
 
+    internal void WritePingAck()
+    {
+        _frame.SetPingAck();
+        var buffer = _destination.GetSpan(FrameHeaderSize + 8);
+        WriteFrameHeader(buffer);
+        _destination.Advance(FrameHeaderSize + 8);
+        _destination.FlushAsync();
+    }
+
     internal void WriteGoAway(int lastStreamId, Http2ErrorCode errorCode)
     {
         _frame.SetGoAway(lastStreamId, errorCode);
+        var buffer = _destination.GetSpan(FrameHeaderSize);
+        WriteFrameHeader(buffer);
+        _destination.Advance(FrameHeaderSize);
+        _destination.FlushAsync();
+        _destination.Complete();
     }
 
     internal void WriteSettings(Http2SettingsPayload payload)

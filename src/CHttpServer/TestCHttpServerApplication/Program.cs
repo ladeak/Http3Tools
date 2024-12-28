@@ -37,6 +37,24 @@ app.MapPost("/a", ([FromBody] SampleRequest a, CancellationToken token) =>
         .ToArray();
     return TypedResults.Ok(forecast);
 });
+app.MapGet("/stream", async (HttpContext ctx) =>
+                                  {
+                                      ctx.Response.StatusCode = 200;
+                                      await ctx.Response.WriteAsync("some content");
+                                      await Task.Delay(5000);
+                                      await ctx.Response.WriteAsync("some content2");
+                                  });
+
+app.MapGet("/stream2", GetStream);
+
+async IAsyncEnumerable<string> GetStream()
+{
+    foreach (var i in Enumerable.Range(0, 10))
+    {
+        await Task.Delay(1000);
+        yield return "some content";
+    }
+}
 
 app.Run();
 

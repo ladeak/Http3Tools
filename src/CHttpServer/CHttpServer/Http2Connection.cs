@@ -75,9 +75,9 @@ internal sealed partial class Http2Connection
             }
 
         }
-        catch (Http2ConnectionException)
+        catch (Http2ConnectionException e)
         {
-            errorCode = Http2ErrorCode.CONNECT_ERROR;
+            errorCode = e.Code ?? Http2ErrorCode.CONNECT_ERROR;
         }
         catch (Http2FlowControlException)
         {
@@ -88,30 +88,41 @@ internal sealed partial class Http2Connection
         {
             errorCode = Http2ErrorCode.PROTOCOL_ERROR;
         }
+        catch (IOException)
+        {
+            errorCode = Http2ErrorCode.STREAM_CLOSED;
+            _state = ConnectionState.Closed;
+        }
         catch (Exception e)
         {
         }
         finally
         {
-            // TODO cancel streams
-
-            cts.Cancel();
-            if (!responseWriting.IsCompleted)
+            foreach (var stream in _streams.Values)
+                stream.Abort();
+            _streams.Clear();
+            if (_state == ConnectionState.Closed)
             {
+                cts.Cancel();
                 await responseWriting;
             }
-            _writer.WriteGoAway(_streamIdIndex, errorCode);
+            else
+            {
+                // TODO cancel streams: when exception
+                if (!responseWriting.IsCompleted)
+                {
+                    cts.CancelAfter(TimeSpan.FromSeconds(5));
+                    await responseWriting;
+                }
+            }
+            if (_state != ConnectionState.Closed && _state != ConnectionState.HalfOpenLocal)
+                _writer.WriteGoAway(_streamIdIndex, errorCode);
+            _inputStream.Close();
         }
     }
 
     private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        if (_readFrame.StreamId == 0 && _readFrame.EndStream)
-        {
-            _state = ConnectionState.HalfOpenRemote;
-            return ValueTask.CompletedTask;
-        }
-
         if (_readFrame.Type == Http2FrameType.SETTINGS)
             return ProcessSettingsFrame();
         if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
@@ -120,7 +131,26 @@ internal sealed partial class Http2Connection
             return ProcessHeaderFrame(application);
         if (_readFrame.Type == Http2FrameType.DATA)
             return ProcessDataFrame();
+        if (_readFrame.Type == Http2FrameType.PING)
+            return ProcessPingFrame();
         return ValueTask.CompletedTask;
+    }
+
+    // +---------------------------------------------------------------+
+    // |                                                               |
+    // |                      Opaque Data(64)                         |
+    // |                                                               |
+    // +---------------------------------------------------------------+
+    private async ValueTask ProcessPingFrame()
+    {
+        // Read Opague Data
+        if (_readFrame.PayloadLength != 8)
+            throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
+        if (_readFrame.StreamId != 0)
+            throw new Http2ProtocolException();
+        await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
+
+
     }
 
     // +---------------+
@@ -188,7 +218,7 @@ internal sealed partial class Http2Connection
         if (_readFrame.HasPriorty)
             payloadStart += 5;
 
-        if ((_currentStream.StreamId == _readFrame.StreamId || _currentStream.RequestEndHeaders)
+        if ((_currentStream.StreamId == _readFrame.StreamId && _currentStream.RequestEndHeaders)
             || _streams.ContainsKey(_readFrame.StreamId))
         {
             throw new Http2ProtocolException();
@@ -198,6 +228,7 @@ internal sealed partial class Http2Connection
         var addResult = _streams.TryAdd(_readFrame.StreamId, _currentStream);
         Debug.Assert(addResult);
         bool endHeaders = _readFrame.EndHeaders;
+        ResetHeadersParsingState();
         _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
         if (endHeaders)
             _currentStream.RequestEndHeadersReceived();
@@ -241,6 +272,10 @@ internal sealed partial class Http2Connection
 
     private async ValueTask ProcessSettingsFrame()
     {
+        if(_readFrame.StreamId != 0)
+            throw new Http2ProtocolException();
+        if(_readFrame.Flags == 1) // SETTING ACK
+            return;
         if (_h2Settings.SettingsReceived)
             throw new Http2ConnectionException("Don't allow settings to change mid-connection");
 
@@ -293,9 +328,14 @@ internal sealed partial class Http2Connection
             throw new Http2ConnectionException("Request is not HTTP2");
     }
 
-    private static void OnHeartbeat(object state)
+    private void OnHeartbeat(object state)
     {
         // timeout for settings ack
+        if (_streams.Count == 0 && _state != ConnectionState.Open)
+        {
+            _responseWriter?.Complete();
+            _aborted = true;
+        }
     }
 
     private void ValidateTlsRequirements()
@@ -309,7 +349,5 @@ internal sealed partial class Http2Connection
     {
         var removed = _streams.TryRemove(stream.StreamId, out _);
         Debug.Assert(removed);
-        if (_streams.Count == 0 && _state != ConnectionState.Open)
-            _aborted = true;
     }
 }

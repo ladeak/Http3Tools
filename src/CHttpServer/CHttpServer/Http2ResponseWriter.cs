@@ -11,6 +11,7 @@ internal class Http2ResponseWriter
     private const string WriteHeaders = nameof(WriteHeaders);
     private const string WriteData = nameof(WriteData);
     private const string WriteEndStream = nameof(WriteEndStream);
+    private const string WriteOutOfOrderFrame = nameof(WriteOutOfOrderFrame);
 
     private record StreamWriteRequest(Http2Stream Stream, string OperationName);
 
@@ -18,6 +19,7 @@ internal class Http2ResponseWriter
     private readonly FrameWriter _frameWriter;
     private readonly int _maxFrameSize;
     private readonly Channel<StreamWriteRequest> _channel;
+    private readonly Channel<StreamWriteRequest> _priorityChannel;
     private byte[] _buffer;
 
     public Http2ResponseWriter(FrameWriter frameWriter, uint maxFrameSize)
@@ -27,6 +29,7 @@ internal class Http2ResponseWriter
         _buffer = [];
         _hpackEncoder = new DynamicHPackEncoder();
         _channel = Channel.CreateUnbounded<StreamWriteRequest>(new UnboundedChannelOptions() { SingleReader = true, AllowSynchronousContinuations = false });
+        _priorityChannel = Channel.CreateUnbounded<StreamWriteRequest>(new UnboundedChannelOptions() { SingleReader = true, AllowSynchronousContinuations = false });
     }
 
     public async Task RunAsync(CancellationToken token)
@@ -36,6 +39,11 @@ internal class Http2ResponseWriter
         {
             await foreach (var request in _channel.Reader.ReadAllAsync(token))
             {
+                while(_priorityChannel.Reader.TryRead(out var priorityRequest))
+                {
+                    if (priorityRequest.OperationName == WriteOutOfOrderFrame)
+                        await WritePingAckAsync();
+                }
                 if (request.OperationName == WriteData)
                     await WriteDataAsync(request.Stream);
                 else if (request.OperationName == WriteHeaders)
@@ -54,6 +62,12 @@ internal class Http2ResponseWriter
         }
     }
 
+    public void ScheduleWritePingAck()
+    {
+        _priorityChannel.Writer.TryWrite(new StreamWriteRequest(null!, WriteOutOfOrderFrame));
+        _channel.Writer.TryWrite(new StreamWriteRequest(null!, WriteOutOfOrderFrame));
+    }
+
     public void ScheduleWriteHeaders(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteHeaders));
 
@@ -62,6 +76,8 @@ internal class Http2ResponseWriter
 
     public void ScheduleEndStream(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteEndStream));
+
+    public void Complete() => _channel.Writer.Complete();
 
     private async Task WriteDataAsync(Http2Stream stream)
     {
@@ -114,6 +130,13 @@ internal class Http2ResponseWriter
         _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: !stream.HasResponseContent);
         await _frameWriter.FlushAsync();
     }
+
+    private async Task WritePingAckAsync()
+    {
+        _frameWriter.WritePingAck();
+        await _frameWriter.FlushAsync();
+    }
+
 
     private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)
     {

@@ -7,6 +7,12 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
     private RequestHeaderParsingState _requestHeaderParsingState = RequestHeaderParsingState.Ready;
     private PseudoHeaderFields _parsedPseudoHeaderFields;
 
+    public void ResetHeadersParsingState()
+    {
+        _requestHeaderParsingState = RequestHeaderParsingState.Ready;
+        _parsedPseudoHeaderFields = PseudoHeaderFields.None;
+    }
+
     public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
     }
@@ -15,7 +21,11 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
     {
     }
 
-    public void OnHeadersComplete(bool endStream) => _currentStream.RequestEndHeadersReceived();
+    public void OnHeadersComplete(bool endStream)
+    {
+        _currentStream.RequestEndHeadersReceived();
+        _requestHeaderParsingState = RequestHeaderParsingState.Ready;
+    }
 
     public void OnStaticIndexedHeader(int index)
     {
