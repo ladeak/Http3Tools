@@ -126,6 +126,28 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("\"some content\"", content);
     }
+
+    [Fact]
+    public async Task Get_Content_TwoParallelRequests_SameConnection()
+    {
+        var client = new HttpClient();
+        var request0 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+        var request1 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+
+        var response0Task = client.SendAsync(request0, TestContext.Current.CancellationToken);
+        var response1Task = client.SendAsync(request1, TestContext.Current.CancellationToken);
+        await Task.WhenAll(response0Task, response1Task);
+        var response0 = await response0Task;
+        var response1 = await response1Task;
+
+        var content0 = await response0.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response0.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content0);
+
+        var content1 = await response1.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response1.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content1);
+    }
 }
 
 public class TestServer : IAsyncDisposable, IDisposable
