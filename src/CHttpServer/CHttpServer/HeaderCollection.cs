@@ -13,6 +13,11 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     private bool _readonly;
     private long? _contentLength;
 
+    public HeaderCollection()
+    {
+        
+    }
+
     public long? ContentLength { get => _contentLength; set => _contentLength = value; }
 
     public ICollection<string> Keys => new List<string>(this.Select(x => x.Key));

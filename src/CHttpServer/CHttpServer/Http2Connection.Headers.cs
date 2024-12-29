@@ -19,6 +19,7 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
 
     public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
+        _currentStream.RequestHeaders.Add(name, value);
     }
 
     public void OnHeadersComplete(bool endStream)

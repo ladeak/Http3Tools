@@ -122,6 +122,9 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
                     case H2StaticTable.ContentType:
                         _requestHeaders.Add(Microsoft.Net.Http.Headers.HeaderNames.ContentType, value);
                         break;
+                    case H2StaticTable.Accept:
+                        _requestHeaders.Add(Microsoft.Net.Http.Headers.HeaderNames.Accept, value);
+                        break;
                 };
                 break;
         }
@@ -185,6 +188,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
         _requestContentPipe.Writer : throw new Http2ConnectionException("STREAM CLOSED");
 
     public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
+
+    public HeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
@@ -221,11 +226,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     IHeaderDictionary IHttpResponseFeature.Headers
     {
-        get => Headers;
+        get => ResponseHeaders;
         set => throw new NotSupportedException();
     }
 
-    public HeaderCollection Headers => _responseHeaders ??= new();
+    public HeaderCollection ResponseHeaders => _responseHeaders ??= new();
 
     internal bool HasResponseContent => _responseContentPipeWriter.HasData;
 
@@ -284,12 +289,17 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         while (!cancellationToken.IsCancellationRequested && !_responseContentPipeWriter.IsCompleted);
 
         if (_responseTrailers != null)
+        {
             _responseTrailers.SetReadOnly();
+            // TODO end stream
+        }
         else
             _writer.ScheduleEndStream(this);
+    }
 
+    internal async Task OnStreamCompletedAsync()
+    {
         await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
-
         _state = StreamState.Closed;
         _connection.OnStreamCompleted(this);
     }

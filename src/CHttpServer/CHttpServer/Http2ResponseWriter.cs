@@ -110,6 +110,7 @@ internal class Http2ResponseWriter
     {
         _frameWriter.WriteEndStream(stream.StreamId);
         await _frameWriter.FlushAsync();
+        await stream.OnStreamCompletedAsync();
     }
 
     private async Task WriteHeadersAsync(Http2Stream stream)
@@ -117,7 +118,7 @@ internal class Http2ResponseWriter
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
         HPackEncoder.EncodeStatusHeader(stream.StatusCode, buffer, out var writtenLength);
         int totalLength = writtenLength;
-        foreach (var header in stream.Headers)
+        foreach (var header in stream.ResponseHeaders)
         {
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 

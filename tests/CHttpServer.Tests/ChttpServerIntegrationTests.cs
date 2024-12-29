@@ -1,7 +1,13 @@
-﻿using System.Net;
+﻿using System.Collections.Specialized;
+using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -148,6 +154,45 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.True(response1.IsSuccessStatusCode);
         Assert.Equal("\"some content\"", content1);
     }
+
+    [Fact]
+    public async Task Get_Content_ParallelRequests_NewConnection()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            var client = new HttpClient();
+            var request0 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+            var request1 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
+
+            var response0Task = client.SendAsync(request0, TestContext.Current.CancellationToken);
+            var response1Task = client.SendAsync(request1, TestContext.Current.CancellationToken);
+            await Task.WhenAll(response0Task, response1Task);
+            var response0 = await response0Task;
+            var response1 = await response1Task;
+
+            var content0 = await response0.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.True(response0.IsSuccessStatusCode);
+            Assert.Equal("\"some content\"", content0);
+
+            var content1 = await response1.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.True(response1.IsSuccessStatusCode);
+            Assert.Equal("\"some content\"", content1);
+        }
+    }
+
+    [Fact]
+    public async Task Header_And_Trailers()
+    {
+        var client = new HttpClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/headerstrailers") { Version = HttpVersion.Version20 };
+        request.Headers.Add("x-custom", "custom-header-value");
+        request.Headers.Accept.Add(new("application/json"));
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.True(response.Headers.TryGetValues("x-custom-response", out var values) && values.First() == "custom-header-value");
+        Assert.Equal("application/json", response.Content.Headers.ContentType!.MediaType);
+        Assert.True(response.TrailingHeaders.TryGetValues("x-trailer", out values) && values.First() == "mytrailer");
+    }
 }
 
 public class TestServer : IAsyncDisposable, IDisposable
@@ -160,6 +205,16 @@ public class TestServer : IAsyncDisposable, IDisposable
             return Task.CompletedTask;
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseCHttpServer(o => { o.Port = 7222; });
+
+        // Use Kestrel:
+        //builder.WebHost.UseKestrel(o =>
+        //{
+        //    o.Listen(IPAddress.Loopback, 7222, lo =>
+        //    {
+        //        lo.UseHttps();
+        //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;
+        //    });
+        //});
         _app = builder.Build();
         _app.MapGet("/nostatuscode", () =>
         {
@@ -200,6 +255,21 @@ public class TestServer : IAsyncDisposable, IDisposable
                 }
             }
             return GetStream();
+        });
+        _app.MapGet("/headerstrailers", async (HttpContext ctx) =>
+        {
+            if (!ctx.Request.Headers.Accept.Contains("application/json") || ctx.Request.Headers["x-custom"] != "custom-header-value")
+            {
+                ctx.Response.StatusCode = 400;
+                return;
+            }
+            ctx.Response.Headers.TryAdd("x-custom-response", "custom-header-value");
+            ctx.Response.Headers.ContentType = "application/json";
+            ctx.Response.DeclareTrailer("x-trailer");
+            ctx.Response.StatusCode = 200;
+            await ctx.Response.WriteAsync("some content");
+            ctx.Response.AppendTrailer("x-trailer", new Microsoft.Extensions.Primitives.StringValues("mytrailer"));
+
         });
         return _app.RunAsync();
     }

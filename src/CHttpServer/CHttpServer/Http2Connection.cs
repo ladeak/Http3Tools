@@ -35,7 +35,6 @@ internal sealed partial class Http2Connection
     private Http2SettingsPayload _h2Settings;
     private ConcurrentDictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
-    private ConnectionState _state; // state associated with the connection's stream
     private volatile bool _aborted;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
@@ -49,7 +48,6 @@ internal sealed partial class Http2Connection
         _buffer = new byte[_h2Settings.MaxFrameSize];
         _inputStream = connectionContext.Transport!;
         _aborted = false;
-        _state = ConnectionState.Open;
         _readFrame = new();
     }
 
@@ -91,7 +89,6 @@ internal sealed partial class Http2Connection
         catch (IOException)
         {
             errorCode = Http2ErrorCode.STREAM_CLOSED;
-            _state = ConnectionState.Closed;
         }
         catch (Exception e)
         {
@@ -101,22 +98,13 @@ internal sealed partial class Http2Connection
             foreach (var stream in _streams.Values)
                 stream.Abort();
             _streams.Clear();
-            if (_state == ConnectionState.Closed)
+
+            if (!responseWriting.IsCompleted)
             {
-                cts.Cancel();
+                cts.CancelAfter(TimeSpan.FromSeconds(5));
                 await responseWriting;
             }
-            else
-            {
-                // TODO cancel streams: when exception
-                if (!responseWriting.IsCompleted)
-                {
-                    cts.CancelAfter(TimeSpan.FromSeconds(5));
-                    await responseWriting;
-                }
-            }
-            if (_state != ConnectionState.Closed && _state != ConnectionState.HalfOpenLocal)
-                _writer.WriteGoAway(_streamIdIndex, errorCode);
+            _writer.WriteGoAway(_streamIdIndex, errorCode);
             _inputStream.Close();
         }
     }
@@ -162,9 +150,6 @@ internal sealed partial class Http2Connection
     // +---------------------------------------------------------------+
     private async ValueTask ProcessDataFrame()
     {
-        if (_state != ConnectionState.Open)
-            throw new Http2ProtocolException();
-
         var streamId = _readFrame.StreamId;
         if (!_streams.TryGetValue(streamId, out var httpStream))
             throw new Http2ProtocolException();
@@ -192,9 +177,6 @@ internal sealed partial class Http2Connection
 
     private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        if (_state != ConnectionState.Open)
-            throw new Http2ProtocolException();
-
         // +---------------+
         // | Pad Length ? (8) |
         // +-+-------------+-----------------------------------------------+
@@ -272,9 +254,9 @@ internal sealed partial class Http2Connection
 
     private async ValueTask ProcessSettingsFrame()
     {
-        if(_readFrame.StreamId != 0)
+        if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
-        if(_readFrame.Flags == 1) // SETTING ACK
+        if (_readFrame.Flags == 1) // SETTING ACK
             return;
         if (_h2Settings.SettingsReceived)
             throw new Http2ConnectionException("Don't allow settings to change mid-connection");
@@ -331,7 +313,7 @@ internal sealed partial class Http2Connection
     private void OnHeartbeat(object state)
     {
         // timeout for settings ack
-        if (_streams.Count == 0 && _state != ConnectionState.Open)
+        if (_streams.Count == 0)
         {
             _responseWriter?.Complete();
             _aborted = true;
