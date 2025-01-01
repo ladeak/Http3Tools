@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO;
+using System.IO.Pipelines;
 using System.Text;
 using System.Threading.Channels;
 using CHttpServer.System.Net.Http.HPack;
@@ -55,6 +56,7 @@ internal class Http2ResponseWriter
                     await WriteTrailersAsync(request.Stream);
             }
         }
+        // TODO propagate the exception to the caller
         catch (OperationCanceledException)
         {
             // Channel is closed by the connection.
@@ -88,7 +90,8 @@ internal class Http2ResponseWriter
     private async Task WriteDataAsync(Http2Stream stream)
     {
         long writtenCount = 0;
-        while (stream.ResponseContent.TryRead(out var readResult))
+        ReadResult readResult;
+        while (stream.ResponseContent.TryRead(out readResult))
         {
             var responseContent = readResult.Buffer;
             if (readResult.IsCanceled || (readResult.IsCompleted && responseContent.IsEmpty))
@@ -134,8 +137,7 @@ internal class Http2ResponseWriter
                 throw new InvalidOperationException("Header too large");
             totalLength += writtenLength;
         }
-
-        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: !stream.HasResponseContent);
+        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
         await _frameWriter.FlushAsync();
     }
 

@@ -232,8 +232,6 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public HeaderCollection ResponseHeaders => _responseHeaders ??= new();
 
-    internal bool HasResponseContent => _responseContentPipeWriter.HasData;
-
     public void DisableBuffering()
     {
         throw new NotImplementedException();
@@ -273,8 +271,13 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _responseWritingTask = StartResponseAsync(_cts.Token);
     }
 
-    public Task CompleteAsync() =>
-        _responseWritingTask ?? StartResponseAsync();
+    public async Task CompleteAsync()
+    {
+        var task = _responseWritingTask;
+        if (task == null)
+            await StartAsync();
+        await _responseWritingTask!;
+    }
 
     private async Task StartResponseAsync(CancellationToken cancellationToken = default)
     {
@@ -312,18 +315,14 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action writeStartedCallbac
 {
     private readonly PipeWriter _writer = writer;
     private readonly Action _writeStartedCallback = writeStartedCallback;
-    private volatile bool _hasData;
     private volatile bool _completed;
     private long _unflushedBytes;
-
-    public bool HasData => _hasData;
 
     public bool IsCompleted => _completed;
 
     public override void Advance(int bytes)
     {
         _writer.Advance(bytes);
-        _hasData = true;
         _unflushedBytes += bytes;
     }
 
