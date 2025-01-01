@@ -1,10 +1,6 @@
-﻿using System.Collections.Specialized;
-using System.Net;
-using System.Net.Http;
+﻿using System.Net;
 using System.Net.Http.Json;
-using System.Numerics;
-using System.Runtime.Intrinsics;
-using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -26,10 +22,20 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
         _server.RunAsync();
     }
 
+    private HttpClient CreateClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            // Matching testCert.pfx
+            ServerCertificateCustomValidationCallback = (message, certificate, chain, sslPolicyErrors) => certificate?.Issuer == "CN=localhost"
+        };
+        return new HttpClient(handler);
+    }
+
     [Fact]
     public async Task Get_NoContent()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/nocontent") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -38,7 +44,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task Get_Content()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -49,7 +55,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task Get_NoStatusCode()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/nostatuscode") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -58,7 +64,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task TestPost()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7222/post") { Version = HttpVersion.Version20, Content = JsonContent.Create(new WeatherForecast(new DateOnly(2025, 01, 01), 22, "sunny")) };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -67,7 +73,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task HttpContext_WritesResponse()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/httpcontext") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -78,7 +84,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task HttpContext_StreamsResponse()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/stream") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -95,7 +101,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task HttpContext_DoubleWrite()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/stream") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -106,7 +112,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task IAsyncEnumerable()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/iasyncenumerable") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
@@ -119,7 +125,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task Get_Content_TwiceSerial_SameConnection()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -136,7 +142,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task Get_Content_TwoParallelRequests_SameConnection()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request0 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
         var request1 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
 
@@ -160,7 +166,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     {
         for (int i = 0; i < 10; i++)
         {
-            var client = new HttpClient();
+            var client = CreateClient();
             var request0 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
             var request1 = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/content") { Version = HttpVersion.Version20 };
 
@@ -183,7 +189,7 @@ public class ChttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task Header_And_Trailers()
     {
-        var client = new HttpClient();
+        var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/headerstrailers") { Version = HttpVersion.Version20 };
         request.Headers.Add("x-custom", "custom-header-value");
         request.Headers.Accept.Add(new("application/json"));
@@ -204,7 +210,7 @@ public class TestServer : IAsyncDisposable, IDisposable
         if (_app != null)
             return Task.CompletedTask;
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseCHttpServer(o => { o.Port = 7222; });
+        builder.WebHost.UseCHttpServer(o => { o.Port = 7222; o.Certificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"); });
 
         // Use Kestrel:
         //builder.WebHost.UseKestrel(o =>

@@ -22,7 +22,7 @@ public static class HttpServer
 		{
 			kestrel.ListenAnyIP(port, options =>
 			{
-				options.UseHttps(new X509Certificate2("testCert.pfx", "testPassword"));
+				options.UseHttps(X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"));
 				options.Protocols = protocol ?? HttpProtocols.Http3;
 			});
 			configureKestrel?.Invoke(kestrel);

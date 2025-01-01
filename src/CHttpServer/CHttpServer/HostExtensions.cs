@@ -54,8 +54,6 @@ public static class HostExtensions
         hostBuilder.ConfigureServices(services =>
         {
             services.TryAddSingleton<IConnectionListenerFactory, SocketTransportFactory>();
-            //services.AddSingleton<IHttpsConfigurationService, HttpsConfigurationService>();
-            //services.AddSingleton<HttpsConfigurationService.IInitializer, HttpsConfigurationService.Initializer>();
             services.Configure<CHttpServerOptions>(configure);
             services.AddSingleton<IServer, CHttpServerImpl>();
         });
