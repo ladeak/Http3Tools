@@ -291,7 +291,9 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         if (_responseTrailers != null)
         {
             _responseTrailers.SetReadOnly();
-            // TODO end stream
+
+            // Write trailers and end stream.
+            _writer.ScheduleWriteTrailers(this);
         }
         else
             _writer.ScheduleEndStream(this);

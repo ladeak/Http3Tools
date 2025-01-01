@@ -12,6 +12,7 @@ internal class Http2ResponseWriter
     private const string WriteData = nameof(WriteData);
     private const string WriteEndStream = nameof(WriteEndStream);
     private const string WriteOutOfOrderFrame = nameof(WriteOutOfOrderFrame);
+    private const string WriteTrailers = nameof(WriteTrailers);
 
     private record StreamWriteRequest(Http2Stream Stream, string OperationName);
 
@@ -39,7 +40,7 @@ internal class Http2ResponseWriter
         {
             await foreach (var request in _channel.Reader.ReadAllAsync(token))
             {
-                while(_priorityChannel.Reader.TryRead(out var priorityRequest))
+                while (_priorityChannel.Reader.TryRead(out var priorityRequest))
                 {
                     if (priorityRequest.OperationName == WriteOutOfOrderFrame)
                         await WritePingAckAsync();
@@ -50,6 +51,8 @@ internal class Http2ResponseWriter
                     await WriteHeadersAsync(request.Stream);
                 else if (request.OperationName == WriteEndStream)
                     await WriteEndStreamAsync(request.Stream);
+                else if (request.OperationName == WriteTrailers)
+                    await WriteTrailersAsync(request.Stream);
             }
         }
         catch (OperationCanceledException)
@@ -76,6 +79,9 @@ internal class Http2ResponseWriter
 
     public void ScheduleEndStream(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteEndStream));
+
+    internal void ScheduleWriteTrailers(Http2Stream http2Stream) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(http2Stream, WriteTrailers));
 
     public void Complete() => _channel.Writer.Complete();
 
@@ -122,9 +128,10 @@ internal class Http2ResponseWriter
         {
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
-            // This is stateful, hence under lock.
-            _hpackEncoder.EncodeHeader(buffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
-                header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength);
+            // This is stateful
+            if (!_hpackEncoder.EncodeHeader(buffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+                header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength))
+                throw new InvalidOperationException("Header too large");
             totalLength += writtenLength;
         }
 
@@ -138,6 +145,25 @@ internal class Http2ResponseWriter
         await _frameWriter.FlushAsync();
     }
 
+    private async Task WriteTrailersAsync(Http2Stream stream)
+    {
+        var buffer = _buffer.AsSpan(0, _maxFrameSize);
+        int totalLength = 0;
+        foreach (var header in stream.Trailers)
+        {
+            var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
+
+            // This is stateful
+            if (!_hpackEncoder.EncodeHeader(buffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+                header.Key, header.Value.ToString(), Encoding.Latin1, out var writtenLength))
+                throw new InvalidOperationException("Trailer too large");
+            totalLength += writtenLength;
+        }
+
+        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: true);
+        await _frameWriter.FlushAsync();
+        await stream.OnStreamCompletedAsync();
+    }
 
     private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)
     {
