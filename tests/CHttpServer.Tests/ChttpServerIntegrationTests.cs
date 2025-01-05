@@ -10,13 +10,13 @@ using Microsoft.Extensions.Hosting;
 
 namespace CHttpServer.Tests;
 
-[Collection(nameof(ChttpServerIntegrationTests))]
+[Collection(nameof(CHttpServerIntegrationTests))]
 [CollectionDefinition(DisableParallelization = true)]
-public class ChttpServerIntegrationTests : IClassFixture<TestServer>
+public class CHttpServerIntegrationTests : IClassFixture<TestServer>
 {
     private readonly TestServer _server;
 
-    public ChttpServerIntegrationTests(TestServer testServer)
+    public CHttpServerIntegrationTests(TestServer testServer)
     {
         _server = testServer;
         _server.RunAsync();
