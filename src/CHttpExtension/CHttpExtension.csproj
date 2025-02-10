@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.1" PrivateAssets="none" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.1" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.3" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.3" />
   </ItemGroup>
 
   <ItemGroup>
