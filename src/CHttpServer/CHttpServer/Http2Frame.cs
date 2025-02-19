@@ -83,6 +83,14 @@ internal class Http2Frame
         PayloadLength = size;
     }
 
+    internal void SetWindowUpdate(uint streamId)
+    {
+        Type = Http2FrameType.WINDOW_UPDATE;
+        Flags = 0;
+        StreamId = streamId;
+        PayloadLength = 4;
+    }
+
     // Headers
     public bool EndStream
     {

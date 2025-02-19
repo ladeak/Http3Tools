@@ -7,35 +7,13 @@ internal sealed class FrameWriter
 {
     private const int FrameHeaderSize = 9;
 
-    private readonly CHttpConnectionContext _context;
     private readonly Http2Frame _frame;
     private readonly PipeWriter _destination;
 
-    private uint _connectionWindowSize;
-    private readonly Lock _connectionWindowLock;
-
-    public FrameWriter(CHttpConnectionContext context, uint connectionWindowSize)
+    public FrameWriter(CHttpConnectionContext context)
     {
-        _context = context;
         _destination = context.TransportPipe!.Output;
         _frame = new Http2Frame();
-        _connectionWindowLock = new Lock();
-        _connectionWindowSize = connectionWindowSize;
-    }
-
-    internal void UpdateConnectionWindowSize(uint updateSize)
-    {
-        if (updateSize == 0)
-            throw new Http2ConnectionException("Window Update Size must not be 0.");
-
-        lock (_connectionWindowLock)
-        {
-            var updatedValue = _connectionWindowSize + updateSize;
-            if (updatedValue > Http2Connection.MaxWindowUpdateSize)
-                throw new Http2FlowControlException();
-
-            _connectionWindowSize = updatedValue;
-        }
     }
 
     internal void WritePingAck()
@@ -89,6 +67,17 @@ internal sealed class FrameWriter
         var buffer = _destination.GetSpan(FrameHeaderSize);
         WriteFrameHeader(buffer);
         _destination.Advance(FrameHeaderSize);
+    }
+
+    internal void WriteWindowUpdate(uint streamId, uint size)
+    {
+        _frame.SetWindowUpdate(streamId);
+        int totalSize = FrameHeaderSize + 4;
+        var buffer = _destination.GetSpan(totalSize);
+        WriteFrameHeader(buffer);
+        buffer = buffer[FrameHeaderSize..];
+        IntegerSerializer.WriteUInt32BigEndian(buffer, size);
+        _destination.Advance(totalSize);
     }
 
     internal void WriteData(uint streamId, ReadOnlySequence<byte> data)

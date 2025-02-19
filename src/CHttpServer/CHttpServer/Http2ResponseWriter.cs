@@ -14,8 +14,9 @@ internal class Http2ResponseWriter
     private const string WriteEndStream = nameof(WriteEndStream);
     private const string WriteOutOfOrderFrame = nameof(WriteOutOfOrderFrame);
     private const string WriteTrailers = nameof(WriteTrailers);
+    private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
 
-    private record StreamWriteRequest(Http2Stream Stream, string OperationName);
+    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint WindowUpdateSize = 0);
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
@@ -54,6 +55,8 @@ internal class Http2ResponseWriter
                     await WriteEndStreamAsync(request.Stream);
                 else if (request.OperationName == WriteTrailers)
                     await WriteTrailersAsync(request.Stream);
+                else if (request.OperationName == WriteWindowUpdate)
+                    await WriteWindowUpdateAsync(request.Stream, request.WindowUpdateSize);
             }
         }
         // TODO propagate the exception to the caller
@@ -85,9 +88,12 @@ internal class Http2ResponseWriter
     internal void ScheduleWriteTrailers(Http2Stream http2Stream) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(http2Stream, WriteTrailers));
 
+    public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteWindowUpdate, size));
+
     public void Complete() => _channel.Writer.Complete();
 
-    private async Task WriteDataAsync(Http2Stream stream)
+    private async ValueTask WriteDataAsync(Http2Stream stream)
     {
         long writtenCount = 0;
         ReadResult readResult;
@@ -122,7 +128,7 @@ internal class Http2ResponseWriter
         await stream.OnStreamCompletedAsync();
     }
 
-    private async Task WriteHeadersAsync(Http2Stream stream)
+    private async ValueTask WriteHeadersAsync(Http2Stream stream)
     {
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
         HPackEncoder.EncodeStatusHeader(stream.StatusCode, buffer, out var writtenLength);
@@ -141,7 +147,7 @@ internal class Http2ResponseWriter
         await _frameWriter.FlushAsync();
     }
 
-    private async Task WritePingAckAsync()
+    private async ValueTask WritePingAckAsync()
     {
         _frameWriter.WritePingAck();
         await _frameWriter.FlushAsync();
@@ -165,6 +171,13 @@ internal class Http2ResponseWriter
         _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: true);
         await _frameWriter.FlushAsync();
         await stream.OnStreamCompletedAsync();
+    }
+
+    private async ValueTask WriteWindowUpdateAsync(Http2Stream stream, uint size)
+    {
+        _frameWriter.WriteWindowUpdate(stream.StreamId, size);
+        _frameWriter.WriteWindowUpdate(0, size);
+        await _frameWriter.FlushAsync();
     }
 
     private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)

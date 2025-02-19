@@ -7,7 +7,7 @@ internal struct Http2SettingsPayload
         HeaderTableSize = 0;
         EnablePush = 0;
         MaxConcurrentStream = 100;
-        InitialWindowSize = 65_535 * 2;
+        InitialWindowSize = 65_535;
         MaxFrameSize = 16_384 * 2;
         SettingsReceived = false;
     }
@@ -18,7 +18,7 @@ internal struct Http2SettingsPayload
 
     public uint MaxConcurrentStream { get; set; }
 
-    public uint InitialWindowSize { get; set; } 
+    public uint InitialWindowSize { get; set; }
 
     public uint MaxFrameSize { get; set; }
 

@@ -19,7 +19,7 @@ internal sealed partial class Http2Connection
 
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
-    internal const uint MaxWindowUpdateSize = 2_147_483_647;
+    internal const uint MaxWindowUpdateSize = 2_147_483_647; // int.MaxValue
 
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
 
@@ -36,6 +36,8 @@ internal sealed partial class Http2Connection
     private ConcurrentDictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
     private volatile bool _aborted;
+    private FlowControlSize _serverWindow;
+    private FlowControlSize _clientWindow;
 
     public Http2Connection(CHttpConnectionContext connectionContext)
     {
@@ -49,13 +51,17 @@ internal sealed partial class Http2Connection
         _inputStream = connectionContext.Transport!;
         _aborted = false;
         _readFrame = new();
+        _serverWindow = new(_context.ServerOptions.ServerConnectionFlowControlSize + CHttpServerOptions.InitialStreamFlowControlSize);
+        _clientWindow = new(_h2Settings.InitialWindowSize);
     }
 
     internal Http2ResponseWriter? ResponseWriter => _responseWriter;
 
+    internal CHttpServerOptions ServerOptions => _context.ServerOptions;
+
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        _writer = new FrameWriter(_context, _h2Settings.InitialWindowSize);
+        _writer = new FrameWriter(_context);
         _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.MaxFrameSize);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
@@ -64,7 +70,9 @@ internal sealed partial class Http2Connection
         {
             ValidateTlsRequirements();
             await ReadPreface();
-            _writer.WriteSettings(_h2Settings);
+            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = _context.ServerOptions.ServerStreamFlowControlSize });
+            _writer.WriteWindowUpdate(0, _context.ServerOptions.ServerConnectionFlowControlSize);
+            await _writer.FlushAsync();
 
             while (!_aborted)
             {
@@ -167,6 +175,7 @@ internal sealed partial class Http2Connection
             .Slice(0, (int)_readFrame.PayloadLength); // framesize max
         await _inputStream.ReadExactlyAsync(buffer);
         httpStream.RequestPipe.Advance(buffer.Length - paddingLength); // Padding is read but not advanced.
+        await httpStream.RequestPipe.FlushAsync();
 
         if (_readFrame.EndStream)
         {
@@ -236,7 +245,7 @@ internal sealed partial class Http2Connection
         if (streamId > 0)
             _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
         else
-            _writer!.UpdateConnectionWindowSize(updateSize);
+            _clientWindow.ReleaseSize(updateSize);
     }
 
     private async Task ReadFrameHeader()
@@ -259,7 +268,7 @@ internal sealed partial class Http2Connection
         if (_readFrame.Flags == 1) // SETTING ACK
             return;
         if (_h2Settings.SettingsReceived)
-            throw new Http2ConnectionException("Don't allow settings to change mid-connection");
+            throw new Http2ConnectionException("Don't allow settings to change mid-connection"); // against the protocol
 
         var payloadLength = (int)_readFrame.PayloadLength;
         var memory = _buffer.AsMemory(0, payloadLength);
@@ -284,7 +293,7 @@ internal sealed partial class Http2Connection
                     _h2Settings.MaxConcurrentStream = Math.Min(_h2Settings.MaxConcurrentStream, settingValue);
                     break;
                 case 4:
-                    _h2Settings.InitialWindowSize = Math.Min(_h2Settings.InitialWindowSize, settingValue);
+                    _h2Settings.InitialWindowSize = settingValue;
                     break;
                 case 5:
                     _h2Settings.MaxFrameSize = Math.Min(_h2Settings.MaxFrameSize, settingValue);

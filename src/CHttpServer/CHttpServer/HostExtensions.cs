@@ -11,9 +11,15 @@ namespace CHttpServer;
 
 public class CHttpServerOptions
 {
+    internal const uint InitialStreamFlowControlSize = 65_535;
+
     public int? Port { get; set; }
 
     public IPAddress? Host { get; set; }
+
+    public uint ServerConnectionFlowControlSize { get; set; } = InitialStreamFlowControlSize * 10;
+
+    public uint ServerStreamFlowControlSize { get; set; } = InitialStreamFlowControlSize;
 
     public X509Certificate2? Certificate { get; set; }
 

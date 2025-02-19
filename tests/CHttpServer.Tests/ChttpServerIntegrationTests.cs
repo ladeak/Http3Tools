@@ -199,6 +199,16 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.Equal("application/json", response.Content.Headers.ContentType!.MediaType);
         Assert.True(response.TrailingHeaders.TryGetValues("x-trailer", out values) && values.First() == "mytrailer");
     }
+
+    [Fact]
+    public async Task LargerInput_Than_FlowControl()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/readallinput") { Version = HttpVersion.Version20 };
+        request.Content = new ByteArrayContent(new byte[10_000_000]);
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+    }
 }
 
 public class TestServer : IAsyncDisposable, IDisposable
@@ -276,6 +286,11 @@ public class TestServer : IAsyncDisposable, IDisposable
             await ctx.Response.WriteAsync("some content");
             ctx.Response.AppendTrailer("x-trailer", new Microsoft.Extensions.Primitives.StringValues("mytrailer"));
 
+        });
+        _app.MapGet("/readallinput", async (HttpContext ctx) =>
+        {
+            await ctx.Request.BodyReader.CopyToAsync(Stream.Null);
+            ctx.Response.StatusCode = 204;
         });
         return _app.RunAsync();
     }
