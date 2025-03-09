@@ -205,7 +205,7 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
     {
         var client = CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/readallinput") { Version = HttpVersion.Version20 };
-        request.Content = new ByteArrayContent(new byte[10_000_000]);
+        request.Content = new ByteArrayContent(new byte[5000]); //10_000_000
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
     }

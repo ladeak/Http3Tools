@@ -60,8 +60,8 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
         _requestContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseFlowControl);
-        _requestContentPipeWriter = new(_requestContentPipe.Writer, ConsumeFlowControl);
+        _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseServerFlowControl);
+        _requestContentPipeWriter = new(_requestContentPipe.Writer, ConsumeServerFlowControl);
 
         _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _responseContentPipeWriter = new(_responseContentPipe.Writer, size =>
@@ -160,14 +160,16 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     public void CompleteRequestStream()
     {
-        _requestContentPipe.Writer.Complete();
+        _requestContentPipeWriter.Complete();
         _state = StreamState.HalfOpenRemote;
     }
 
-    private void ReleaseFlowControl(int size)
+    private void ReleaseServerFlowControl(int size)
     {
         if (size > Http2Connection.MaxWindowUpdateSize || size < 0)
             throw new Http2FlowControlException();
+        if(size == 0)
+            return;
         uint windowSize = (uint)size;
         _serverWindowSize.ReleaseSize(windowSize);
 
@@ -175,15 +177,12 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _writer.ScheduleWriteWindowUpdate(this, windowSize);
     }
 
-    private void ConsumeFlowControl(uint size)
+    private void ConsumeServerFlowControl(int size)
     {
         if (size > Http2Connection.MaxWindowUpdateSize || size < 0)
             throw new Http2FlowControlException();
         uint windowSize = (uint)size;
         _serverWindowSize.TryUse(windowSize);
-
-        // Release Read FlowControl Window for the stream and the connection.
-        _writer.ScheduleWriteWindowUpdate(this, windowSize);
     }
 }
 
@@ -298,7 +297,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         var task = _responseWritingTask;
         if (task == null)
+        {
             await StartAsync();
+        }
+        // Make sure the thread can complete if it is waiting on write.
+        _applicationStartedResponse.Release(1);
         await _responseWritingTask!;
     }
 
