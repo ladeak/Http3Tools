@@ -30,7 +30,7 @@ jobs:
         sudo apt install -y libmsquic
       shell: sh
     - name: Build
-      run: dotnet build CHttpTools.sln -c ${{ env.CONFIGURATION }}
+      run: dotnet build CHttpTools.slnx -c ${{ env.CONFIGURATION }}
     - name: Test
       run: |
         dotnet run --no-build --project tests/CHttp.Tests/CHttp.Tests.csproj -c ${{ env.CONFIGURATION }}

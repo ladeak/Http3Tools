@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Server/">
+    <Project Path="src/CHttpServer/CHttpServer/CHttpServer.csproj" />
+    <Project Path="src/CHttpServer/TestCHttpServerApplication/TestCHttpServerApplication.csproj" />
+    <Project Path="tests/CHttpServer.Tests/CHttpServer.Tests.csproj" />
+  </Folder>
+  <Project Path="src/CHttp.Api/CHttp.Api.csproj" />
+  <Project Path="src/CHttp/CHttp.csproj" />
+  <Project Path="src/CHttpExecutor/CHttpExecutor.csproj" />
+  <Project Path="src/CHttpExtension/CHttpExtension.csproj" />
+  <Project Path="tests/CHttp.Api.Tests/CHttp.Api.Tests.csproj" />
+  <Project Path="tests/CHttp.Benchmarks/CHttp.Benchmarks.csproj" />
+  <Project Path="tests/CHttp.Tests/CHttp.Tests.csproj" />
+  <Project Path="tests/CHttpExecutor.Tests/CHttpExecutor.Tests.csproj" />
+  <Project Path="tests/TestWebApplication.Tests/TestWebApplication.Tests.csproj" />
+  <Project Path="tests/TestWebApplication/TestWebApplication.csproj" />
+</Solution>
