@@ -219,9 +219,11 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
     public async Task LargerOutput_Than_FlowControl()
     {
         var client = CreateClient();
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/writelargeresponse") { Version = HttpVersion.Version20 };
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/getlargeresponse") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(10, content.Length);
     }
 }
 
@@ -305,13 +307,13 @@ public class TestServer : IAsyncDisposable, IDisposable
         {
             var ms = new MemoryStream();
             await ctx.Request.BodyReader.CopyToAsync(ms);
-            ctx.Response.StatusCode = 204;
+            ctx.Response.StatusCode = 200;
             await ctx.Response.WriteAsync(ms.Length.ToString());
         });
-        _app.MapGet("/writelargeresponse", async (HttpContext ctx) =>
+        _app.MapGet("/getlargeresponse", async (HttpContext ctx) =>
         {
-            await ctx.Request.BodyReader.CopyToAsync(Stream.Null);
-            ctx.Response.StatusCode = 204;
+            ctx.Response.StatusCode = 200;
+            await ctx.Response.BodyWriter.WriteAsync(new byte[10]);
         });
         return _app.RunAsync();
     }
