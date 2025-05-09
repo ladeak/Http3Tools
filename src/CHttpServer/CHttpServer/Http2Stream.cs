@@ -168,7 +168,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         if (size > Http2Connection.MaxWindowUpdateSize || size < 0)
             throw new Http2FlowControlException();
-        if(size == 0)
+        if (size == 0)
             return;
         uint windowSize = (uint)size;
         _serverWindowSize.ReleaseSize(windowSize);
@@ -370,7 +370,8 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action<int> writeStartedCa
     public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
     {
         var result = await _writer.FlushAsync(cancellationToken);
-        _unflushedBytes = 0;
+        if (!result.IsCanceled && !result.IsCompleted)
+            _unflushedBytes = 0;
         return result;
     }
 
@@ -410,14 +411,16 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
     public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
     {
         var result = await _reader.ReadAsync(cancellationToken);
-        _lastReadStart = result.Buffer.Start;
+        if (!result.IsCanceled)
+            _lastReadStart = result.Buffer.Start;
         return result;
     }
 
     public override bool TryRead(out ReadResult result)
     {
         var hasRead = _reader.TryRead(out result);
-        _lastReadStart = result.Buffer.Start;
+        if (!result.IsCanceled)
+            _lastReadStart = result.Buffer.Start;
         return hasRead;
 
     }

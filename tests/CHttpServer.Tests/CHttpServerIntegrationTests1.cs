@@ -203,9 +203,23 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task LargerInput_Than_FlowControl()
     {
+        for (int i = 0; i < 30; i++)
+        {
+            int requestLength = 32656 * i;
+            var client = CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7222/readallrequest") { Version = HttpVersion.Version20 };
+            request.Content = new ByteArrayContent(new byte[requestLength]);
+            var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.True(response.IsSuccessStatusCode);
+            Assert.Equal(requestLength, int.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
+        }
+    }
+
+    [Fact]
+    public async Task LargerOutput_Than_FlowControl()
+    {
         var client = CreateClient();
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/readallinput") { Version = HttpVersion.Version20 };
-        request.Content = new ByteArrayContent(new byte[5000]); //10_000_000
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/writelargeresponse") { Version = HttpVersion.Version20 };
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
     }
@@ -287,7 +301,14 @@ public class TestServer : IAsyncDisposable, IDisposable
             ctx.Response.AppendTrailer("x-trailer", new Microsoft.Extensions.Primitives.StringValues("mytrailer"));
 
         });
-        _app.MapGet("/readallinput", async (HttpContext ctx) =>
+        _app.MapPost("/readallrequest", async (HttpContext ctx) =>
+        {
+            var ms = new MemoryStream();
+            await ctx.Request.BodyReader.CopyToAsync(ms);
+            ctx.Response.Headers.Append("X-TEST-LENGTH", ms.Length.ToString());
+            ctx.Response.StatusCode = 204;
+        });
+        _app.MapGet("/writelargeresponse", async (HttpContext ctx) =>
         {
             await ctx.Request.BodyReader.CopyToAsync(Stream.Null);
             ctx.Response.StatusCode = 204;
