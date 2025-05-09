@@ -203,9 +203,9 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
     [Fact]
     public async Task LargerInput_Than_FlowControl()
     {
-        for (int i = 0; i < 30; i++)
+        for (int i = 1; i < 30; i += 5)
         {
-            int requestLength = 32656 * i;
+            int requestLength = 32768 * i;
             var client = CreateClient();
             var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7222/readallrequest") { Version = HttpVersion.Version20 };
             request.Content = new ByteArrayContent(new byte[requestLength]);
@@ -305,8 +305,8 @@ public class TestServer : IAsyncDisposable, IDisposable
         {
             var ms = new MemoryStream();
             await ctx.Request.BodyReader.CopyToAsync(ms);
-            ctx.Response.Headers.Append("X-TEST-LENGTH", ms.Length.ToString());
             ctx.Response.StatusCode = 204;
+            await ctx.Response.WriteAsync(ms.Length.ToString());
         });
         _app.MapGet("/writelargeresponse", async (HttpContext ctx) =>
         {
