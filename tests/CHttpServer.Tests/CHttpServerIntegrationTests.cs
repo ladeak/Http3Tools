@@ -1,5 +1,7 @@
-﻿using System.Net;
+﻿using System.IO.Pipelines;
+using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
@@ -223,7 +225,7 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
         var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(10, content.Length);
+        Assert.Equal(10_000_000, content.Length);
     }
 }
 
@@ -313,7 +315,7 @@ public class TestServer : IAsyncDisposable, IDisposable
         _app.MapGet("/getlargeresponse", async (HttpContext ctx) =>
         {
             ctx.Response.StatusCode = 200;
-            await ctx.Response.BodyWriter.WriteAsync(new byte[10]);
+            await ctx.Response.BodyWriter.WriteAsync(new byte[10_000_000]);
         });
         return _app.RunAsync();
     }

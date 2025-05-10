@@ -16,7 +16,7 @@ internal class Http2ResponseWriter
     private const string WriteTrailers = nameof(WriteTrailers);
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
 
-    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint WindowUpdateSize = 0);
+    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint Size = 0);
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
@@ -42,13 +42,14 @@ internal class Http2ResponseWriter
         {
             await foreach (var request in _channel.Reader.ReadAllAsync(token))
             {
+                // Priority requests always have a corresponding regular channel request too.
                 while (_priorityChannel.Reader.TryRead(out var priorityRequest))
                 {
                     if (priorityRequest.OperationName == WriteOutOfOrderFrame)
                         await WritePingAckAsync();
                 }
                 if (request.OperationName == WriteData)
-                    await WriteDataAsync(request.Stream);
+                    await WriteDataAsync(request);
                 else if (request.OperationName == WriteHeaders)
                     await WriteHeadersAsync(request.Stream);
                 else if (request.OperationName == WriteEndStream)
@@ -56,7 +57,7 @@ internal class Http2ResponseWriter
                 else if (request.OperationName == WriteTrailers)
                     await WriteTrailersAsync(request.Stream);
                 else if (request.OperationName == WriteWindowUpdate)
-                    await WriteWindowUpdateAsync(request.Stream, request.WindowUpdateSize);
+                    await WriteWindowUpdateAsync(request.Stream, request.Size);
             }
         }
         // TODO propagate the exception to the caller
@@ -79,6 +80,11 @@ internal class Http2ResponseWriter
     public void ScheduleWriteHeaders(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteHeaders));
 
+    /// <summary>
+    /// Schedules the given Http2Stream to be written to the channel.
+    /// It writes maximum <paramref name="size"/> bytes of data from the stream
+    /// to respect flow control limits.
+    /// </summary>
     public void ScheduleWriteData(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteData));
 
@@ -93,32 +99,38 @@ internal class Http2ResponseWriter
 
     public void Complete() => _channel.Writer.Complete();
 
-    private async ValueTask WriteDataAsync(Http2Stream stream)
+    private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
     {
-        long writtenCount = 0;
-        ReadResult readResult;
-        while (stream.ResponseContent.TryRead(out readResult))
+        var stream = writeRequest.Stream;
+
+        while (stream.ResponseContent.TryRead(out var readResult))
         {
             var responseContent = readResult.Buffer;
             if (readResult.IsCanceled || (readResult.IsCompleted && responseContent.IsEmpty))
-                break;
-
-            writtenCount += responseContent.Length;
-            while (responseContent.Length > _maxFrameSize)
             {
-                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, _maxFrameSize));
-                responseContent = responseContent.Slice(_maxFrameSize);
+                writeRequest.Stream.OnResponseDataCompleted();
+                break;
             }
 
-            _frameWriter.WriteData(stream.StreamId, responseContent);
+            do
+            {
+                var initialSize = responseContent.Length > _maxFrameSize ? _maxFrameSize : responseContent.Length;
+                if (!stream.ReserveClientFlowControlSize(checked((uint)initialSize), out var currentSize))
+                    break;
 
-            stream.ResponseContent.AdvanceTo(readResult.Buffer.End);
+                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
+                await _frameWriter.FlushAsync();
+
+                stream.ResponseContent.AdvanceTo(readResult.Buffer.Slice(0, currentSize).End);
+                responseContent = responseContent.Slice(currentSize);
+            } while (!responseContent.IsEmpty);
 
             if (readResult.IsCompleted)
+            {
+                writeRequest.Stream.OnResponseDataCompleted();
                 break;
+            }
         }
-        if (writtenCount > 0)
-            await _frameWriter.FlushAsync();
     }
 
     private async Task WriteEndStreamAsync(Http2Stream stream)

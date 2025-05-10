@@ -1,4 +1,6 @@
 ﻿using System.Buffers;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
@@ -44,8 +46,8 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     private readonly Http2Connection _connection;
     private readonly Http2ResponseWriter _writer;
-    private FlowControlSize _serverWindowSize;
-    private FlowControlSize _clientWindowSize;
+    private FlowControlSize _serverWindowSize; // Controls Data received
+    private FlowControlSize _clientWindowSize; // Controls Data sent
     private StreamState _state;
     private CancellationTokenSource _cts;
 
@@ -61,10 +63,10 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _requestHeaders = new HeaderCollection();
         _requestContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseServerFlowControl);
-        _requestContentPipeWriter = new(_requestContentPipe.Writer, ConsumeServerFlowControl);
+        _requestContentPipeWriter = new(_requestContentPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
         _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _responseContentPipeWriter = new(_responseContentPipe.Writer, size =>
+        _responseContentPipeWriter = new(_responseContentPipe.Writer, flushStartingCallback: null, flushedCallback: size =>
         {
             if (!_hasStarted)
                 _ = StartAsync();
@@ -85,6 +87,21 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
             throw new Http2ProtocolException(); //Stream error
 
         _clientWindowSize.ReleaseSize(updateSize);
+
+        if (_rescheduleDataWriteOnWindowUpdates)
+        {
+            _rescheduleDataWriteOnWindowUpdates = false;
+            _applicationStartedResponse.Release(1);
+        }
+    }
+
+    public void OnConnectionWindowUpdateSize()
+    {
+        if (_rescheduleDataWriteOnWindowUpdates)
+        {
+            _rescheduleDataWriteOnWindowUpdates = false;
+            _applicationStartedResponse.Release(1);
+        }
     }
 
     internal void RequestEndHeadersReceived() => RequestEndHeaders = true;
@@ -162,6 +179,14 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _requestContentPipeWriter.Complete();
         _state = StreamState.HalfOpenRemote;
+
+        // Reader maybe cancelled or completed, in which the data written to the pipe
+        // has been already counted by the request sender. To make sure flowcontrol matches
+        // the client, WindowUpdates is written for the remaining unflushed bytes.
+        if (_requestContentPipeWriter.UnflushedBytes > 0)
+        {
+            ReleaseServerFlowControl((checked((int)_requestContentPipeWriter.UnflushedBytes)));
+        }
     }
 
     private void ReleaseServerFlowControl(int size)
@@ -219,6 +244,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private readonly Pipe _responseContentPipe;
     private readonly Http2StreamPipeWriter _responseContentPipeWriter;
     private readonly SemaphoreSlim _applicationStartedResponse = new(0);
+    private volatile bool _isResponseDataCompleted = false;
+    private volatile bool _rescheduleDataWriteOnWindowUpdates = false;
 
     private bool _hasStarted = false;
     private Task? _responseWritingTask;
@@ -290,22 +317,21 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
-        _responseWritingTask = StartResponseAsync(_cts.Token);
+        _responseWritingTask = WriteResponseAsync(_cts.Token);
     }
 
     public async Task CompleteAsync()
     {
         var task = _responseWritingTask;
         if (task == null)
-        {
             await StartAsync();
-        }
+
         // Make sure the thread can complete if it is waiting on write.
         _applicationStartedResponse.Release(1);
         await _responseWritingTask!;
     }
 
-    private async Task StartResponseAsync(CancellationToken cancellationToken = default)
+    private async Task WriteResponseAsync(CancellationToken cancellationToken = default)
     {
         _writer.ScheduleWriteHeaders(this);
         do
@@ -313,9 +339,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             await _applicationStartedResponse.WaitAsync(cancellationToken);
 
             // Send response content on the connection.
-            _writer.ScheduleWriteData(this);
+            if (!_isResponseDataCompleted)
+                _writer.ScheduleWriteData(this);
         }
-        while (!cancellationToken.IsCancellationRequested && !_responseContentPipeWriter.IsCompleted);
+        while (!cancellationToken.IsCancellationRequested && !_isResponseDataCompleted);
 
         if (_responseTrailers != null)
         {
@@ -328,6 +355,36 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             _writer.ScheduleEndStream(this);
     }
 
+    internal bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)
+    {
+        _clientWindowSize.TryUseAny(requestedSize, out var streamReservecSize);
+        if(streamReservecSize == 0)
+        {
+            reservedSize = 0;
+            _rescheduleDataWriteOnWindowUpdates = true;
+            return false;
+        }
+        if (!_connection.ReserveClientFlowControlSize(streamReservecSize, out var connectionReservedSize))
+        {
+            // Return the difference to the stream.
+            _clientWindowSize.ReleaseSize(streamReservecSize - connectionReservedSize);
+        }
+        reservedSize = connectionReservedSize;
+        if (reservedSize == 0)
+        {
+            _rescheduleDataWriteOnWindowUpdates = true;
+            return false;
+        }
+
+        return true;
+    }
+
+    internal void OnResponseDataCompleted()
+    {
+        _isResponseDataCompleted = true;
+        _applicationStartedResponse.Release(1); // So it completes the write loop
+    }
+
     internal async Task OnStreamCompletedAsync()
     {
         await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
@@ -337,10 +394,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 }
 
 
-public class Http2StreamPipeWriter(PipeWriter writer, Action<int> writeStartedCallback) : PipeWriter
+internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStartingCallback = null, Action<int>? flushedCallback = null) : PipeWriter
 {
     private readonly PipeWriter _writer = writer;
-    private readonly Action<int> _writeStartedCallback = writeStartedCallback;
+    private readonly Action<int>? _flushStartingCallback = flushStartingCallback;
+    private readonly Action<int>? _flushedCallback = flushedCallback;
     private volatile bool _completed;
     private long _unflushedBytes;
 
@@ -350,7 +408,6 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action<int> writeStartedCa
     {
         _writer.Advance(bytes);
         _unflushedBytes += bytes;
-        _writeStartedCallback(bytes);
     }
 
     public override void CancelPendingFlush() =>
@@ -369,7 +426,9 @@ public class Http2StreamPipeWriter(PipeWriter writer, Action<int> writeStartedCa
 
     public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
     {
+        _flushStartingCallback?.Invoke(checked((int)_unflushedBytes));
         var result = await _writer.FlushAsync(cancellationToken);
+        _flushedCallback?.Invoke(checked((int)_unflushedBytes));
         if (!result.IsCanceled && !result.IsCompleted)
             _unflushedBytes = 0;
         return result;

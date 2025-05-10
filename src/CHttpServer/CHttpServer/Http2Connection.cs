@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Security.Authentication;
 using CHttpServer.System.Net.Http.HPack;
@@ -245,7 +246,14 @@ internal sealed partial class Http2Connection
         if (streamId > 0)
             _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
         else
-            _clientWindow.ReleaseSize(updateSize);
+        {
+           _clientWindow.ReleaseSize(updateSize);
+
+            // Let all streams know, so that they can schedule data writes (if
+            // they were blocked by connection windows earlier).
+            foreach(var stream in _streams.Values)
+                stream.OnConnectionWindowUpdateSize();
+        }
     }
 
     private async Task ReadFrameHeader()
@@ -340,5 +348,10 @@ internal sealed partial class Http2Connection
     {
         var removed = _streams.TryRemove(stream.StreamId, out _);
         Debug.Assert(removed);
+    }
+
+    internal bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)
+    {
+        return _clientWindow.TryUseAny(requestedSize, out reservedSize);
     }
 }
