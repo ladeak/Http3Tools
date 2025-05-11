@@ -1,6 +1,4 @@
 ﻿using System.Buffers;
-using System.IO;
-using System.IO.Pipelines;
 using System.Text;
 using System.Threading.Channels;
 using CHttpServer.System.Net.Http.HPack;
@@ -28,7 +26,7 @@ internal class Http2ResponseWriter
     public Http2ResponseWriter(FrameWriter frameWriter, uint maxFrameSize)
     {
         _frameWriter = frameWriter;
-        _maxFrameSize = (int)maxFrameSize;
+        _maxFrameSize = 16384;// (int)maxFrameSize; TODO!
         _buffer = [];
         _hpackEncoder = new DynamicHPackEncoder();
         _channel = Channel.CreateUnbounded<StreamWriteRequest>(new UnboundedChannelOptions() { SingleReader = true, AllowSynchronousContinuations = false });
@@ -102,33 +100,36 @@ internal class Http2ResponseWriter
     private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
     {
         var stream = writeRequest.Stream;
-
+        long totalWritten = 0;
         while (stream.ResponseContent.TryRead(out var readResult))
         {
             var responseContent = readResult.Buffer;
             if (readResult.IsCanceled || (readResult.IsCompleted && responseContent.IsEmpty))
             {
                 writeRequest.Stream.OnResponseDataCompleted();
-                break;
+                return;
             }
 
             do
             {
                 var initialSize = responseContent.Length > _maxFrameSize ? _maxFrameSize : responseContent.Length;
                 if (!stream.ReserveClientFlowControlSize(checked((uint)initialSize), out var currentSize))
-                    break;
+                {
+                    stream.ResponseContent.AdvanceTo(responseContent.Start); // It is sliced already.
+                    return;
+                }
 
                 _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
                 await _frameWriter.FlushAsync();
-
-                stream.ResponseContent.AdvanceTo(readResult.Buffer.Slice(0, currentSize).End);
+                totalWritten += currentSize;
                 responseContent = responseContent.Slice(currentSize);
             } while (!responseContent.IsEmpty);
 
-            if (readResult.IsCompleted)
+            stream.ResponseContent.AdvanceTo(responseContent.Start); // It is sliced already.
+            if (readResult.IsCompleted && responseContent.Length == 0)
             {
                 writeRequest.Stream.OnResponseDataCompleted();
-                break;
+                return;
             }
         }
     }

@@ -65,11 +65,13 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseServerFlowControl);
         _requestContentPipeWriter = new(_requestContentPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
-        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _responseContentPipeWriter = new(_responseContentPipe.Writer, flushStartingCallback: null, flushedCallback: size =>
+        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared, pauseWriterThreshold: 0));
+        _responseContentPipeWriter = new(_responseContentPipe.Writer, flushStartingCallback: size =>
         {
             if (!_hasStarted)
                 _ = StartAsync();
+        }, flushedCallback: size =>
+        {
             _applicationStartedResponse.Release(1);
         });
         _cts = new();
@@ -357,17 +359,17 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     internal bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)
     {
-        _clientWindowSize.TryUseAny(requestedSize, out var streamReservecSize);
-        if(streamReservecSize == 0)
+        _clientWindowSize.TryUseAny(requestedSize, out var streamReservedSize);
+        if (streamReservedSize == 0)
         {
             reservedSize = 0;
             _rescheduleDataWriteOnWindowUpdates = true;
             return false;
         }
-        if (!_connection.ReserveClientFlowControlSize(streamReservecSize, out var connectionReservedSize))
+        if (!_connection.ReserveClientFlowControlSize(streamReservedSize, out var connectionReservedSize))
         {
             // Return the difference to the stream.
-            _clientWindowSize.ReleaseSize(streamReservecSize - connectionReservedSize);
+            _clientWindowSize.ReleaseSize(streamReservedSize - connectionReservedSize);
         }
         reservedSize = connectionReservedSize;
         if (reservedSize == 0)
