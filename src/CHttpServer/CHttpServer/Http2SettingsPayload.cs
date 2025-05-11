@@ -8,7 +8,8 @@ internal struct Http2SettingsPayload
         EnablePush = 0;
         MaxConcurrentStream = 100;
         InitialWindowSize = 65_535;
-        MaxFrameSize = 16_384 * 2;
+        SendMaxFrameSize = 16_384; // Receiver can change it settings
+        ReceiveMaxFrameSize = 16_384 * 2; // Advertised by the server
         SettingsReceived = false;
     }
 
@@ -20,7 +21,9 @@ internal struct Http2SettingsPayload
 
     public uint InitialWindowSize { get; set; }
 
-    public uint MaxFrameSize { get; set; }
+    public uint SendMaxFrameSize { get; set; }
+
+    public uint ReceiveMaxFrameSize { get; set; }
 
     public uint MaxHeaderListSize { get; set; }
 

@@ -202,19 +202,22 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.True(response.TrailingHeaders.TryGetValues("x-trailer", out values) && values.First() == "mytrailer");
     }
 
-    [Fact]
-    public async Task LargerInput_Than_FlowControl()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(6)]
+    [InlineData(11)]
+    [InlineData(15)]
+    [InlineData(24)]
+    [InlineData(30)]
+    public async Task LargerInput_Than_FlowControl(int multiplier)
     {
-        for (int i = 1; i < 30; i += 5)
-        {
-            int requestLength = 32768 * i;
-            var client = CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7222/readallrequest") { Version = HttpVersion.Version20 };
-            request.Content = new ByteArrayContent(new byte[requestLength]);
-            var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-            Assert.True(response.IsSuccessStatusCode);
-            Assert.Equal(requestLength, int.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
-        }
+        int requestLength = 32768 * multiplier;
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7222/readallrequest") { Version = HttpVersion.Version20 };
+        request.Content = new ByteArrayContent(new byte[requestLength]);
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(requestLength, int.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
     }
 
     [Fact]

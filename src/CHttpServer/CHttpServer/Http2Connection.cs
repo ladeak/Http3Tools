@@ -47,8 +47,8 @@ internal sealed partial class Http2Connection
         _streams = [];
         _currentStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
         _h2Settings = new();
-        _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: (int)_h2Settings.MaxFrameSize);
-        _buffer = new byte[_h2Settings.MaxFrameSize];
+        _hpackDecoder = new(maxDynamicTableSize: 0);
+        _buffer = new byte[_h2Settings.ReceiveMaxFrameSize];
         _inputStream = connectionContext.Transport!;
         _aborted = false;
         _readFrame = new();
@@ -63,7 +63,7 @@ internal sealed partial class Http2Connection
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _writer = new FrameWriter(_context);
-        _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.MaxFrameSize);
+        _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
@@ -172,7 +172,7 @@ internal sealed partial class Http2Connection
                 throw new Http2ConnectionException("Invalid data pad length");
         }
 
-        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.MaxFrameSize)
+        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.ReceiveMaxFrameSize)
             .Slice(0, (int)_readFrame.PayloadLength); // framesize max
         await _inputStream.ReadExactlyAsync(buffer);
         httpStream.RequestPipe.Advance(buffer.Length - paddingLength); // Padding is read but not advanced.
@@ -275,8 +275,6 @@ internal sealed partial class Http2Connection
             throw new Http2ProtocolException();
         if (_readFrame.Flags == 1) // SETTING ACK
             return;
-        if (_h2Settings.SettingsReceived)
-            throw new Http2ConnectionException("Don't allow settings to change mid-connection"); // against the protocol
 
         var payloadLength = (int)_readFrame.PayloadLength;
         var memory = _buffer.AsMemory(0, payloadLength);
@@ -304,7 +302,8 @@ internal sealed partial class Http2Connection
                     _h2Settings.InitialWindowSize = settingValue;
                     break;
                 case 5:
-                    _h2Settings.MaxFrameSize = Math.Min(_h2Settings.MaxFrameSize, settingValue);
+                    _h2Settings.SendMaxFrameSize = settingValue;
+                    _responseWriter!.UpdateFrameSize(settingValue);
                     break;
 
             }

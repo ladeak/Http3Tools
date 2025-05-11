@@ -48,7 +48,7 @@ internal sealed class FrameWriter
         buffer = WriteSetting(buffer, 2, payload.EnablePush);
         buffer = WriteSetting(buffer, 3, payload.MaxConcurrentStream);
         buffer = WriteSetting(buffer, 4, payload.InitialWindowSize);
-        buffer = WriteSetting(buffer, 5, payload.MaxFrameSize);
+        buffer = WriteSetting(buffer, 5, payload.ReceiveMaxFrameSize);
 
         static Span<byte> WriteSetting(Span<byte> buffer, ushort id, uint value)
         {

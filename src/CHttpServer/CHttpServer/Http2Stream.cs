@@ -65,7 +65,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseServerFlowControl);
         _requestContentPipeWriter = new(_requestContentPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
-        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared, pauseWriterThreshold: 0));
+        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared, pauseWriterThreshold: 0)); // TODO move the pipe read from ResponseWriter to Stream to remove 0 threshold
         _responseContentPipeWriter = new(_responseContentPipe.Writer, flushStartingCallback: size =>
         {
             if (!_hasStarted)

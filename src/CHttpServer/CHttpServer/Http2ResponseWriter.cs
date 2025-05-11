@@ -18,7 +18,7 @@ internal class Http2ResponseWriter
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
-    private readonly int _maxFrameSize;
+    private int _maxFrameSize;
     private readonly Channel<StreamWriteRequest> _channel;
     private readonly Channel<StreamWriteRequest> _priorityChannel;
     private byte[] _buffer;
@@ -26,7 +26,7 @@ internal class Http2ResponseWriter
     public Http2ResponseWriter(FrameWriter frameWriter, uint maxFrameSize)
     {
         _frameWriter = frameWriter;
-        _maxFrameSize = 16384;// (int)maxFrameSize; TODO!
+        _maxFrameSize = (int)maxFrameSize;
         _buffer = [];
         _hpackEncoder = new DynamicHPackEncoder();
         _channel = Channel.CreateUnbounded<StreamWriteRequest>(new UnboundedChannelOptions() { SingleReader = true, AllowSynchronousContinuations = false });
@@ -58,7 +58,6 @@ internal class Http2ResponseWriter
                     await WriteWindowUpdateAsync(request.Stream, request.Size);
             }
         }
-        // TODO propagate the exception to the caller
         catch (OperationCanceledException)
         {
             // Channel is closed by the connection.
@@ -101,6 +100,7 @@ internal class Http2ResponseWriter
     {
         var stream = writeRequest.Stream;
         long totalWritten = 0;
+        var maxFrameSize = _maxFrameSize; // Not change during the write.
         while (stream.ResponseContent.TryRead(out var readResult))
         {
             var responseContent = readResult.Buffer;
@@ -111,8 +111,8 @@ internal class Http2ResponseWriter
             }
 
             do
-            {
-                var initialSize = responseContent.Length > _maxFrameSize ? _maxFrameSize : responseContent.Length;
+            { 
+                var initialSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
                 if (!stream.ReserveClientFlowControlSize(checked((uint)initialSize), out var currentSize))
                 {
                     stream.ResponseContent.AdvanceTo(responseContent.Start); // It is sliced already.
@@ -202,5 +202,12 @@ internal class Http2ResponseWriter
             28 => HeaderEncodingHint.IgnoreIndex, // Content-Length
             _ => HeaderEncodingHint.Index
         };
+    }
+
+    internal void UpdateFrameSize(uint size)
+    {
+        if (size < 16384 || size > 16777215)
+            throw new Http2ProtocolException(); // Invalid frame size
+        _maxFrameSize = (int)size;
     }
 }
