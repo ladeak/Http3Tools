@@ -230,6 +230,18 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
         Assert.Equal(10_000_000, content.Length);
     }
+
+
+    [Fact]
+    public async Task LargerStreamedOutput()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/getlargestreamresponse") { Version = HttpVersion.Version20 };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(10_000_000, content.Length);
+    }
 }
 
 public class TestServer : IAsyncDisposable, IDisposable
@@ -319,6 +331,15 @@ public class TestServer : IAsyncDisposable, IDisposable
         {
             ctx.Response.StatusCode = 200;
             await ctx.Response.BodyWriter.WriteAsync(new byte[10_000_000]);
+        });
+        _app.MapGet("/getlargestreamresponse", async (HttpContext ctx) =>
+        {
+            ctx.Response.StatusCode = 200;
+            for (int i = 0; i < 100; i++)
+            {
+                await ctx.Response.BodyWriter.WriteAsync(new byte[100_000]);
+                await ctx.Response.BodyWriter.FlushAsync();
+            }
         });
         return _app.RunAsync();
     }

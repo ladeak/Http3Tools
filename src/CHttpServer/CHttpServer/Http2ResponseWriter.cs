@@ -99,39 +99,16 @@ internal class Http2ResponseWriter
     private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
     {
         var stream = writeRequest.Stream;
-        long totalWritten = 0;
-        var maxFrameSize = _maxFrameSize; // Not change during the write.
-        while (stream.ResponseContent.TryRead(out var readResult))
+        var responseContent = stream.ResponseContentBuffer;
+        do
         {
-            var responseContent = readResult.Buffer;
-            if (readResult.IsCanceled || (readResult.IsCompleted && responseContent.IsEmpty))
-            {
-                writeRequest.Stream.OnResponseDataCompleted();
-                return;
-            }
-
-            do
-            { 
-                var initialSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
-                if (!stream.ReserveClientFlowControlSize(checked((uint)initialSize), out var currentSize))
-                {
-                    stream.ResponseContent.AdvanceTo(responseContent.Start); // It is sliced already.
-                    return;
-                }
-
-                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
-                await _frameWriter.FlushAsync();
-                totalWritten += currentSize;
-                responseContent = responseContent.Slice(currentSize);
-            } while (!responseContent.IsEmpty);
-
-            stream.ResponseContent.AdvanceTo(responseContent.Start); // It is sliced already.
-            if (readResult.IsCompleted && responseContent.Length == 0)
-            {
-                writeRequest.Stream.OnResponseDataCompleted();
-                return;
-            }
-        }
+            var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
+            var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;   
+            _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
+            await _frameWriter.FlushAsync();
+            responseContent = responseContent.Slice(currentSize);
+        } while (!responseContent.IsEmpty);
+        stream.OnResponseDataFlushed();
     }
 
     private async Task WriteEndStreamAsync(Http2Stream stream)
