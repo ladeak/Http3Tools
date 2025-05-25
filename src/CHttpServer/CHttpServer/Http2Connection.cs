@@ -56,7 +56,8 @@ internal sealed partial class Http2Connection
         _clientWindow = new(_h2Settings.InitialWindowSize);
     }
 
-    internal Http2ResponseWriter? ResponseWriter => _responseWriter;
+    // Setter is atest hook
+    internal Http2ResponseWriter? ResponseWriter { get => _responseWriter; init => _responseWriter = value; }
 
     internal CHttpServerOptions ServerOptions => _context.ServerOptions;
 
@@ -247,11 +248,11 @@ internal sealed partial class Http2Connection
             _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
         else
         {
-           _clientWindow.ReleaseSize(updateSize);
+            _clientWindow.ReleaseSize(updateSize);
 
             // Let all streams know, so that they can schedule data writes (if
             // they were blocked by connection windows earlier).
-            foreach(var stream in _streams.Values)
+            foreach (var stream in _streams.Values)
                 stream.OnConnectionWindowUpdateSize();
         }
     }
@@ -345,8 +346,7 @@ internal sealed partial class Http2Connection
 
     internal void OnStreamCompleted(Http2Stream stream)
     {
-        var removed = _streams.TryRemove(stream.StreamId, out _);
-        Debug.Assert(removed);
+        _streams.TryRemove(stream.StreamId, out _);
     }
 
     internal bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)

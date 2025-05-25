@@ -88,7 +88,7 @@ internal class Http2ResponseWriter
     public void ScheduleEndStream(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteEndStream));
 
-    internal void ScheduleWriteTrailers(Http2Stream http2Stream) =>
+    public void ScheduleWriteTrailers(Http2Stream http2Stream) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(http2Stream, WriteTrailers));
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
@@ -181,7 +181,7 @@ internal class Http2ResponseWriter
         };
     }
 
-    internal void UpdateFrameSize(uint size)
+    public void UpdateFrameSize(uint size)
     {
         if (size < 16384 || size > 16777215)
             throw new Http2ProtocolException(); // Invalid frame size
