@@ -1,11 +1,20 @@
 ﻿using CHttp.Abstractions;
 using CHttpExecutor;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
 var fileSytem = new FileSystem();
 var console = new CHttpConsole();
 if (!args.Any())
 {
-    console.WriteLine($"Missing argument: filepath");
-    return -1;
+    // Run MCP server if no arguments are provided
+    var builder = Host.CreateApplicationBuilder(args);
+
+    builder.Services
+        .AddMcpServer()
+        .WithStdioServerTransport()
+        .WithToolsFromAssembly();
+    await builder.Build().RunAsync();
 }
 var input = args[0];
 if (!fileSytem.Exists(input))

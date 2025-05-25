@@ -18,6 +18,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\CHttpExtension\StringConsole.cs" Link="StringConsole.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CHttp\CHttp.csproj" />
   </ItemGroup>
 
@@ -27,6 +31,8 @@
 
   <ItemGroup>
     <PackageReference Include="JsonPath.Net" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="*" />
+    <PackageReference Include="ModelContextProtocol" Version="0.2.0-preview.1" />
   </ItemGroup>
 
 </Project>

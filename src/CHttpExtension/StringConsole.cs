@@ -52,4 +52,6 @@ public class StringConsole : IConsole
     public void Write(ReadOnlySpan<char> buffer) => _sb.Append(buffer);
 
     public void WriteLine(ReadOnlySpan<char> value) { _sb.Append(value); _sb.AppendLine(); }
+
+    public override string ToString() => Text;
 }
