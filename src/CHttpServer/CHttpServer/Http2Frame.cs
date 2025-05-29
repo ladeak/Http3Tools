@@ -27,11 +27,11 @@ internal class Http2Frame
 
     // GoAway
 
-    public int GoAwayLastStreamId { get; set; }
+    public uint GoAwayLastStreamId { get; set; }
 
     public Http2ErrorCode GoAwayErrorCode { get; set; }
 
-    public void SetGoAway(int lastStreamId, Http2ErrorCode errorCode)
+    public void SetGoAway(uint lastStreamId, Http2ErrorCode errorCode)
     {
         PayloadLength = 8;
         Type = Http2FrameType.GOAWAY;
@@ -49,7 +49,7 @@ internal class Http2Frame
         StreamId = 0;
     }
 
-    public void SetResponseHeaders(uint streamId, int payloadLength)
+    public void SetHeaders(uint streamId, int payloadLength)
     {
         Type = Http2FrameType.HEADERS;
         Flags = 0;

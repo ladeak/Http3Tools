@@ -1,5 +1,9 @@
-﻿using System.Text;
+﻿using System.Buffers;
+using System.IO.Pipelines;
+using System.Security.Authentication;
+using System.Text;
 using CHttpServer.System.Net.Http.HPack;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -22,7 +26,7 @@ public class Http2StreamTests
             TransportPipe = new DuplexPipeStreamAdapter<MemoryStream>(memoryStream, new(), new())
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
-        var stream = new Http2Stream<TestHttpContext>(1, 10, connection, features, new TestApplication());
+        var stream = new Http2Stream<TestHttpContext>(1, 10, connection, features, new TestApplication(_ => Task.CompletedTask));
 
         stream.OnCompleted(_ => { taskCompletionSource.SetResult(); cts.Cancel(); return Task.CompletedTask; }, new());
         var outputWriterTask = connection.ResponseWriter.RunAsync(cts.Token);
@@ -30,7 +34,6 @@ public class Http2StreamTests
 
         // Await response completion
         await taskCompletionSource.Task;
-
 
         // Await shutdown
         await outputWriterTask;
@@ -53,6 +56,38 @@ public class Http2StreamTests
         Assert.Equal(0L, header.PayloadLength);
     }
 
+    [Fact]
+    public async Task ConnectionTest()
+    {
+        var features = new FeatureCollection();
+        features.Add<ITlsHandshakeFeature>(new TestTls());
+        var pipe = new TestDuplexPipe();
+        var connectionContext = new CHttpConnectionContext()
+        {
+            ConnectionId = 1,
+            Features = features,
+            ServerOptions = new CHttpServerOptions(),
+            Transport = pipe.Input.AsStream(),
+            TransportPipe = pipe
+        };
+        var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
+
+        // Initiate connection
+        var client = new MemoryClient(pipe.RequestWriter);
+        var connectionTask = connection.ProcessRequestAsync(new TestApplication(_ => Task.CompletedTask));
+
+        // Send request
+        await client.SendHeadersAsync([], true);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+
+        // Await shutdown
+        await connectionTask;
+
+        // TODO asserts
+    }
+
     private static Http2Frame ReadFrameHeader(MemoryStream stream)
     {
         var frame = new Http2Frame();
@@ -65,16 +100,14 @@ public class Http2StreamTests
         return frame;
     }
 
-    private class TestHttpContext
+    private class TestHttpContext(IFeatureCollection features)
     {
+        private readonly IFeatureCollection _features = features;
     }
 
-    private class TestApplication : IHttpApplication<TestHttpContext>
+    private class TestApplication(Func<TestHttpContext, Task> handler) : IHttpApplication<TestHttpContext>
     {
-        public TestHttpContext CreateContext(IFeatureCollection contextFeatures)
-        {
-            return new TestHttpContext();
-        }
+        public TestHttpContext CreateContext(IFeatureCollection contextFeatures) => new TestHttpContext(contextFeatures);
 
         public void DisposeContext(TestHttpContext context, Exception? exception)
         {
@@ -83,7 +116,7 @@ public class Http2StreamTests
 
         public Task ProcessRequestAsync(TestHttpContext context)
         {
-            return Task.CompletedTask;
+            return handler(context);
         }
     }
 
@@ -93,6 +126,7 @@ public class Http2StreamTests
 
         public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
         {
+            Headers.Add(Encoding.Latin1.GetString(name), Encoding.Latin1.GetString(value));
         }
 
         public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
@@ -116,4 +150,86 @@ public class Http2StreamTests
             Headers.Add(Encoding.Latin1.GetString(field.Name), Encoding.Latin1.GetString(value));
         }
     }
+
+    private class TestDuplexPipe() : IDuplexPipe
+    {
+        private readonly Pipe _input = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline, writerScheduler: PipeScheduler.Inline));
+        private readonly Pipe _output = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline, writerScheduler: PipeScheduler.Inline));
+
+        public PipeReader Input => _input.Reader;
+
+        public PipeWriter Output => _output.Writer;
+
+        public Stream ResponseReader => _output.Writer.AsStream();
+
+        public PipeWriter RequestWriter => _input.Writer;
+    }
+
+    public class TestTls : ITlsHandshakeFeature
+    {
+        public SslProtocols Protocol => SslProtocols.Tls12;
+
+        public CipherAlgorithmType CipherAlgorithm => throw new NotImplementedException();
+
+        public int CipherStrength => throw new NotImplementedException();
+
+        public HashAlgorithmType HashAlgorithm => throw new NotImplementedException();
+
+        public int HashStrength => throw new NotImplementedException();
+
+        public ExchangeAlgorithmType KeyExchangeAlgorithm => throw new NotImplementedException();
+
+        public int KeyExchangeStrength => throw new NotImplementedException();
+    }
+
+    public class MemoryClient
+    {
+        private readonly DynamicHPackEncoder _hpackEncoder;
+        private readonly FrameWriter _frameWriter;
+
+        public MemoryClient(PipeWriter requestPipe)
+        {
+            _hpackEncoder = new DynamicHPackEncoder(false, 4096);
+            _frameWriter = new FrameWriter(requestPipe);
+            var preface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
+            requestPipe.Write(preface);
+        }
+
+        public async ValueTask SendHeadersAsync(HeaderCollection headers, bool endStream)
+        {
+            int totalLength = 0;
+            var buffer = new byte[8096];
+
+            foreach (var header in headers)
+            {
+                var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
+
+                // This is stateful
+                if (!_hpackEncoder.EncodeHeader(buffer.AsSpan(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+                    header.Key, header.Value.ToString(), Encoding.Latin1, out var writtenLength))
+                    throw new InvalidOperationException("Header too large");
+                totalLength += writtenLength;
+            }
+            _frameWriter.WriteHeader(0, buffer.AsMemory(0, totalLength), endStream);
+            await _frameWriter.FlushAsync();
+        }
+
+        internal ValueTask<FlushResult> ShutdownConnectionAsync()
+        {
+            _frameWriter.WriteGoAway(0, Http2ErrorCode.NO_ERROR);
+            return _frameWriter.FlushAsync();
+        }
+
+        private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)
+        {
+            return headerIndex switch
+            {
+                55 => HeaderEncodingHint.NeverIndex, // SetCookie
+                25 => HeaderEncodingHint.NeverIndex, // Content-Disposition
+                28 => HeaderEncodingHint.IgnoreIndex, // Content-Length
+                _ => HeaderEncodingHint.Index
+            };
+        }
+    }
+
 }

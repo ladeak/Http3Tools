@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
-using System.Data.Common;
 using System.Diagnostics;
 using System.Security.Authentication;
+using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -26,7 +26,7 @@ internal sealed partial class Http2Connection
 
     private readonly CHttpConnectionContext _context;
     private readonly Stream _inputStream;
-    private readonly int _streamIdIndex;
+    private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
 
     private byte[] _buffer;
@@ -36,7 +36,8 @@ internal sealed partial class Http2Connection
     private Http2SettingsPayload _h2Settings;
     private ConcurrentDictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
-    private volatile bool _aborted;
+    private CancellationTokenSource _aborted;
+    private volatile bool _gracefulShutdownRequested;
     private FlowControlSize _serverWindow;
     private FlowControlSize _clientWindow;
 
@@ -50,7 +51,8 @@ internal sealed partial class Http2Connection
         _hpackDecoder = new(maxDynamicTableSize: 0);
         _buffer = new byte[_h2Settings.ReceiveMaxFrameSize];
         _inputStream = connectionContext.Transport!;
-        _aborted = false;
+        _aborted = new();
+        _gracefulShutdownRequested = false;
         _readFrame = new();
         _serverWindow = new(_context.ServerOptions.ServerConnectionFlowControlSize + CHttpServerOptions.InitialStreamFlowControlSize);
         _clientWindow = new(_h2Settings.InitialWindowSize);
@@ -75,13 +77,17 @@ internal sealed partial class Http2Connection
             _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = _context.ServerOptions.ServerStreamFlowControlSize });
             _writer.WriteWindowUpdate(0, _context.ServerOptions.ServerConnectionFlowControlSize);
             await _writer.FlushAsync();
-
-            while (!_aborted)
+            var token = _aborted.Token;
+            while (!token.IsCancellationRequested)
             {
-                await ReadFrameHeader();
+                await ReadFrameHeader(token);
                 await ProcessFrame(application);
             }
 
+        }
+        catch (OperationCanceledException) when (_aborted.IsCancellationRequested)
+        {
+            // Connection was aborted, no action needed
         }
         catch (Http2ConnectionException e)
         {
@@ -131,6 +137,9 @@ internal sealed partial class Http2Connection
             return ProcessDataFrame();
         if (_readFrame.Type == Http2FrameType.PING)
             return ProcessPingFrame();
+        if (_readFrame.Type == Http2FrameType.GOAWAY)
+            return ProcessGoAwayFrame();
+        // TODO RST_STREAM
         return ValueTask.CompletedTask;
     }
 
@@ -147,8 +156,45 @@ internal sealed partial class Http2Connection
         if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
         await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
+    }
 
+    // +-+-------------------------------------------------------------+
+    // |R|                  Last-Stream-ID(31)                        |
+    // +-+-------------------------------------------------------------+
+    // |                      Error Code(32)                          |
+    // +---------------------------------------------------------------+
+    // |                  Additional Debug Data(*)                    |
+    // +---------------------------------------------------------------+
+    private async ValueTask ProcessGoAwayFrame()
+    {
+        try
+        {
+            if (_readFrame.StreamId != 0)
+                throw new Http2ConnectionException("GOAWAY frame must be sent on connection stream (stream id 0)");
 
+            var payloadLength = (int)_readFrame.PayloadLength;
+            var memory = _buffer.AsMemory(0, payloadLength);
+            await _inputStream.ReadExactlyAsync(memory);
+            var lastStreamId = IntegerSerializer.ReadUInt32BigEndian(memory.Span[..4]);
+            var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(memory.Span.Slice(4, 4));
+            if (errorCode == Http2ErrorCode.NO_ERROR)
+            {
+                _gracefulShutdownRequested = true;
+                TryGracefulShutdown();
+            }
+
+            string additionalDebugData = string.Empty;
+            if (_readFrame.PayloadLength > 8)
+            {
+                // Read additional debug data if present
+                additionalDebugData = Encoding.Latin1.GetString(memory.Span[8..]);
+            }
+            if (_readFrame.GoAwayErrorCode != Http2ErrorCode.NO_ERROR)
+                throw new Http2ConnectionException($"GOAWAY frame received {additionalDebugData}");
+        }
+        catch (Exception e)
+        {
+        }
     }
 
     // +---------------+
@@ -219,6 +265,7 @@ internal sealed partial class Http2Connection
 
         _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, _context.Features, application);
         var addResult = _streams.TryAdd(_readFrame.StreamId, _currentStream);
+        _streamIdIndex = uint.Max(_readFrame.StreamId, _streamIdIndex);
         Debug.Assert(addResult);
         bool endHeaders = _readFrame.EndHeaders;
         ResetHeadersParsingState();
@@ -257,10 +304,10 @@ internal sealed partial class Http2Connection
         }
     }
 
-    private async Task ReadFrameHeader()
+    private async Task ReadFrameHeader(CancellationToken token)
     {
         var frameHeader = _buffer.AsMemory(0, MaxFrameHeaderLength);
-        await _inputStream.ReadExactlyAsync(frameHeader);
+        await _inputStream.ReadExactlyAsync(frameHeader, token);
         _readFrame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(frameHeader.Span[0..3]);
         _readFrame.Type = (Http2FrameType)frameHeader.Span[3];
         _readFrame.Flags = frameHeader.Span[4];
@@ -330,11 +377,7 @@ internal sealed partial class Http2Connection
     private void OnHeartbeat(object state)
     {
         // timeout for settings ack
-        if (_streams.Count == 0)
-        {
-            _responseWriter?.Complete();
-            _aborted = true;
-        }
+        TryGracefulShutdown();
     }
 
     private void ValidateTlsRequirements()
@@ -347,6 +390,18 @@ internal sealed partial class Http2Connection
     internal void OnStreamCompleted(Http2Stream stream)
     {
         _streams.TryRemove(stream.StreamId, out _);
+        if (_gracefulShutdownRequested)
+            TryGracefulShutdown();
+    }
+
+    private bool TryGracefulShutdown()
+    {
+        if (_streams.Count != 0)
+            return false;
+
+        _aborted.Cancel();
+        _responseWriter?.Complete();
+        return true;
     }
 
     internal bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)

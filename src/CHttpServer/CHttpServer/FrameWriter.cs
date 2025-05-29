@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Numerics;
 
 namespace CHttpServer;
 
@@ -10,9 +11,13 @@ internal sealed class FrameWriter
     private readonly Http2Frame _frame;
     private readonly PipeWriter _destination;
 
-    public FrameWriter(CHttpConnectionContext context)
+    public FrameWriter(CHttpConnectionContext context) : this(context.TransportPipe!.Output)
     {
-        _destination = context.TransportPipe!.Output;
+    }
+
+    public FrameWriter(PipeWriter destination)
+    {
+        _destination = destination;
         _frame = new Http2Frame();
     }
 
@@ -25,14 +30,16 @@ internal sealed class FrameWriter
         _destination.FlushAsync();
     }
 
-    internal void WriteGoAway(int lastStreamId, Http2ErrorCode errorCode)
+    internal void WriteGoAway(uint lastStreamId, Http2ErrorCode errorCode)
     {
         _frame.SetGoAway(lastStreamId, errorCode);
-        var buffer = _destination.GetSpan(FrameHeaderSize);
+        var length = FrameHeaderSize + (int)_frame.PayloadLength;
+        var buffer = _destination.GetSpan(length);
         WriteFrameHeader(buffer);
-        _destination.Advance(FrameHeaderSize);
-        _destination.FlushAsync();
-        _destination.Complete();
+        IntegerSerializer.WriteUInt32BigEndian(buffer[FrameHeaderSize..], _frame.GoAwayLastStreamId);
+        buffer[FrameHeaderSize] = (byte)(buffer[FrameHeaderSize] & 0b0111_1111);
+        IntegerSerializer.WriteUInt32BigEndian(buffer[(FrameHeaderSize + 4)..], (uint)_frame.GoAwayErrorCode);
+        _destination.Advance(length);
     }
 
     internal void WriteSettings(Http2SettingsPayload payload)
@@ -92,10 +99,10 @@ internal sealed class FrameWriter
         _destination.Advance(totalSize);
     }
 
-    internal void WriteResponseHeader(uint streamId, Memory<byte> headers, bool endStream)
+    internal void WriteHeader(uint streamId, Memory<byte> headers, bool endStream)
     {
         int totalSize = headers.Length + FrameHeaderSize;
-        _frame.SetResponseHeaders(streamId, headers.Length);
+        _frame.SetHeaders(streamId, headers.Length);
         _frame.EndHeaders = true;
         _frame.EndStream = endStream;
         var buffer = _destination.GetSpan(totalSize);

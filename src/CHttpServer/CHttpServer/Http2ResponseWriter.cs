@@ -13,8 +13,9 @@ internal class Http2ResponseWriter
     private const string WriteOutOfOrderFrame = nameof(WriteOutOfOrderFrame);
     private const string WriteTrailers = nameof(WriteTrailers);
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
+    private const string WriteGoAway = nameof(WriteGoAway);
 
-    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint Size = 0);
+    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint Data = 0);
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
@@ -55,7 +56,9 @@ internal class Http2ResponseWriter
                 else if (request.OperationName == WriteTrailers)
                     await WriteTrailersAsync(request.Stream);
                 else if (request.OperationName == WriteWindowUpdate)
-                    await WriteWindowUpdateAsync(request.Stream, request.Size);
+                    await WriteWindowUpdateAsync(request.Stream, request.Data);
+                else if (request.OperationName == WriteGoAway)
+                    await WriteGoAwayAsync(request.Data);
             }
         }
         catch (OperationCanceledException)
@@ -94,6 +97,9 @@ internal class Http2ResponseWriter
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteWindowUpdate, size));
 
+    public void ScheduleWriteGoAway(uint streamId) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(null!, WriteGoAway, streamId));
+
     public void Complete() => _channel.Writer.Complete();
 
     private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
@@ -103,7 +109,7 @@ internal class Http2ResponseWriter
         do
         {
             var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
-            var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;   
+            var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
             _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
             await _frameWriter.FlushAsync();
             responseContent = responseContent.Slice(currentSize);
@@ -133,7 +139,7 @@ internal class Http2ResponseWriter
                 throw new InvalidOperationException("Header too large");
             totalLength += writtenLength;
         }
-        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
+        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
         await _frameWriter.FlushAsync();
     }
 
@@ -158,7 +164,7 @@ internal class Http2ResponseWriter
             totalLength += writtenLength;
         }
 
-        _frameWriter.WriteResponseHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: true);
+        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: true);
         await _frameWriter.FlushAsync();
         await stream.OnStreamCompletedAsync();
     }
@@ -167,6 +173,12 @@ internal class Http2ResponseWriter
     {
         _frameWriter.WriteWindowUpdate(stream.StreamId, size);
         _frameWriter.WriteWindowUpdate(0, size);
+        await _frameWriter.FlushAsync();
+    }
+
+    private async Task WriteGoAwayAsync(uint streamId)
+    {
+        _frameWriter.WriteGoAway(streamId, Http2ErrorCode.NO_ERROR);
         await _frameWriter.FlushAsync();
     }
 
