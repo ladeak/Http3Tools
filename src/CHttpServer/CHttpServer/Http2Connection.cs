@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Authentication;
 using System.Text;
@@ -49,7 +50,7 @@ internal sealed partial class Http2Connection
         _currentStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0);
-        _buffer = new byte[_h2Settings.ReceiveMaxFrameSize];
+        _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
         _inputStream = connectionContext.Transport!;
         _aborted = new();
         _gracefulShutdownRequested = false;
@@ -73,11 +74,11 @@ internal sealed partial class Http2Connection
         try
         {
             ValidateTlsRequirements();
-            await ReadPreface();
+            var token = _aborted.Token;
+            await ReadPreface(token);
             _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = _context.ServerOptions.ServerStreamFlowControlSize });
             _writer.WriteWindowUpdate(0, _context.ServerOptions.ServerConnectionFlowControlSize);
             await _writer.FlushAsync();
-            var token = _aborted.Token;
             while (!token.IsCancellationRequested)
             {
                 await ReadFrameHeader(token);
@@ -117,12 +118,19 @@ internal sealed partial class Http2Connection
 
             if (!responseWriting.IsCompleted)
             {
-                cts.CancelAfter(TimeSpan.FromSeconds(5));
+                cts.Cancel();
                 await responseWriting;
             }
             _writer.WriteGoAway(_streamIdIndex, errorCode);
-            _inputStream.Close();
+            await _writer.FlushAsync();
+            CloseConnection();
         }
+    }
+
+    private void CloseConnection()
+    {
+        _inputStream.Close();
+        ArrayPool<byte>.Shared.Return(_buffer);
     }
 
     private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
@@ -366,10 +374,17 @@ internal sealed partial class Http2Connection
         //SETTINGS_MAX_HEADER_LIST_SIZE
     }
 
-    private async Task ReadPreface()
+    private async Task ReadPreface(CancellationToken token)
     {
         var preface = _buffer.AsMemory(0, PrefaceBytes.Length);
-        await _inputStream.ReadExactlyAsync(preface);
+        try
+        {
+            await _inputStream.ReadExactlyAsync(preface, token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new Http2ConnectionException("Connection aborted while reading preface");
+        }
         if (!preface.Span.SequenceEqual(PrefaceBytes))
             throw new Http2ConnectionException("Request is not HTTP2");
     }
