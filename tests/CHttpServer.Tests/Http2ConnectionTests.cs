@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Net;
+using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using static CHttpServer.Tests.TestBase;
 
@@ -119,35 +121,47 @@ public class Http2ConnectionTests
     [Fact]
     public async Task SendingHeaders()
     {
-        var features = new FeatureCollection();
-        features.Add<ITlsHandshakeFeature>(new TestTls());
-        var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
-        {
-            ConnectionId = 1,
-            Features = features,
-            ServerOptions = new CHttpServerOptions(),
-            Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
-        };
-        var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
+        var (pipe, connection) = CreateConnnection();
 
         // Initiate connection
-        var client = new TestClient(pipe.RequestWriter);
-        var connectionTask = connection.ProcessRequestAsync(new TestApplication(_ => Task.CompletedTask));
+        var (client, connectionProcessing) = CreateApp(pipe, connection, _ => Task.CompletedTask);
         await AssertSettingsFrameAsync(pipe);
         await AssertWindowUpdateFrameAsync(pipe);
 
         // Send request
         await client.SendHeadersAsync([], true);
 
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
         // Shutdown connection
         await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
 
-        // Await shutdown
-        await connectionTask;
+    private static async Task<Http2Frame> AssertEmptyEndStream(TestDuplexPipe pipe)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.DATA, frame.Type);
+        Assert.Equal(0L, frame.PayloadLength);
+        Assert.True(frame.EndStream);
+        return frame;
+    }
 
-        // TODO: Assert response
+    private static async Task<(Http2Frame Frame, Dictionary<string, string> Header)> AssertResponseHeaders(TestDuplexPipe pipe)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.HEADERS, frame.Type);
+        var payloadData = new byte[frame.PayloadLength];
+        await pipe.Response.ReadExactlyAsync(payloadData).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+        var hpackDecoder = new HPackDecoder();
+        var headerHandler = new TestHttpStreamHeadersHandler();
+        hpackDecoder.Decode(payloadData, frame.EndHeaders, headerHandler);
+        return (frame, headerHandler.Headers);
     }
 
     private static async Task<Http2Frame> AssertWindowUpdateFrameAsync(TestDuplexPipe pipe, uint? expectedSize = null)

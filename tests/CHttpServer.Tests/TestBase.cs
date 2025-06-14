@@ -11,6 +11,33 @@ namespace CHttpServer.Tests;
 
 internal class TestBase
 {
+    internal static (TestDuplexPipe Pipe, Http2Connection Connection) CreateConnnection()
+    {
+        var features = new FeatureCollection();
+        features.Add<ITlsHandshakeFeature>(new TestTls());
+        var pipe = new TestDuplexPipe();
+        var connectionContext = new CHttpConnectionContext()
+        {
+            ConnectionId = 1,
+            Features = features,
+            ServerOptions = new CHttpServerOptions(),
+            Transport = pipe.Input.AsStream(),
+            TransportPipe = pipe
+        };
+        var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
+        return (pipe, connection);
+    }
+
+    internal static (TestClient Client, Task ConnectionProcessing) CreateApp(
+        TestDuplexPipe pipe,
+        Http2Connection connection,
+        Func<TestHttpContext, Task> requestHandler)
+    {
+        var client = new TestClient(pipe.RequestWriter);
+        var connectionTask = connection.ProcessRequestAsync(new TestApplication(requestHandler));
+        return (client, connectionTask);
+    }
+
     internal static async Task<Http2Frame> ReadFrameHeaderAsync(Stream stream)
     {
         const int FrameHeaderSize = 9;
@@ -139,6 +166,8 @@ internal class TestBase
                 SendPrefaceAsync().GetAwaiter().GetResult();
         }
 
+        public uint StreamId { get; set; } = 1;
+
         internal ValueTask<FlushResult> SendPrefaceAsync() => SendPrefaceAsync("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8);
 
         internal ValueTask<FlushResult> SendPrefaceAsync(ReadOnlySpan<byte> preface)
@@ -162,13 +191,13 @@ internal class TestBase
                     throw new InvalidOperationException("Header too large");
                 totalLength += writtenLength;
             }
-            _frameWriter.WriteHeader(0, buffer.AsMemory(0, totalLength), endStream);
+            _frameWriter.WriteHeader(StreamId, buffer.AsMemory(0, totalLength), endStream);
             await _frameWriter.FlushAsync();
         }
 
         internal ValueTask<FlushResult> ShutdownConnectionAsync()
         {
-            _frameWriter.WriteGoAway(0, Http2ErrorCode.NO_ERROR);
+            _frameWriter.WriteGoAway(StreamId, Http2ErrorCode.NO_ERROR);
             return _frameWriter.FlushAsync();
         }
 
