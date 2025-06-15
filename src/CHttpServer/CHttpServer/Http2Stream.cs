@@ -59,12 +59,12 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _state = StreamState.Open;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
-        _requestContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _requestContentPipeReader = new(_requestContentPipe.Reader, ReleaseServerFlowControl);
-        _requestContentPipeWriter = new(_requestContentPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
+        _requestBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
+        _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
+        _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
-        _responseContentPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _responseContentPipeWriter = new(_responseContentPipe.Writer, flushStartingCallback: size =>
+        _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
+        _responseBodyPipeWriter = new(_responseBodyPipe.Writer, flushStartingCallback: size =>
         {
             if (!_hasStarted)
                 _ = StartAsync();
@@ -139,7 +139,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _requestHeaders.SetReadOnly();
         await RunApplicationAsync();
-        _responseContentPipeWriter.Complete();
+        _responseBodyPipeWriter.Complete();
         await CompleteAsync();
     }
 
@@ -151,15 +151,15 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     public void CompleteRequestStream()
     {
-        _requestContentPipeWriter.Complete();
+        _requestBodyPipeWriter.Complete();
         _state = StreamState.HalfOpenRemote;
 
         // Reader maybe cancelled or completed, in which the data written to the pipe
         // has been already counted by the request sender. To make sure flowcontrol matches
         // the client, WindowUpdates is written for the remaining unflushed bytes.
-        if (_requestContentPipeWriter.UnflushedBytes > 0)
+        if (_requestBodyPipeWriter.UnflushedBytes > 0)
         {
-            ReleaseServerFlowControl((checked((int)_requestContentPipeWriter.UnflushedBytes)));
+            ReleaseServerFlowControl((checked((int)_requestBodyPipeWriter.UnflushedBytes)));
         }
     }
 
@@ -189,9 +189,9 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 {
     private HeaderCollection _requestHeaders;
 
-    private Pipe _requestContentPipe;
-    private Http2StreamPipeReader _requestContentPipeReader;
-    private Http2StreamPipeWriter _requestContentPipeWriter;
+    private Pipe _requestBodyPipe;
+    private Http2StreamPipeReader _requestBodyPipeReader;
+    private Http2StreamPipeWriter _requestBodyPipeWriter;
 
     public string Protocol { get => "HTTP/2"; set => throw new NotSupportedException(); }
     public string Scheme { get; set; } = string.Empty;
@@ -201,12 +201,12 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public string QueryString { get; set; } = string.Empty;
     public string RawTarget { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
-    public Stream Body { get => _requestContentPipeReader.AsStream(); set => throw new NotSupportedException(); }
+    public Stream Body { get => _requestBodyPipeReader.AsStream(); set => throw new NotSupportedException(); }
 
     public bool CanHaveBody => true;
 
     public PipeWriter RequestPipe => _state <= StreamState.HalfOpenLocal ?
-        _requestContentPipeWriter : throw new Http2ConnectionException("STREAM CLOSED");
+        _requestBodyPipeWriter : throw new Http2ConnectionException("STREAM CLOSED");
 
     public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
 
@@ -215,8 +215,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
-    private readonly Pipe _responseContentPipe;
-    private readonly Http2StreamPipeWriter _responseContentPipeWriter;
+    private readonly Pipe _responseBodyPipe;
+    private readonly Http2StreamPipeWriter _responseBodyPipeWriter;
     private readonly SemaphoreSlim _applicationFlushedResponse = new(0);
     private readonly SemaphoreSlim _clientFlowControlBarrier = new(1, 1);
 
@@ -232,9 +232,9 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public Stream Stream => throw new NotSupportedException($"Write with the {nameof(IHttpResponseBodyFeature.Writer)}");
 
-    public PipeWriter Writer => _responseContentPipeWriter;
+    public PipeWriter Writer => _responseBodyPipeWriter;
 
-    public ReadOnlySequence<byte> ResponseContentBuffer { get; private set; }
+    public ReadOnlySequence<byte> ResponseBodyBuffer { get; private set; }
 
     public IHeaderDictionary Trailers
     {
@@ -322,6 +322,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         _writer.ScheduleWriteHeaders(this);
         await WriteBodyResponseAsync(cancellationToken);
+        if (cancellationToken.IsCancellationRequested)
+            return;
         if (_responseTrailers != null)
         {
             _responseTrailers.SetReadOnly();
@@ -337,14 +339,14 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         while (!token.IsCancellationRequested)
         {
-            var readResult = await _responseContentPipe.Reader.ReadAsync(token);
+            var readResult = await _responseBodyPipe.Reader.ReadAsync(token);
             if (readResult.IsCanceled)
                 return;
 
             var buffer = readResult.Buffer;
             while (!buffer.IsEmpty)
             {
-                // Reserve flow control size for the response content.
+                // Reserve flow control size for the response body.
                 var size = buffer.Length > uint.MaxValue ? uint.MaxValue : (uint)buffer.Length;
                 if (!ReserveClientFlowControlSize(size, out size)) // Reserve here to block write pipe.
                 {
@@ -352,15 +354,18 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
                     continue;
                 }
 
-                ResponseContentBuffer = buffer.Slice(0, size);
+                ResponseBodyBuffer = buffer.Slice(0, size);
                 _writer.ScheduleWriteData(this);
                 await _applicationFlushedResponse.WaitAsync(token);
                 buffer = buffer.Slice(size);
             }
-            _responseContentPipe.Reader.AdvanceTo(readResult.Buffer.End);
+            _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);
             if (readResult.IsCompleted)
                 return;
         }
+
+        // Complete when cancelled or the body is fully written.
+        _responseBodyPipe.Reader.Complete();
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 using System.Net;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Http;
 using static CHttpServer.Tests.TestBase;
 
 namespace CHttpServer.Tests;
@@ -125,6 +126,32 @@ public class Http2ConnectionTests
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, _ => Task.CompletedTask);
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([], true);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task Rst_Stream_CancelsRequest()
+    {
+        var (pipe, connection) = CreateConnnection();
+
+        // Initiate connection
+        bool isRequestCancelled = false;
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) => {  return Task.CompletedTask; });
         await AssertSettingsFrameAsync(pipe);
         await AssertWindowUpdateFrameAsync(pipe);
 

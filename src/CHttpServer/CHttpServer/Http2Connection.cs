@@ -29,6 +29,7 @@ internal sealed partial class Http2Connection
     private readonly Stream _inputStream;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
+    private readonly Http2Stream _defaultStream;
 
     private byte[] _buffer;
     private FrameWriter? _writer;
@@ -47,7 +48,8 @@ internal sealed partial class Http2Connection
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
         _streams = [];
-        _currentStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
+        _defaultStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
+        _currentStream = _defaultStream;
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
@@ -147,7 +149,8 @@ internal sealed partial class Http2Connection
             return ProcessPingFrame();
         if (_readFrame.Type == Http2FrameType.GOAWAY)
             return ProcessGoAwayFrame();
-        // TODO RST_STREAM
+        if (_readFrame.Type == Http2FrameType.RST_STREAM)
+            return ProcessResetStreamFrame();
         return ValueTask.CompletedTask;
     }
 
@@ -281,6 +284,23 @@ internal sealed partial class Http2Connection
         if (endHeaders)
             _currentStream.RequestEndHeadersReceived();
         StartStream();
+    }
+
+    private async ValueTask ProcessResetStreamFrame()
+    {
+        var streamId = _readFrame.StreamId;
+        if (!_streams.TryGetValue(streamId, out var httpStream))
+            throw new Http2ProtocolException();
+        if (_readFrame.PayloadLength != 4)
+            throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
+        await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 4));
+        Http2ErrorCode errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(_buffer.AsSpan(0, 4));
+
+        // Abort stream
+        httpStream.Abort();
+        OnStreamCompleted(httpStream);
+        if (_currentStream.StreamId == streamId)
+            _currentStream = _defaultStream;
     }
 
     private void StartStream()

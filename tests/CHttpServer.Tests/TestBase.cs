@@ -1,10 +1,12 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Security.Authentication;
+using System.Security.Claims;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer.Tests;
@@ -31,7 +33,7 @@ internal class TestBase
     internal static (TestClient Client, Task ConnectionProcessing) CreateApp(
         TestDuplexPipe pipe,
         Http2Connection connection,
-        Func<TestHttpContext, Task> requestHandler)
+        Func<HttpContext, Task> requestHandler)
     {
         var client = new TestClient(pipe.RequestWriter);
         var connectionTask = connection.ProcessRequestAsync(new TestApplication(requestHandler));
@@ -51,21 +53,16 @@ internal class TestBase
         return frame;
     }
 
-    internal class TestHttpContext(IFeatureCollection features)
+    internal class TestApplication(Func<HttpContext, Task> handler) : IHttpApplication<HttpContext>
     {
-        private readonly IFeatureCollection _features = features;
-    }
+        public HttpContext CreateContext(IFeatureCollection contextFeatures) => new DefaultHttpContext(contextFeatures);
 
-    internal class TestApplication(Func<TestHttpContext, Task> handler) : IHttpApplication<TestHttpContext>
-    {
-        public TestHttpContext CreateContext(IFeatureCollection contextFeatures) => new TestHttpContext(contextFeatures);
-
-        public void DisposeContext(TestHttpContext context, Exception? exception)
+        public void DisposeContext(HttpContext context, Exception? exception)
         {
 
         }
 
-        public Task ProcessRequestAsync(TestHttpContext context)
+        public Task ProcessRequestAsync(HttpContext context)
         {
             return handler(context);
         }

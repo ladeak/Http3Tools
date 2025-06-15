@@ -105,7 +105,7 @@ internal class Http2ResponseWriter
     private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
     {
         var stream = writeRequest.Stream;
-        var responseContent = stream.ResponseContentBuffer;
+        var responseContent = stream.ResponseBodyBuffer;
         do
         {
             var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
