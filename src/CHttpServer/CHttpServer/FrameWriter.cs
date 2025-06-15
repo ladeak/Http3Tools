@@ -100,11 +100,11 @@ internal sealed class FrameWriter
         _destination.Advance(totalSize);
     }
 
-    internal void WriteHeader(uint streamId, Memory<byte> headers, bool endStream)
+    internal void WriteHeader(uint streamId, Memory<byte> headers, bool endHeaders, bool endStream)
     {
         int totalSize = headers.Length + FrameHeaderSize;
         _frame.SetHeaders(streamId, headers.Length);
-        _frame.EndHeaders = true;
+        _frame.EndHeaders = endHeaders;
         _frame.EndStream = endStream;
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
@@ -132,6 +132,19 @@ internal sealed class FrameWriter
         WriteFrameHeader(buffer);
         IntegerSerializer.WriteUInt32BigEndian(buffer[FrameHeaderSize..], (uint)errorCode);
         _destination.Advance(TotalSize);
+    }
+
+    internal void WriteContinuation(uint streamId, Memory<byte> headers, bool endHeaders, bool endStream)
+    {
+        int totalSize = headers.Length + FrameHeaderSize;
+        _frame.SetContinuation(streamId, headers.Length);
+        _frame.EndHeaders = endHeaders;
+        _frame.EndStream = endStream;
+        var buffer = _destination.GetSpan(totalSize);
+        WriteFrameHeader(buffer);
+        buffer = buffer[FrameHeaderSize..];
+        headers.Span.CopyTo(buffer);
+        _destination.Advance(totalSize);
     }
 
     internal ValueTask<FlushResult> FlushAsync() => _destination.FlushAsync();

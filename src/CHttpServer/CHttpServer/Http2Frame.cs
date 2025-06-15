@@ -60,6 +60,14 @@ internal class Http2Frame
         PayloadLength = (uint)payloadLength;
     }
 
+    public void SetContinuation(uint streamId, int payloadLength)
+    {
+        Type = Http2FrameType.CONTINUATION;
+        Flags = 0;
+        StreamId = streamId;
+        PayloadLength = (uint)payloadLength;
+    }
+
     public void SetData(uint streamId, int payloadLength)
     {
         Type = Http2FrameType.DATA;

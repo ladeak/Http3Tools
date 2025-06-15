@@ -1,11 +1,13 @@
 ﻿using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection.PortableExecutable;
 using System.Security.Authentication;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CHttpServer;
 
@@ -137,20 +139,22 @@ internal sealed partial class Http2Connection
 
     private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        if (_readFrame.Type == Http2FrameType.SETTINGS)
-            return ProcessSettingsFrame();
+        if (_readFrame.Type == Http2FrameType.DATA)
+            return ProcessDataFrame();
         if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
             return ProcessWindowUpdateFrame();
         if (_readFrame.Type == Http2FrameType.HEADERS)
             return ProcessHeaderFrame(application);
-        if (_readFrame.Type == Http2FrameType.DATA)
-            return ProcessDataFrame();
+        if (_readFrame.Type == Http2FrameType.SETTINGS)
+            return ProcessSettingsFrame();
         if (_readFrame.Type == Http2FrameType.PING)
             return ProcessPingFrame();
         if (_readFrame.Type == Http2FrameType.GOAWAY)
             return ProcessGoAwayFrame();
         if (_readFrame.Type == Http2FrameType.RST_STREAM)
             return ProcessResetStreamFrame();
+        if (_readFrame.Type == Http2FrameType.CONTINUATION)
+            return ProcessContinuationFrame();
         return ValueTask.CompletedTask;
     }
 
@@ -282,10 +286,36 @@ internal sealed partial class Http2Connection
         ResetHeadersParsingState();
         _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
         if (endHeaders)
+        {
             _currentStream.RequestEndHeadersReceived();
-        StartStream();
+            StartStream();
+        }
     }
 
+    // +---------------------------------------------------------------+
+    // |                   Header Block Fragment(*)                 ...
+    // +---------------------------------------------------------------+
+    private async ValueTask ProcessContinuationFrame()
+    {
+        if (_currentStream.StreamId != _readFrame.StreamId || _currentStream.RequestEndHeaders)
+            throw new Http2ProtocolException();
+        if (!_streams.ContainsKey(_readFrame.StreamId))
+            return;
+
+        var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
+        await _inputStream.ReadExactlyAsync(memory);
+        bool endHeaders = _readFrame.EndHeaders;
+        _hpackDecoder.Decode(memory.Span, endHeaders, this);
+        if (endHeaders)
+        {
+            _currentStream.RequestEndHeadersReceived();
+            StartStream();
+        }
+    }
+
+    // +---------------------------------------------------------------+
+    // |                        Error Code(32)                        |
+    // +---------------------------------------------------------------+
     private async ValueTask ProcessResetStreamFrame()
     {
         var streamId = _readFrame.StreamId;

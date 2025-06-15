@@ -139,7 +139,7 @@ internal class Http2ResponseWriter
                 throw new InvalidOperationException("Header too large");
             totalLength += writtenLength;
         }
-        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: false);
+        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endHeaders: true, endStream: false);
         await _frameWriter.FlushAsync();
     }
 
@@ -164,7 +164,7 @@ internal class Http2ResponseWriter
             totalLength += writtenLength;
         }
 
-        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endStream: true);
+        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endHeaders: true, endStream: true);
         await _frameWriter.FlushAsync();
         await stream.OnStreamCompletedAsync();
     }

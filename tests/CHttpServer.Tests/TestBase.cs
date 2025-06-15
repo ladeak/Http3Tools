@@ -173,7 +173,7 @@ internal class TestBase
             return _requestPipe.FlushAsync();
         }
 
-        internal async ValueTask SendHeadersAsync(HeaderCollection headers, bool endStream)
+        internal async ValueTask SendHeadersAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
         {
             int totalLength = 0;
             var buffer = new byte[8096];
@@ -188,7 +188,27 @@ internal class TestBase
                     throw new InvalidOperationException("Header too large");
                 totalLength += writtenLength;
             }
-            _frameWriter.WriteHeader(StreamId, buffer.AsMemory(0, totalLength), endStream);
+            _frameWriter.WriteHeader(StreamId, buffer.AsMemory(0, totalLength), endHeaders, endStream);
+            await _frameWriter.FlushAsync();
+        }
+
+
+        internal async ValueTask SendContinuationAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
+        {
+            int totalLength = 0;
+            var buffer = new byte[8096];
+
+            foreach (var header in headers)
+            {
+                var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
+
+                // This is stateful
+                if (!_hpackEncoder.EncodeHeader(buffer.AsSpan(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+                    header.Key, header.Value.ToString(), Encoding.Latin1, out var writtenLength))
+                    throw new InvalidOperationException("Header too large");
+                totalLength += writtenLength;
+            }
+            _frameWriter.WriteContinuation(StreamId, buffer.AsMemory(0, totalLength), endHeaders, endStream);
             await _frameWriter.FlushAsync();
         }
 
