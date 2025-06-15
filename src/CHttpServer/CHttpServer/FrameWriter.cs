@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Numerics;
+using CHttpServer.System.Net.Http.HPack;
 
 namespace CHttpServer;
 
@@ -121,6 +122,16 @@ internal sealed class FrameWriter
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];
         _destination.Advance(totalSize);
+    }
+
+    internal void WriteRstStream(uint streamId, Http2ErrorCode errorCode)
+    {
+        const int TotalSize = FrameHeaderSize + 4;
+        _frame.SetRstStream(streamId);
+        var buffer = _destination.GetSpan(TotalSize);
+        WriteFrameHeader(buffer);
+        IntegerSerializer.WriteUInt32BigEndian(buffer[FrameHeaderSize..], (uint)errorCode);
+        _destination.Advance(TotalSize);
     }
 
     internal ValueTask<FlushResult> FlushAsync() => _destination.FlushAsync();

@@ -192,6 +192,12 @@ internal class TestBase
             await _frameWriter.FlushAsync();
         }
 
+        internal async ValueTask SendRstStreamAsync()
+        {
+            _frameWriter.WriteRstStream(StreamId, Http2ErrorCode.CANCEL);
+            await _frameWriter.FlushAsync();
+        }
+
         internal ValueTask<FlushResult> ShutdownConnectionAsync()
         {
             _frameWriter.WriteGoAway(StreamId, Http2ErrorCode.NO_ERROR);

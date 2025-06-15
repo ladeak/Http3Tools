@@ -145,24 +145,52 @@ public class Http2ConnectionTests
     }
 
     [Fact]
-    public async Task Rst_Stream_CancelsRequest()
+    public async Task RstStream_CancelsRequest()
     {
         var (pipe, connection) = CreateConnnection();
 
         // Initiate connection
-        bool isRequestCancelled = false;
-        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) => {  return Task.CompletedTask; });
+        TaskCompletionSource<bool> cancellationProcessed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) => { try { await Task.Delay(TimeSpan.MaxValue, ctx.RequestAborted); } finally { cancellationProcessed.TrySetResult(ctx.RequestAborted.IsCancellationRequested); } });
         await AssertSettingsFrameAsync(pipe);
         await AssertWindowUpdateFrameAsync(pipe);
 
         // Send request
         await client.SendHeadersAsync([], true);
+        await client.SendRstStreamAsync();
 
-        // Assert response
-        var (frame, headers) = await AssertResponseHeaders(pipe);
-        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
-        Assert.True(frame.EndHeaders);
-        await AssertEmptyEndStream(pipe);
+        await cancellationProcessed.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task RstStream_NonCooperativeApplication_DoesNotFailWriteAsyncInApplication_DoesNotWriteResponseToStream()
+    {
+        var (pipe, connection) = CreateConnnection();
+
+        // Initiate connection
+        TaskCompletionSource requestCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                await ctx.Response.WriteAsync("this is not a cooperative application");
+            }
+            finally { requestCompleted.TrySetResult(); }
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([], true);
+        await client.SendRstStreamAsync();
+
+        await requestCompleted.Task.WaitAsync(TestContext.Current.CancellationToken);
 
         // Shutdown connection
         await client.ShutdownConnectionAsync();

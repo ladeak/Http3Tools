@@ -1,4 +1,7 @@
-﻿namespace CHttpServer;
+﻿
+using System.IO;
+
+namespace CHttpServer;
 
 /// <remarks>
 /// From https://tools.ietf.org/html/rfc7540#section-4.1:
@@ -86,6 +89,14 @@ internal class Http2Frame
     internal void SetWindowUpdate(uint streamId)
     {
         Type = Http2FrameType.WINDOW_UPDATE;
+        Flags = 0;
+        StreamId = streamId;
+        PayloadLength = 4;
+    }
+
+    internal void SetRstStream(uint streamId)
+    {
+        Type = Http2FrameType.RST_STREAM;
         Flags = 0;
         StreamId = streamId;
         PayloadLength = 4;

@@ -23,6 +23,7 @@ internal class Http2Stream<TContext> : Http2Stream where TContext : notnull
         _featureCollection.Add<IHttpResponseBodyFeature>(this);
         _featureCollection.Add<IHttpResponseTrailersFeature>(this);
         _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
+        _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
     }
 
     protected override Task RunApplicationAsync()
@@ -320,6 +321,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     private async Task WriteResponseAsync(CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return;
         _writer.ScheduleWriteHeaders(this);
         await WriteBodyResponseAsync(cancellationToken);
         if (cancellationToken.IsCancellationRequested)
