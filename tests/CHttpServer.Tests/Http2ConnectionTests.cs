@@ -152,7 +152,7 @@ public class Http2ConnectionTests
 
         // Initiate connection
         TaskCompletionSource<bool> cancellationProcessed = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) => { try { await Task.Delay(TimeSpan.FromSeconds(5), ctx.RequestAborted); } finally { cancellationProcessed.TrySetResult(ctx.RequestAborted.IsCancellationRequested); } });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) => { try { await Task.Delay(TimeSpan.FromSeconds(5), ctx.RequestAborted); } catch (TaskCanceledException) { } finally { cancellationProcessed.TrySetResult(ctx.RequestAborted.IsCancellationRequested); } });
         await AssertSettingsFrameAsync(pipe);
         await AssertWindowUpdateFrameAsync(pipe);
 
