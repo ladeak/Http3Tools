@@ -262,7 +262,7 @@ public class Http2ConnectionTests
     }
 
     [Fact]
-    public async Task LargeRequestHeader_UsesContinuation()
+    public async Task LargeRequestHeaderValue_UsesContinuation()
     {
         var headerName = "x-test-header";
         var headerValue = new string('a', 100_000);
@@ -287,6 +287,87 @@ public class Http2ConnectionTests
         // Shutdown connection
         await client.ShutdownConnectionAsync();
         await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task LargeRequestHeaderName_UsesContinuation()
+    {
+        var headerName = $"x-test-header-{new string('a', 100_000)}";
+        var headerValue = "true";
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_100 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            Assert.Contains(ctx.Request.Headers, h => h.Key == headerName);
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
+
+        var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task Too_LargeRequestHeaderValue_GoAway()
+    {
+        var headerName = "x-test-header";
+        var headerValue = new string('a', 100_000);
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 90_000 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            Assert.Contains(ctx.Request.Headers, h => h.Key == headerName && (string)h.Value! == headerValue);
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
+
+        await AssertGoAwayAsync(pipe);
+        
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task Too_LargeRequestHeaderName_GoAway()
+    {
+        var headerName = $"x-test-header-{new string('a', 100_000)}";
+        var headerValue = "true";
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 90_000 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            Assert.Contains(ctx.Request.Headers, h => h.Key == headerName);
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
+
+        await AssertGoAwayAsync(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
         await connectionProcessing;
     }
 
