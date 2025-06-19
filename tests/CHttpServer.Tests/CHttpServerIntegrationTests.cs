@@ -231,7 +231,6 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.Equal(10_000_000, content.Length);
     }
 
-
     [Fact]
     public async Task LargerStreamedOutput()
     {
@@ -241,6 +240,19 @@ public class CHttpServerIntegrationTests : IClassFixture<TestServer>
         Assert.True(response.IsSuccessStatusCode);
         var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
         Assert.Equal(10_000_000, content.Length);
+    }
+
+    [Fact]
+    public async Task LargeHeaderRequestResponse()
+    {
+        var headerName = "x-custom-header";
+        var headerValue = new string('a', 40_000);
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7222/headersecho") { Version = HttpVersion.Version20 };
+        request.Headers.Add(headerName, headerValue);
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.True(response.Headers.TryGetValues(headerName, out var values) && values.Single() == headerValue);
     }
 }
 
@@ -318,6 +330,15 @@ public class TestServer : IAsyncDisposable, IDisposable
             ctx.Response.StatusCode = 200;
             await ctx.Response.WriteAsync("some content");
             ctx.Response.AppendTrailer("x-trailer", new Microsoft.Extensions.Primitives.StringValues("mytrailer"));
+
+        });
+        _app.MapGet("/headersecho", async (HttpContext ctx) =>
+        {
+            foreach (var header in ctx.Request.Headers)
+                if (header.Key.StartsWith("x-custom"))
+                    ctx.Response.Headers.TryAdd(header.Key, header.Value);
+            ctx.Response.StatusCode = 200;
+            await ctx.Response.WriteAsync("some content");
 
         });
         _app.MapPost("/readallrequest", async (HttpContext ctx) =>

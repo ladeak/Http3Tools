@@ -41,6 +41,13 @@ internal class Http2ResponseWriter
         {
             await foreach (var request in _channel.Reader.ReadAllAsync(token))
             {
+                // Update the buffer size if _maxFrameSize has increased.
+                if (_buffer.Length < _maxFrameSize)
+                {
+                    ArrayPool<byte>.Shared.Return(_buffer);
+                    _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
+                }
+
                 // Priority requests always have a corresponding regular channel request too.
                 while (_priorityChannel.Reader.TryRead(out var priorityRequest))
                 {
@@ -126,21 +133,57 @@ internal class Http2ResponseWriter
 
     private async ValueTask WriteHeadersAsync(Http2Stream stream)
     {
-        var buffer = _buffer.AsSpan(0, _maxFrameSize);
-        HPackEncoder.EncodeStatusHeader(stream.StatusCode, buffer, out var writtenLength);
+        var currentMaxFrameSize = _maxFrameSize;
+        var encodingBuffer = _buffer.AsSpan(0, currentMaxFrameSize);
+        HPackEncoder.EncodeStatusHeader(stream.StatusCode, encodingBuffer, out var writtenLength);
         int totalLength = writtenLength;
         foreach (var header in stream.ResponseHeaders)
         {
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
             // This is stateful
-            if (!_hpackEncoder.EncodeHeader(buffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+            while (!_hpackEncoder.EncodeHeader(encodingBuffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
                 header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength))
-                throw new InvalidOperationException("Header too large");
+            {
+                var newBuffer = ArrayPool<byte>.Shared.Rent(encodingBuffer.Length * 2);
+                encodingBuffer.CopyTo(newBuffer);
+                ArrayPool<byte>.Shared.Return(_buffer);
+                _buffer = newBuffer;
+                encodingBuffer = _buffer.AsSpan();
+            }
             totalLength += writtenLength;
         }
-        _frameWriter.WriteHeader(stream.StreamId, _buffer.AsMemory(0, totalLength), endHeaders: true, endStream: false);
+
+        // Fast path when all headers fit in a single frame.
+        var flushingBuffer = _buffer.AsMemory(0, totalLength);
+        if (flushingBuffer.Length <= currentMaxFrameSize)
+        {
+            _frameWriter.WriteHeader(stream.StreamId, flushingBuffer, endHeaders: true, endStream: false);
+            await _frameWriter.FlushAsync();
+            return;
+        }
+
+        // Slow path for large headers, write a single HEADER frame followed by CONTINUATION frames.
+        _frameWriter.WriteHeader(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
         await _frameWriter.FlushAsync();
+        flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
+
+        while (flushingBuffer.Length > currentMaxFrameSize)
+        {
+            _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
+            await _frameWriter.FlushAsync();
+            flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
+        }
+
+        // Flush the remaining part and set endHeaders.
+        _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer, endHeaders: true, endStream: false);
+        await _frameWriter.FlushAsync();
+
+        if (totalLength > currentMaxFrameSize)
+        {
+            ArrayPool<byte>.Shared.Return(_buffer);
+            _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
+        }
     }
 
     private async ValueTask WritePingAckAsync()

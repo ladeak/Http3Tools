@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Reflection.PortableExecutable;
 using CHttpServer.System.Net.Http.HPack;
@@ -339,7 +340,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
 
         await AssertGoAwayAsync(pipe);
-        
+
         // Shutdown connection
         await client.ShutdownConnectionAsync();
         await connectionProcessing;
@@ -371,6 +372,66 @@ public class Http2ConnectionTests
         await connectionProcessing;
     }
 
+    [Fact]
+    public async Task LargeResponseHeaderValue_UsesContinuation()
+    {
+        var headerName = "x-test-header";
+        var headerValue = new string('a', 100_000);
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_001 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            ctx.Response.Headers[headerName] = headerValue;
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([], endHeaders: true, endStream: true);
+
+        var (frame, responseHeaders) = await AssertResponseHeadersAndContinuations(pipe, 100_000);
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(headerName, out var responseValue) && responseValue == headerValue);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task LargeResponseHeaderName_UsesContinuation()
+    {
+        var headerName = $"x-test-header-{new string('a', 100_000)}";
+        var headerValue = "true";
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_100 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            ctx.Response.Headers[headerName] = headerValue;
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
+
+        var (frame, responseHeaders) = await AssertResponseHeadersAndContinuations(pipe, 100_014);
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(headerName, out _));
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
     private static async Task<Http2Frame> AssertEmptyEndStream(TestDuplexPipe pipe)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);
@@ -389,6 +450,43 @@ public class Http2ConnectionTests
         var hpackDecoder = new HPackDecoder();
         var headerHandler = new TestHttpStreamHeadersHandler();
         hpackDecoder.Decode(payloadData, frame.EndHeaders, headerHandler);
+        return (frame, headerHandler.Headers);
+    }
+
+    private static async Task<(Http2Frame Frame, Dictionary<string, string> Header)> AssertResponseHeadersAndContinuations(TestDuplexPipe pipe, int maxDecodedHeaderLength)
+    {
+        byte[] EnsureLength(byte[] data, int currentLength, int requiredLength)
+        {
+            if (data.Length >= currentLength + requiredLength)
+                return data;
+
+            var buffer = ArrayPool<byte>.Shared.Rent(data.Length * 2);
+            data.CopyTo(buffer.AsMemory());
+            ArrayPool<byte>.Shared.Return(data);
+            return buffer;
+        }
+
+        int totalReceivedLength = 0;
+        var buffer = ArrayPool<byte>.Shared.Rent(16_384 * 4);
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.HEADERS, frame.Type);
+        buffer = EnsureLength(buffer, 0, (int)frame.PayloadLength);
+        await pipe.Response.ReadExactlyAsync(buffer.AsMemory(0, (int)frame.PayloadLength)).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+        totalReceivedLength += (int)frame.PayloadLength;
+        while (!frame.EndHeaders)
+        {
+            var continuationFrame = await ReadFrameHeaderAsync(pipe.Response);
+            Assert.Equal(Http2FrameType.CONTINUATION, continuationFrame.Type);
+            buffer = EnsureLength(buffer, totalReceivedLength, (int)continuationFrame.PayloadLength);
+            await pipe.Response.ReadExactlyAsync(buffer.AsMemory(totalReceivedLength, (int)continuationFrame.PayloadLength)).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+            totalReceivedLength += (int)continuationFrame.PayloadLength;
+            frame = continuationFrame;
+        }
+
+        var hpackDecoder = new HPackDecoder(maxHeadersLength: maxDecodedHeaderLength);
+        var headerHandler = new TestHttpStreamHeadersHandler();
+        hpackDecoder.Decode(buffer.AsSpan(0, totalReceivedLength), true, headerHandler);
+        ArrayPool<byte>.Shared.Return(buffer);
         return (frame, headerHandler.Headers);
     }
 
