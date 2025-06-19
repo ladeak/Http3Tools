@@ -1,7 +1,6 @@
 ﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.IO.Pipelines;
-using System.Numerics;
-using CHttpServer.System.Net.Http.HPack;
 
 namespace CHttpServer;
 
@@ -22,11 +21,21 @@ internal sealed class FrameWriter
         _frame = new Http2Frame();
     }
 
-    internal void WritePingAck()
+    internal void WritePing()
+    {
+        _frame.SetPing();
+        var buffer = _destination.GetSpan(FrameHeaderSize + 8);
+        WriteFrameHeader(buffer);
+        _destination.Advance(FrameHeaderSize + 8);
+        _destination.FlushAsync();
+    }
+
+    internal void WritePingAck(ulong value)
     {
         _frame.SetPingAck();
         var buffer = _destination.GetSpan(FrameHeaderSize + 8);
         WriteFrameHeader(buffer);
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer[FrameHeaderSize..], value);
         _destination.Advance(FrameHeaderSize + 8);
         _destination.FlushAsync();
     }

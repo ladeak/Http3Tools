@@ -1,13 +1,12 @@
 ﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Reflection.PortableExecutable;
 using System.Security.Authentication;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CHttpServer;
 
@@ -171,6 +170,11 @@ internal sealed partial class Http2Connection
         if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
         await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
+        if (_readFrame.Flags == 0)
+        {
+            var payload = BinaryPrimitives.ReadUInt64LittleEndian(_buffer.AsSpan(0, 8));
+            _responseWriter!.ScheduleWritePingAck(payload);
+        }
     }
 
     // +-+-------------------------------------------------------------+

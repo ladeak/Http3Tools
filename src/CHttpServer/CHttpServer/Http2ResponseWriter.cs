@@ -15,7 +15,7 @@ internal class Http2ResponseWriter
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
     private const string WriteGoAway = nameof(WriteGoAway);
 
-    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, uint Data = 0);
+    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, ulong Data = 0);
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
@@ -52,7 +52,7 @@ internal class Http2ResponseWriter
                 while (_priorityChannel.Reader.TryRead(out var priorityRequest))
                 {
                     if (priorityRequest.OperationName == WriteOutOfOrderFrame)
-                        await WritePingAckAsync();
+                        await WritePingAckAsync(priorityRequest.Data);
                 }
                 if (request.OperationName == WriteData)
                     await WriteDataAsync(request);
@@ -78,9 +78,9 @@ internal class Http2ResponseWriter
         }
     }
 
-    public void ScheduleWritePingAck()
+    public void ScheduleWritePingAck(ulong value)
     {
-        _priorityChannel.Writer.TryWrite(new StreamWriteRequest(null!, WriteOutOfOrderFrame));
+        _priorityChannel.Writer.TryWrite(new StreamWriteRequest(null!, WriteOutOfOrderFrame, value));
         _channel.Writer.TryWrite(new StreamWriteRequest(null!, WriteOutOfOrderFrame));
     }
 
@@ -186,9 +186,9 @@ internal class Http2ResponseWriter
         }
     }
 
-    private async ValueTask WritePingAckAsync()
+    private async ValueTask WritePingAckAsync(ulong data)
     {
-        _frameWriter.WritePingAck();
+        _frameWriter.WritePingAck(data);
         await _frameWriter.FlushAsync();
     }
 
@@ -212,16 +212,17 @@ internal class Http2ResponseWriter
         await stream.OnStreamCompletedAsync();
     }
 
-    private async ValueTask WriteWindowUpdateAsync(Http2Stream stream, uint size)
+    private async ValueTask WriteWindowUpdateAsync(Http2Stream stream, ulong data)
     {
+        var size = (uint)data;
         _frameWriter.WriteWindowUpdate(stream.StreamId, size);
         _frameWriter.WriteWindowUpdate(0, size);
         await _frameWriter.FlushAsync();
     }
 
-    private async Task WriteGoAwayAsync(uint streamId)
+    private async Task WriteGoAwayAsync(ulong streamId)
     {
-        _frameWriter.WriteGoAway(streamId, Http2ErrorCode.NO_ERROR);
+        _frameWriter.WriteGoAway((uint)streamId, Http2ErrorCode.NO_ERROR);
         await _frameWriter.FlushAsync();
     }
 

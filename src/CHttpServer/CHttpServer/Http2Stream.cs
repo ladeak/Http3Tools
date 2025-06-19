@@ -92,7 +92,6 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
                 Scheme = HttpStaticFieldParser.GetScheme(header.Value);
                 break;
         }
-
     }
 
     internal void SetStaticHeader(HeaderField header, Http2Connection.PseudoHeaderFields pseudoHeader, ReadOnlySpan<byte> value)

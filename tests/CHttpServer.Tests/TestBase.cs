@@ -245,6 +245,12 @@ internal class TestBase
             await _frameWriter.FlushAsync();
         }
 
+        internal async ValueTask SendPingAsync()
+        {
+            _frameWriter.WritePing();
+            await _frameWriter.FlushAsync();
+        }
+
         internal ValueTask<FlushResult> ShutdownConnectionAsync()
         {
             _frameWriter.WriteGoAway(StreamId, Http2ErrorCode.NO_ERROR);

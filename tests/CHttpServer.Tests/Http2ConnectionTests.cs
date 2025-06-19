@@ -432,6 +432,29 @@ public class Http2ConnectionTests
         await connectionProcessing;
     }
 
+    [Fact]
+    public async Task PingTest()
+    {
+        var (pipe, connection) = CreateConnnection();
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send PING
+        await client.SendPingAsync();
+        await AssertPingAckAsync(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 0, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
     private static async Task<Http2Frame> AssertEmptyEndStream(TestDuplexPipe pipe)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);
@@ -550,5 +573,13 @@ public class Http2ConnectionTests
         Assert.Equal(32_768L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
 
         return frame;
+    }
+
+    private async Task AssertPingAckAsync(TestDuplexPipe pipe)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.PING, frame.Type);
+        Assert.Equal(1, frame.Flags);
+        await pipe.Response.ReadExactlyAsync(new byte[8]).AsTask().WaitAsync(TestContext.Current.CancellationToken);
     }
 }

@@ -44,6 +44,14 @@ internal class Http2Frame
         GoAwayErrorCode = errorCode;
     }
 
+    public void SetPing()
+    {
+        PayloadLength = 8;
+        Type = Http2FrameType.PING;
+        Flags = 0;
+        StreamId = 0;
+    }
+
     public void SetPingAck()
     {
         PayloadLength = 8;
