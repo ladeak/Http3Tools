@@ -152,7 +152,7 @@ public class Http2ConnectionTests
 
         // Initiate connection
         TaskCompletionSource<bool> cancellationProcessed = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) => { try { await Task.Delay(TimeSpan.MaxValue, ctx.RequestAborted); } finally { cancellationProcessed.TrySetResult(ctx.RequestAborted.IsCancellationRequested); } });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) => { try { await Task.Delay(TimeSpan.FromSeconds(3), ctx.RequestAborted); } finally { cancellationProcessed.TrySetResult(ctx.RequestAborted.IsCancellationRequested); } });
         await AssertSettingsFrameAsync(pipe);
         await AssertWindowUpdateFrameAsync(pipe);
 
@@ -250,6 +250,35 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: false, endStream: false);
         for (int i = 0; i < 10; i++)
             await client.SendContinuationAsync([new($"{headerName}-{i}", headerValue)], endHeaders: i == 9, endStream: i == 9);
+
+        var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task LargeRequestHeader_UsesContinuation()
+    {
+        var headerName = "x-test-header";
+        var headerValue = new string('a', 100_000);
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_001 });
+
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            Assert.Contains(ctx.Request.Headers, h => h.Key == headerName && (string)h.Value! == headerValue);
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        // Send request
+        await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
 
         var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
         Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());

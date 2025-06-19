@@ -53,7 +53,7 @@ internal sealed partial class Http2Connection
         _defaultStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
         _currentStream = _defaultStream;
         _h2Settings = new();
-        _hpackDecoder = new(maxDynamicTableSize: 0);
+        _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
         _inputStream = connectionContext.Transport!;
         _aborted = new();

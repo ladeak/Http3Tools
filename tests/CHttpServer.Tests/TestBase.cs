@@ -13,7 +13,8 @@ namespace CHttpServer.Tests;
 
 internal class TestBase
 {
-    internal static (TestDuplexPipe Pipe, Http2Connection Connection) CreateConnnection()
+    internal static (TestDuplexPipe Pipe, Http2Connection Connection) CreateConnnection(
+        CHttpServerOptions? serverOptions = null)
     {
         var features = new FeatureCollection();
         features.Add<ITlsHandshakeFeature>(new TestTls());
@@ -22,7 +23,7 @@ internal class TestBase
         {
             ConnectionId = 1,
             Features = features,
-            ServerOptions = new CHttpServerOptions(),
+            ServerOptions = serverOptions ?? new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
             TransportPipe = pipe
         };
@@ -154,16 +155,19 @@ internal class TestBase
         private readonly FrameWriter _frameWriter;
         private readonly PipeWriter _requestPipe;
 
-        public TestClient(PipeWriter requestPipe, bool sendPreface = true)
+        public TestClient(PipeWriter requestPipe, bool sendPreface = true, int maxFrameSize = 16_384)
         {
             _hpackEncoder = new DynamicHPackEncoder(false, 4096);
             _frameWriter = new FrameWriter(requestPipe);
             _requestPipe = requestPipe;
+            MaxFrameSize = maxFrameSize;
             if (sendPreface)
                 SendPrefaceAsync().GetAwaiter().GetResult();
         }
 
         public uint StreamId { get; set; } = 1;
+
+        private int MaxFrameSize { get; set; }
 
         internal ValueTask<FlushResult> SendPrefaceAsync() => SendPrefaceAsync("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8);
 
@@ -176,27 +180,51 @@ internal class TestBase
         internal async ValueTask SendHeadersAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
         {
             int totalLength = 0;
-            var buffer = new byte[8096];
+            var buffer = new byte[MaxFrameSize];
 
             foreach (var header in headers)
             {
                 var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
                 // This is stateful
-                if (!_hpackEncoder.EncodeHeader(buffer.AsSpan(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
-                    header.Key, header.Value.ToString(), Encoding.Latin1, out var writtenLength))
-                    throw new InvalidOperationException("Header too large");
+                int writtenLength = 0;
+                while (!_hpackEncoder.EncodeHeader(buffer.AsSpan(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+                    header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength))
+                {
+                    Array.Resize(ref buffer, buffer.Length * 2); // Resize buffer if needed
+                    writtenLength = 0;
+                }
                 totalLength += writtenLength;
             }
-            _frameWriter.WriteHeader(StreamId, buffer.AsMemory(0, totalLength), endHeaders, endStream);
+
+            var bufferToFlush = buffer.AsMemory(0, totalLength);
+            if (bufferToFlush.Length > MaxFrameSize)
+            {
+                _frameWriter.WriteHeader(StreamId, bufferToFlush.Slice(0, MaxFrameSize), false, false);
+                await _frameWriter.FlushAsync();
+            }
+            else
+            {
+                _frameWriter.WriteHeader(StreamId, bufferToFlush, endHeaders, endStream);
+                await _frameWriter.FlushAsync();
+                return;
+            }
+
+            bufferToFlush = bufferToFlush.Slice(MaxFrameSize);
+            while (bufferToFlush.Length > MaxFrameSize)
+            {
+                _frameWriter.WriteContinuation(StreamId, bufferToFlush.Slice(0, MaxFrameSize), false, false);
+                await _frameWriter.FlushAsync();
+                bufferToFlush = bufferToFlush.Slice(MaxFrameSize);
+            }
+            _frameWriter.WriteContinuation(StreamId, bufferToFlush, endHeaders, endStream);
             await _frameWriter.FlushAsync();
         }
-
 
         internal async ValueTask SendContinuationAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
         {
             int totalLength = 0;
-            var buffer = new byte[8096];
+            var buffer = new byte[MaxFrameSize];
 
             foreach (var header in headers)
             {

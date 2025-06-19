@@ -21,6 +21,8 @@ public class CHttpServerOptions
 
     public uint ServerStreamFlowControlSize { get; set; } = InitialStreamFlowControlSize;
 
+    public int MaxRequestHeaderLength { get; set; } = 65_535;
+
     public X509Certificate2? Certificate { get; set; }
 
     internal X509Certificate2? GetCertificate()
