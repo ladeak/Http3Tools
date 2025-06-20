@@ -26,19 +26,22 @@ jobs:
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Build CHttp
       run: |
-        dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
-        dotnet build src/CHttp.Api/CHttp.Api.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
-        dotnet build src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }}  --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttp.Api/CHttp.Api.csproj --configuration ${{ env.CONFIGURATION }} --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --no-self-contained -p:Version=${VERSION}
+        dotnet build src/CHttpServer/CHttpServer/CHttpServer.csproj --configuration ${{ env.CONFIGURATION }} --no-self-contained -p:Version=${VERSION}
     - name: Pack CHttp
       run:  |
         dotnet pack src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
         dotnet pack src/CHttp.Api/CHttp.Api.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
         dotnet pack src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
+        dotnet pack src/CHttpServer/CHttpServer/CHttpServer.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
     - name: Push Nuget
       run: |
         dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
         dotnet nuget push src/CHttp.Api/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
         dotnet nuget push src/CHttpExecutor/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
+        dotnet nuget push src/CHttpServer/CHttpServer/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
       env:
         nuget_api_key: ${{ secrets.NUGET_API_KEY }}
     - name: Publish for GitHub
