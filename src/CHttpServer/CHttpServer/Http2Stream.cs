@@ -169,7 +169,7 @@ internal partial class Http2Stream
     public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _requestHeaders.SetReadOnly();
-        var context = application.CreateContext(_featureCollection);
+        var context = application.CreateContext(_featureCollection.Copy());
         await application.ProcessRequestAsync(context);
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
@@ -267,7 +267,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public bool HasStarted => _hasStarted;
 
-    public Stream Stream => throw new NotSupportedException($"Write with the {nameof(IHttpResponseBodyFeature.Writer)}");
+    public Stream Stream => _responseBodyPipeWriter.AsStream();
 
     public PipeWriter Writer => _responseBodyPipeWriter;
 
