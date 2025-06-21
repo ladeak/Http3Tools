@@ -305,7 +305,7 @@ internal sealed partial class Http2Connection
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
-            StartStream(application);
+            StartStream(_currentStream, application);
         }
     }
 
@@ -327,7 +327,7 @@ internal sealed partial class Http2Connection
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
-            StartStream(application);
+            StartStream(_currentStream, application);
         }
     }
 
@@ -351,11 +351,11 @@ internal sealed partial class Http2Connection
             _currentStream = _streamPool.Get();
     }
 
-    private void StartStream<TContext>(IHttpApplication<TContext> application) where TContext : notnull
+    private static void StartStream<TContext>(Http2Stream stream, IHttpApplication<TContext> application) where TContext : notnull
     {
         ThreadPool.UnsafeQueueUserWorkItem(
-            app => _currentStream.Execute(app),
-            application,
+            work => work.stream.Execute(work.application),
+            (application, stream),
             preferLocal: false);
     }
 

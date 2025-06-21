@@ -37,6 +37,7 @@ internal partial class Http2Stream
         _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
         _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
+        _responseHeaders = null;
         _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _responseBodyPipeWriter = new(_responseBodyPipe.Writer, flushStartingCallback: size =>
         {
@@ -47,6 +48,7 @@ internal partial class Http2Stream
         StatusCode = 200;
         _responseWriterFlushedResponse = new(0);
         _clientFlowControlBarrier = new(1, 1);
+        _responseWritingTask = new TaskCompletionSource<Task>();
 
         _featureCollection = featureCollection.Copy();
         _featureCollection.Add<IHttpRequestFeature>(this);
@@ -65,12 +67,18 @@ internal partial class Http2Stream
         StreamId = streamId;
         _clientWindowSize = new(initialWindowSize);
         _serverWindowSize = new(serverStreamFlowControlSize);
+
+        // HasStarted is reset at initialization to avoid race conditions Complete() and StartAsync()
+        _hasStarted = false;
     }
 
     public void Reset()
     {
+        if (_state != StreamState.Closed)
+            throw new InvalidOperationException("Stream is in use.");
+        StreamId = 0;
         RequestEndHeaders = false;
-        _requestHeaders = new HeaderCollection();
+        _requestHeaders = new();
         _requestBodyPipe.Reset();
         _requestBodyPipeReader.Reset();
         _requestBodyPipeWriter.Reset();
@@ -78,7 +86,6 @@ internal partial class Http2Stream
         _responseBodyPipe.Reset();
         _responseBodyPipeWriter.Reset();
 
-        _hasStarted = false;
         _cts = new();
         _responseHeaders = null;
         _responseTrailers = null;
@@ -93,7 +100,7 @@ internal partial class Http2Stream
         _onStartingState = null;
         _onCompletedCallback = null;
         _onCompletedState = null;
-        _responseWritingTask = null;
+        _responseWritingTask = new TaskCompletionSource<Task>();
 
         _clientFlowControlBarrier = new(1, 1);
         _responseWriterFlushedResponse = new(0);
@@ -251,7 +258,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private SemaphoreSlim _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
-    private Task? _responseWritingTask;
+    private TaskCompletionSource<Task> _responseWritingTask;
     private HeaderCollection? _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
@@ -336,16 +343,17 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
-        _responseWritingTask = WriteResponseAsync(_cts.Token);
+        _responseWritingTask.SetResult(WriteResponseAsync(_cts.Token));
     }
 
     public async Task CompleteAsync()
     {
-        var task = _responseWritingTask;
-        if (task == null)
+        var task = _responseWritingTask.Task;
+        if (!task.IsCompleted)
             await StartAsync();
 
-        await _responseWritingTask!;
+        var responseWriting = await task.WaitAsync(_cts.Token);
+        await responseWriting;
     }
 
     private async Task WriteResponseAsync(CancellationToken cancellationToken = default)
