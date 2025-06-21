@@ -2,7 +2,7 @@
 
 namespace CHttpServer;
 
-internal sealed class StreamPool<T> where T : class?
+internal sealed class LimitedObjectPool<T> where T : class?
 {
     private const int Size = 10;
 

@@ -30,7 +30,7 @@ internal sealed partial class Http2Connection
     private readonly Stream _inputStream;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
-    private readonly StreamPool<Http2Stream> _streamPool;
+    private readonly LimitedObjectPool<Http2Stream> _streamPool;
 
     private byte[] _buffer;
     private FrameWriter? _writer;
@@ -58,7 +58,7 @@ internal sealed partial class Http2Connection
         _readFrame = new();
         _serverWindow = new(_context.ServerOptions.ServerConnectionFlowControlSize + CHttpServerOptions.InitialStreamFlowControlSize);
         _clientWindow = new(_h2Settings.InitialWindowSize);
-        _streamPool = new StreamPool<Http2Stream>();
+        _streamPool = new LimitedObjectPool<Http2Stream>();
         _currentStream = _streamPool.Get(CreateConnection, (Connection: this, _context.Features));
     }
 
