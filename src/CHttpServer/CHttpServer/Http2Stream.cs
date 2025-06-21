@@ -8,32 +8,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer;
 
-internal class Http2Stream<TContext> : Http2Stream where TContext : notnull
-{
-    private readonly IHttpApplication<TContext> _application;
-    private readonly FeatureCollection _featureCollection;
-
-    public Http2Stream(Http2Connection connection, FeatureCollection features, IHttpApplication<TContext> application)
-        : base(connection)
-    {
-        _application = application;
-        _featureCollection = features.Copy();
-        _featureCollection.Add<IHttpRequestFeature>(this);
-        _featureCollection.Add<IHttpResponseFeature>(this);
-        _featureCollection.Add<IHttpResponseBodyFeature>(this);
-        _featureCollection.Add<IHttpResponseTrailersFeature>(this);
-        _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
-        _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
-    }
-
-    protected override Task RunApplicationAsync()
-    {
-        var context = _application.CreateContext(_featureCollection);
-        return _application.ProcessRequestAsync(context);
-    }
-}
-
-internal abstract partial class Http2Stream : IThreadPoolWorkItem
+internal partial class Http2Stream
 {
     private enum StreamState : byte
     {
@@ -45,12 +20,13 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
 
     private readonly Http2Connection _connection;
     private readonly Http2ResponseWriter _writer;
+    private readonly FeatureCollection _featureCollection;
     private FlowControlSize _serverWindowSize; // Controls Data received
     private FlowControlSize _clientWindowSize; // Controls Data sent
     private StreamState _state;
     private CancellationTokenSource _cts;
 
-    public Http2Stream(Http2Connection connection)
+    public Http2Stream(Http2Connection connection, FeatureCollection featureCollection)
     {
         _connection = connection;
         _writer = connection.ResponseWriter!;
@@ -70,6 +46,14 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _cts = new();
         StatusCode = 200;
         _responseWriterFlushedResponse = new(0);
+
+        _featureCollection = featureCollection.Copy();
+        _featureCollection.Add<IHttpRequestFeature>(this);
+        _featureCollection.Add<IHttpResponseFeature>(this);
+        _featureCollection.Add<IHttpResponseBodyFeature>(this);
+        _featureCollection.Add<IHttpResponseTrailersFeature>(this);
+        _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
+        _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
     }
 
     public void Initialize(uint streamId, uint initialWindowSize, uint serverStreamFlowControlSize)
@@ -117,8 +101,6 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     public uint StreamId { get; private set; }
 
     public bool RequestEndHeaders { get; private set; }
-
-    protected abstract Task RunApplicationAsync();
 
     internal void RequestEndHeadersReceived() => RequestEndHeaders = true;
 
@@ -176,10 +158,11 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         QueryString = Encoding.Latin1.GetString(value[separatorIndex..]);
     }
 
-    public async void Execute()
+    public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _requestHeaders.SetReadOnly();
-        await RunApplicationAsync();
+        var context = application.CreateContext(_featureCollection);
+        await application.ProcessRequestAsync(context);
         _responseBodyPipeWriter.Complete();
         await CompleteAsync();
     }
