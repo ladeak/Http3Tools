@@ -71,6 +71,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         StatusCode = 200;
         _responseWriterFlushedResponse = new(0);
         _clientFlowControlBarrier = new(1, 1);
+        _responseWritingTask = new();
     }
 
     public void Initialize(uint streamId, uint initialWindowSize, uint serverStreamFlowControlSize)
@@ -81,10 +82,12 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         StreamId = streamId;
         _clientWindowSize = new(initialWindowSize);
         _serverWindowSize = new(serverStreamFlowControlSize);
+        _hasStarted = false;
     }
 
     public void Reset()
     {
+        StreamId = 0;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
         _requestBodyPipe.Reset();
@@ -94,7 +97,6 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _responseBodyPipe.Reset();
         _responseBodyPipeWriter.Reset();
 
-        _hasStarted = false;
         _cts = new();
         _responseHeaders = null;
         _responseTrailers = null;
@@ -109,7 +111,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
         _onStartingState = null;
         _onCompletedCallback = null;
         _onCompletedState = null;
-        _responseWritingTask = null;
+        _responseWritingTask = new();
 
         _clientFlowControlBarrier = new(1, 1);
         _responseWriterFlushedResponse = new(0);
@@ -268,7 +270,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private SemaphoreSlim _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
-    private Task? _responseWritingTask;
+    private TaskCompletionSource<Task> _responseWritingTask;
     private HeaderCollection? _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
@@ -353,16 +355,17 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
-        _responseWritingTask = WriteResponseAsync(_cts.Token);
+        _responseWritingTask.SetResult(WriteResponseAsync(_cts.Token));
     }
 
     public async Task CompleteAsync()
     {
-        var task = _responseWritingTask;
-        if (task == null)
+        var task = _responseWritingTask.Task;
+        if (!task.IsCompleted)
             await StartAsync();
 
-        await _responseWritingTask!;
+        var responseWriting = await task.WaitAsync(_cts.Token);
+        await responseWriting;
     }
 
     private async Task WriteResponseAsync(CancellationToken cancellationToken = default)
