@@ -21,6 +21,18 @@ internal sealed partial class Http2Connection
         Closed = 4,
     }
 
+    private class Http2StreamFactory(Http2Connection connection) : IPooledObjectPolicy<Http2Stream>
+    {
+        public Http2Stream Create() => new(connection, connection._context.Features);
+        public bool Return(Http2Stream stream)
+        {
+            if (stream.IsAborted)
+                return false;
+            stream.Reset();
+            return true;
+        }
+    }
+
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
     internal const uint MaxWindowUpdateSize = 2_147_483_647; // int.MaxValue
@@ -62,16 +74,6 @@ internal sealed partial class Http2Connection
         var provider = new DefaultObjectPoolProvider();
         _streamPool = provider.Create(new Http2StreamFactory(this));
         _currentStream = _streamPool.Get();
-    }
-
-    class Http2StreamFactory(Http2Connection connection) : IPooledObjectPolicy<Http2Stream>
-    {
-        public Http2Stream Create() => new(connection, connection._context.Features);
-        public bool Return(Http2Stream obj)
-        {
-            obj.Reset();
-            return true;
-        }
     }
 
     // Setter is atest hook
@@ -124,7 +126,6 @@ internal sealed partial class Http2Connection
         }
         catch (Exception e)
         {
-            Debug.Fail($"Unexpected exception in HTTP/2 connection: {e}");
         }
         finally
         {

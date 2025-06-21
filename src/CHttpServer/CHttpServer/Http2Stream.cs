@@ -46,6 +46,7 @@ internal partial class Http2Stream
         _cts = new();
         StatusCode = 200;
         _responseWriterFlushedResponse = new(0);
+        _clientFlowControlBarrier = new(1, 1);
 
         _featureCollection = featureCollection.Copy();
         _featureCollection.Add<IHttpRequestFeature>(this);
@@ -94,7 +95,7 @@ internal partial class Http2Stream
         _onCompletedState = null;
         _responseWritingTask = null;
 
-        _clientFlowControlBarrier.Release(1);
+        _clientFlowControlBarrier = new(1, 1);
         _responseWriterFlushedResponse = new(0);
     }
 
@@ -163,6 +164,8 @@ internal partial class Http2Stream
         _requestHeaders.SetReadOnly();
         var context = application.CreateContext(_featureCollection);
         await application.ProcessRequestAsync(context);
+        _requestBodyPipeReader.Complete();
+        _requestBodyPipeWriter.Complete();
         _responseBodyPipeWriter.Complete();
         await CompleteAsync();
     }
@@ -171,6 +174,7 @@ internal partial class Http2Stream
     {
         _cts.Cancel();
         _state = StreamState.Closed;
+        IsAborted = true;
     }
 
     public void CompleteRequestStream()
@@ -229,6 +233,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     public bool CanHaveBody => true;
 
+    public bool IsAborted { get; private set; }
+
     public PipeWriter RequestPipe => _state <= StreamState.HalfOpenLocal ?
         _requestBodyPipeWriter : throw new Http2ConnectionException("STREAM CLOSED");
 
@@ -241,7 +247,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 {
     private readonly Pipe _responseBodyPipe;
     private readonly Http2StreamPipeWriter _responseBodyPipeWriter;
-    private readonly SemaphoreSlim _clientFlowControlBarrier = new(1, 1);
+    private SemaphoreSlim _clientFlowControlBarrier;
     private SemaphoreSlim _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
@@ -429,6 +435,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
         _state = StreamState.Closed;
+        _responseBodyPipe.Reader.Complete();
         _connection.OnStreamCompleted(this);
     }
 }
