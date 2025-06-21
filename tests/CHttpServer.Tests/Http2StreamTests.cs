@@ -21,7 +21,8 @@ public class Http2StreamTests
             TransportPipe = new DuplexPipeStreamAdapter<MemoryStream>(memoryStream, new(), new())
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
-        var stream = new Http2Stream<HttpContext>(1, 10, connection, features, new TestApplication(_ => Task.CompletedTask));
+        var stream = new Http2Stream<HttpContext>(connection, features, new TestApplication(_ => Task.CompletedTask));
+        stream.Initialize(1, 10, connectionContext.ServerOptions.ServerStreamFlowControlSize);
 
         stream.OnCompleted(_ => { taskCompletionSource.SetResult(); cts.Cancel(); return Task.CompletedTask; }, new());
         var outputWriterTask = connection.ResponseWriter.RunAsync(cts.Token);

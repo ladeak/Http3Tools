@@ -13,8 +13,8 @@ internal class Http2Stream<TContext> : Http2Stream where TContext : notnull
     private readonly IHttpApplication<TContext> _application;
     private readonly FeatureCollection _featureCollection;
 
-    public Http2Stream(uint streamId, uint initialWindowSize, Http2Connection connection, FeatureCollection features, IHttpApplication<TContext> application)
-        : base(streamId, initialWindowSize, connection)
+    public Http2Stream(Http2Connection connection, FeatureCollection features, IHttpApplication<TContext> application)
+        : base(connection)
     {
         _application = application;
         _featureCollection = features.Copy();
@@ -50,14 +50,11 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     private StreamState _state;
     private CancellationTokenSource _cts;
 
-    public Http2Stream(uint streamId, uint initialWindowSize, Http2Connection connection)
+    public Http2Stream(Http2Connection connection)
     {
-        StreamId = streamId;
-        _clientWindowSize = new(initialWindowSize);
-        _serverWindowSize = new(connection.ServerOptions.ServerStreamFlowControlSize);
         _connection = connection;
         _writer = connection.ResponseWriter!;
-        _state = StreamState.Open;
+        _state = StreamState.Closed;
         RequestEndHeaders = false;
         _requestHeaders = new HeaderCollection();
         _requestBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
@@ -71,9 +68,54 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
                 _ = StartAsync();
         });
         _cts = new();
+        StatusCode = 200;
+        _responseWriterFlushedResponse = new(0);
+        _clientFlowControlBarrier = new(1, 1);
     }
 
-    public uint StreamId { get; }
+    public void Initialize(uint streamId, uint initialWindowSize, uint serverStreamFlowControlSize)
+    {
+        if (_state != StreamState.Closed)
+            throw new InvalidOperationException("Stream is in use.");
+        _state = StreamState.Open;
+        StreamId = streamId;
+        _clientWindowSize = new(initialWindowSize);
+        _serverWindowSize = new(serverStreamFlowControlSize);
+    }
+
+    public void Reset()
+    {
+        RequestEndHeaders = false;
+        _requestHeaders = new HeaderCollection();
+        _requestBodyPipe.Reset();
+        _requestBodyPipeReader.Reset();
+        _requestBodyPipeWriter.Reset();
+
+        _responseBodyPipe.Reset();
+        _responseBodyPipeWriter.Reset();
+
+        _hasStarted = false;
+        _cts = new();
+        _responseHeaders = null;
+        _responseTrailers = null;
+        StatusCode = 200;
+        ReasonPhrase = null;
+        Scheme = string.Empty;
+        Method = string.Empty;
+        PathBase = string.Empty;
+        Path = string.Empty;
+        QueryString = string.Empty;
+        _onStartingCallback = null;
+        _onStartingState = null;
+        _onCompletedCallback = null;
+        _onCompletedState = null;
+        _responseWritingTask = null;
+
+        _clientFlowControlBarrier = new(1, 1);
+        _responseWriterFlushedResponse = new(0);
+    }
+
+    public uint StreamId { get; private set; }
 
     public bool RequestEndHeaders { get; private set; }
 
@@ -139,6 +181,8 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _requestHeaders.SetReadOnly();
         await RunApplicationAsync();
+        _requestBodyPipeReader.Complete();
+        _requestBodyPipeWriter.Complete();
         _responseBodyPipeWriter.Complete();
         await CompleteAsync();
     }
@@ -147,6 +191,7 @@ internal abstract partial class Http2Stream : IThreadPoolWorkItem
     {
         _cts.Cancel();
         _state = StreamState.Closed;
+        IsAborted = true;
     }
 
     public void CompleteRequestStream()
@@ -205,6 +250,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     public bool CanHaveBody => true;
 
+    public bool IsAborted { get; private set; }
+
     public PipeWriter RequestPipe => _state <= StreamState.HalfOpenLocal ?
         _requestBodyPipeWriter : throw new Http2ConnectionException("STREAM CLOSED");
 
@@ -217,15 +264,15 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 {
     private readonly Pipe _responseBodyPipe;
     private readonly Http2StreamPipeWriter _responseBodyPipeWriter;
-    private readonly SemaphoreSlim _applicationFlushedResponse = new(0);
-    private readonly SemaphoreSlim _clientFlowControlBarrier = new(1, 1);
+    private SemaphoreSlim _clientFlowControlBarrier;
+    private SemaphoreSlim _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
     private Task? _responseWritingTask;
     private HeaderCollection? _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
-    public int StatusCode { get; set; } = 200;
+    public int StatusCode { get; set; }
     public string? ReasonPhrase { get; set; }
 
     public bool HasStarted => _hasStarted;
@@ -358,7 +405,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
                 ResponseBodyBuffer = buffer.Slice(0, size);
                 _writer.ScheduleWriteData(this);
-                await _applicationFlushedResponse.WaitAsync(token);
+                await _responseWriterFlushedResponse.WaitAsync(token);
                 buffer = buffer.Slice(size);
             }
             _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);
@@ -376,7 +423,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     public void OnResponseDataFlushed()
     {
         // Release semaphore for the next write.
-        _applicationFlushedResponse.Release(1);
+        _responseWriterFlushedResponse.Release(1);
     }
 
     private bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)
@@ -405,6 +452,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
         _state = StreamState.Closed;
+        _responseBodyPipe.Reader.Complete();
         _connection.OnStreamCompleted(this);
     }
 }
@@ -453,6 +501,12 @@ internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStarti
     public override Memory<byte> GetMemory(int sizeHint = 0) => _writer.GetMemory(sizeHint);
 
     public override Span<byte> GetSpan(int sizeHint = 0) => _writer.GetSpan(sizeHint);
+
+    public void Reset()
+    {
+        _unflushedBytes = 0;
+        _completed = false;
+    }
 }
 
 internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallback) : PipeReader
@@ -498,5 +552,10 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
             _lastReadStart = result.Buffer.Start;
         return hasRead;
 
+    }
+
+    public void Reset()
+    {
+        _lastReadStart = default;
     }
 }

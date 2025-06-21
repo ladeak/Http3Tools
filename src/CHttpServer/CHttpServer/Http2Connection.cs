@@ -2,6 +2,7 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Security.Authentication;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
@@ -9,6 +10,55 @@ using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer;
+
+internal sealed class StreamPool<T> where T : class?
+{
+    private const int Size = 10;
+
+    [InlineArray(Size)]
+    public struct Storage<T1> where T1 : class?
+    {
+        private T1? _item;
+    }
+
+    private Storage<T> _storage;
+    private T? _field;
+
+    public T Get<TState>(Func<TState, T> factory, TState state) where TState : struct
+    {
+        var item = _field;
+        if (item is not null && item == Interlocked.CompareExchange(ref _field, null, item))
+            return item;
+
+        for (int i = 0; i < Size; i++)
+        {
+            item = _storage[i];
+            if (item is null)
+                continue;
+            if (item == Interlocked.CompareExchange(ref _storage[i], null, item))
+                return item;
+        }
+        return factory(state);
+    }
+
+    public void Return(T item)
+    {
+        if (_field is null)
+        {
+            _field = item;
+            return;
+        }
+
+        for (int i = 0; i < Size; i++)
+        {
+            var current = _storage[i];
+            if (current is not null)
+                continue;
+            _storage[i] = item;
+            return;
+        }
+    }
+}
 
 internal sealed partial class Http2Connection
 {
@@ -31,6 +81,7 @@ internal sealed partial class Http2Connection
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
     private readonly Http2Stream _defaultStream;
+    private readonly StreamPool<Http2Stream> _streamPool;
 
     private byte[] _buffer;
     private FrameWriter? _writer;
@@ -49,8 +100,6 @@ internal sealed partial class Http2Connection
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
         _streams = [];
-        _defaultStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
-        _currentStream = _defaultStream;
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
@@ -60,6 +109,9 @@ internal sealed partial class Http2Connection
         _readFrame = new();
         _serverWindow = new(_context.ServerOptions.ServerConnectionFlowControlSize + CHttpServerOptions.InitialStreamFlowControlSize);
         _clientWindow = new(_h2Settings.InitialWindowSize);
+        _streamPool = new StreamPool<Http2Stream>();
+        _defaultStream = new Http2Stream<object>(this, new FeatureCollection(), null!);
+        _currentStream = _defaultStream;
     }
 
     // Setter is atest hook
@@ -278,11 +330,10 @@ internal sealed partial class Http2Connection
 
         if ((_currentStream.StreamId == _readFrame.StreamId && _currentStream.RequestEndHeaders)
             || _streams.ContainsKey(_readFrame.StreamId))
-        {
             throw new Http2ProtocolException();
-        }
 
-        _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, _context.Features, application);
+        _currentStream = _streamPool.Get(state => new Http2Stream<TContext>(state.Item1, state.Features, state.application), (this, _context.Features, application));
+        _currentStream.Initialize(_readFrame.StreamId, _h2Settings.InitialWindowSize, _context.ServerOptions.ServerStreamFlowControlSize);
         var addResult = _streams.TryAdd(_readFrame.StreamId, _currentStream);
         _streamIdIndex = uint.Max(_readFrame.StreamId, _streamIdIndex);
         Debug.Assert(addResult);
@@ -459,6 +510,11 @@ internal sealed partial class Http2Connection
     internal void OnStreamCompleted(Http2Stream stream)
     {
         _streams.TryRemove(stream.StreamId, out _);
+        if (!stream.IsAborted)
+        {
+            stream.Reset();
+            _streamPool.Return(stream);
+        }
         if (_gracefulShutdownRequested)
             TryGracefulShutdown();
     }
