@@ -30,7 +30,7 @@ internal sealed partial class Http2Connection
     private readonly Stream _inputStream;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
-    private readonly Http2Stream _defaultStream;
+    private readonly LimitedObjectPool<Http2Stream> _streamPool;
 
     private byte[] _buffer;
     private FrameWriter? _writer;
@@ -49,8 +49,6 @@ internal sealed partial class Http2Connection
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
         _streams = [];
-        _defaultStream = new Http2Stream<object>(0, 0, this, _context.Features, null!);
-        _currentStream = _defaultStream;
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
@@ -60,6 +58,8 @@ internal sealed partial class Http2Connection
         _readFrame = new();
         _serverWindow = new(_context.ServerOptions.ServerConnectionFlowControlSize + CHttpServerOptions.InitialStreamFlowControlSize);
         _clientWindow = new(_h2Settings.InitialWindowSize);
+        _streamPool = new LimitedObjectPool<Http2Stream>();
+        _currentStream = _streamPool.Get(CreateConnection, (Connection: this, _context.Features));
     }
 
     // Setter is atest hook
@@ -153,7 +153,7 @@ internal sealed partial class Http2Connection
         if (_readFrame.Type == Http2FrameType.RST_STREAM)
             return ProcessResetStreamFrame();
         if (_readFrame.Type == Http2FrameType.CONTINUATION)
-            return ProcessContinuationFrame();
+            return ProcessContinuationFrame(application);
         return ValueTask.CompletedTask;
     }
 
@@ -278,11 +278,10 @@ internal sealed partial class Http2Connection
 
         if ((_currentStream.StreamId == _readFrame.StreamId && _currentStream.RequestEndHeaders)
             || _streams.ContainsKey(_readFrame.StreamId))
-        {
             throw new Http2ProtocolException();
-        }
 
-        _currentStream = new Http2Stream<TContext>(_readFrame.StreamId, _h2Settings.InitialWindowSize, this, _context.Features, application);
+        _currentStream = _streamPool.Get(CreateConnection, (Connection: this, _context.Features));
+        _currentStream.Initialize(_readFrame.StreamId, _h2Settings.InitialWindowSize, _context.ServerOptions.ServerStreamFlowControlSize);
         var addResult = _streams.TryAdd(_readFrame.StreamId, _currentStream);
         _streamIdIndex = uint.Max(_readFrame.StreamId, _streamIdIndex);
         Debug.Assert(addResult);
@@ -292,14 +291,15 @@ internal sealed partial class Http2Connection
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
-            StartStream();
+            StartStream(_currentStream, application);
         }
     }
 
     // +---------------------------------------------------------------+
     // |                   Header Block Fragment(*)                 ...
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessContinuationFrame()
+    private async ValueTask ProcessContinuationFrame<TContext>(
+        IHttpApplication<TContext> application) where TContext : notnull
     {
         if (_currentStream.StreamId != _readFrame.StreamId || _currentStream.RequestEndHeaders)
             throw new Http2ProtocolException();
@@ -313,7 +313,7 @@ internal sealed partial class Http2Connection
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
-            StartStream();
+            StartStream(_currentStream, application);
         }
     }
 
@@ -334,12 +334,15 @@ internal sealed partial class Http2Connection
         httpStream.Abort();
         OnStreamCompleted(httpStream);
         if (_currentStream.StreamId == streamId)
-            _currentStream = _defaultStream;
+            _currentStream = _streamPool.Get(CreateConnection, (Connection: this, _context.Features));
     }
 
-    private void StartStream()
+    private static void StartStream<TContext>(Http2Stream stream, IHttpApplication<TContext> application) where TContext : notnull
     {
-        ThreadPool.UnsafeQueueUserWorkItem(_currentStream, preferLocal: false);
+        ThreadPool.UnsafeQueueUserWorkItem(
+            state => state.Stream.Execute(state.App),
+            (App: application, Stream: stream),
+            preferLocal: false);
     }
 
     private async ValueTask ProcessWindowUpdateFrame()
@@ -459,6 +462,11 @@ internal sealed partial class Http2Connection
     internal void OnStreamCompleted(Http2Stream stream)
     {
         _streams.TryRemove(stream.StreamId, out _);
+        if (!stream.IsAborted)
+        {
+            stream.Reset();
+            _streamPool.Return(stream);
+        }
         if (_gracefulShutdownRequested)
             TryGracefulShutdown();
     }
@@ -477,4 +485,6 @@ internal sealed partial class Http2Connection
     {
         return _clientWindow.TryUseAny(requestedSize, out reservedSize);
     }
+
+    private static Http2Stream CreateConnection((Http2Connection Connection, FeatureCollection Features) state) => new Http2Stream(state.Connection, state.Features);
 }
