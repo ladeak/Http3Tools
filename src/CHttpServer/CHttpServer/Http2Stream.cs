@@ -57,6 +57,7 @@ internal partial class Http2Stream
         _featureCollection.Add<IHttpResponseTrailersFeature>(this);
         _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
         _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
+        _featureCollection.Checkpoint();
     }
 
     public void Initialize(uint streamId, uint initialWindowSize, uint serverStreamFlowControlSize)
@@ -104,6 +105,7 @@ internal partial class Http2Stream
 
         _clientFlowControlBarrier = new(1, 1);
         _responseWriterFlushedResponse = new(0);
+        _featureCollection.ResetCheckpoint();
     }
 
     public uint StreamId { get; private set; }
@@ -169,7 +171,7 @@ internal partial class Http2Stream
     public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _requestHeaders.SetReadOnly();
-        var context = application.CreateContext(_featureCollection.Copy());
+        var context = application.CreateContext(_featureCollection);
         await application.ProcessRequestAsync(context);
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
