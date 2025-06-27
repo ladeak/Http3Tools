@@ -5,7 +5,7 @@ using CHttpServer.System.Net.Http.HPack;
 
 namespace CHttpServer;
 
-internal class Http2ResponseWriter
+internal class Http2ResponseWriter : IResponseWriter
 {
     private const string WriteHeaders = nameof(WriteHeaders);
     private const string WriteData = nameof(WriteData);
