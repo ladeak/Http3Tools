@@ -500,6 +500,9 @@ public class Http2ConnectionTests
     [InlineData("invalid", 3, false)]
     [InlineData("u=7, i=1;u=4, i=0", 7, true)]
     [InlineData("u=9, i=2;u=0, i", 3, false)]
+    [InlineData("u=2,i=1 ", 2, true)]
+    [InlineData("i=1 ,u=2 ", 2, true)]
+    [InlineData("ii=1 ,uu=2 ", 3, false)]
     public async Task UsePriorty_Sends_RequestUsesPriorityFeature(string header, uint urgency, bool incremental)
     {
         var (pipe, connection) = CreateConnnection(new() { UsePriority = true });

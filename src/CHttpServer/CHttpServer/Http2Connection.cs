@@ -22,12 +22,13 @@ internal sealed partial class Http2Connection
 
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
+    internal const int ServerMaxConcurrentStream = 128;
     internal const uint MaxWindowUpdateSize = 2_147_483_647; // int.MaxValue
 
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
 
     private readonly CHttpConnectionContext _context;
-    private readonly Stream _inputStream;
+    private readonly Stream _inputDataStream;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
     private readonly LimitedObjectPool<Http2Stream> _streamPool;
@@ -52,7 +53,7 @@ internal sealed partial class Http2Connection
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
-        _inputStream = connectionContext.Transport!;
+        _inputDataStream = connectionContext.Transport!;
         _aborted = new();
         _gracefulShutdownRequested = false;
         _readFrame = new();
@@ -74,7 +75,7 @@ internal sealed partial class Http2Connection
         if (serverOptions.UsePriority)
             _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         else
-            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
+            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize, ServerMaxConcurrentStream);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
@@ -83,7 +84,7 @@ internal sealed partial class Http2Connection
             ValidateTlsRequirements();
             var token = _aborted.Token;
             await ReadPreface(token);
-            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = serverOptions.ServerStreamFlowControlSize, DisableRFC7540Priority = serverOptions.UsePriority });
+            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = serverOptions.ServerStreamFlowControlSize, MaxConcurrentStream = ServerMaxConcurrentStream, DisableRFC7540Priority = serverOptions.UsePriority });
             _writer.WriteWindowUpdate(0, serverOptions.ServerConnectionFlowControlSize);
             await _writer.FlushAsync();
             while (!token.IsCancellationRequested)
@@ -136,7 +137,7 @@ internal sealed partial class Http2Connection
 
     private void CloseConnection()
     {
-        _inputStream.Close();
+        _inputDataStream.Close();
         ArrayPool<byte>.Shared.Return(_buffer);
     }
 
@@ -173,7 +174,7 @@ internal sealed partial class Http2Connection
             throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
         if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
-        await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
+        await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
         if (_readFrame.Flags == 0)
         {
             var payload = BinaryPrimitives.ReadUInt64LittleEndian(_buffer.AsSpan(0, 8));
@@ -197,7 +198,7 @@ internal sealed partial class Http2Connection
 
             var payloadLength = (int)_readFrame.PayloadLength;
             var memory = _buffer.AsMemory(0, payloadLength);
-            await _inputStream.ReadExactlyAsync(memory);
+            await _inputDataStream.ReadExactlyAsync(memory);
             var lastStreamId = IntegerSerializer.ReadUInt32BigEndian(memory.Span[..4]);
             var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(memory.Span.Slice(4, 4));
             if (errorCode == Http2ErrorCode.NO_ERROR)
@@ -236,7 +237,7 @@ internal sealed partial class Http2Connection
         int paddingLength = 0;
         if (_readFrame.HasPadding)
         {
-            await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 1));
+            await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 1));
             paddingLength = _buffer[0];
             if (paddingLength > _readFrame.PayloadLength)
                 throw new Http2ConnectionException("Invalid data pad length");
@@ -244,7 +245,7 @@ internal sealed partial class Http2Connection
 
         var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.ReceiveMaxFrameSize)
             .Slice(0, (int)_readFrame.PayloadLength); // framesize max
-        await _inputStream.ReadExactlyAsync(buffer);
+        await _inputDataStream.ReadExactlyAsync(buffer);
         httpStream.RequestPipe.Advance(buffer.Length - paddingLength); // Padding is read but not advanced.
         await httpStream.RequestPipe.FlushAsync();
 
@@ -269,7 +270,7 @@ internal sealed partial class Http2Connection
         // | Padding(*)...
         // +---------------------------------------------------------------+
         var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
-        await _inputStream.ReadExactlyAsync(memory);
+        await _inputDataStream.ReadExactlyAsync(memory);
         int payloadStart = 0;
         int paddingLength = 0;
         if (_readFrame.HasPadding)
@@ -311,7 +312,7 @@ internal sealed partial class Http2Connection
             return;
 
         var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
-        await _inputStream.ReadExactlyAsync(memory);
+        await _inputDataStream.ReadExactlyAsync(memory);
         bool endHeaders = _readFrame.EndHeaders;
         _hpackDecoder.Decode(memory.Span, endHeaders, this);
         if (endHeaders)
@@ -331,7 +332,7 @@ internal sealed partial class Http2Connection
             throw new Http2ProtocolException();
         if (_readFrame.PayloadLength != 4)
             throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
-        await _inputStream.ReadExactlyAsync(_buffer.AsMemory(0, 4));
+        await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 4));
         Http2ErrorCode errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(_buffer.AsSpan(0, 4));
 
         // Abort stream
@@ -354,7 +355,7 @@ internal sealed partial class Http2Connection
         if (_readFrame.PayloadLength != 4)
             throw new Http2ProtocolException();
         var memory = _buffer.AsMemory(0, 4);
-        await _inputStream.ReadExactlyAsync(memory);
+        await _inputDataStream.ReadExactlyAsync(memory);
         var updateSize = IntegerSerializer.ReadUInt32BigEndian(memory.Span);
         if (updateSize > MaxWindowUpdateSize)
             throw new Http2ProtocolException();
@@ -368,17 +369,15 @@ internal sealed partial class Http2Connection
 
             // Let all streams know, so that they can schedule data writes (if
             // they were blocked by connection windows earlier).
-
-            // TODO order by priority
-            foreach (var stream in _streams.Values)
-                stream.OnConnectionWindowUpdateSize();
+            foreach (var stream in _streams)
+                stream.Value.OnConnectionWindowUpdateSize();
         }
     }
 
     private async Task ReadFrameHeader(CancellationToken token)
     {
         var frameHeader = _buffer.AsMemory(0, MaxFrameHeaderLength);
-        await _inputStream.ReadExactlyAsync(frameHeader, token);
+        await _inputDataStream.ReadExactlyAsync(frameHeader, token);
         _readFrame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(frameHeader.Span[0..3]);
         _readFrame.Type = (Http2FrameType)frameHeader.Span[3];
         _readFrame.Flags = frameHeader.Span[4];
@@ -397,7 +396,7 @@ internal sealed partial class Http2Connection
 
         var payloadLength = (int)_readFrame.PayloadLength;
         var memory = _buffer.AsMemory(0, payloadLength);
-        await _inputStream.ReadExactlyAsync(memory);
+        await _inputDataStream.ReadExactlyAsync(memory);
 
         var span = memory.Span;
         while (span.Length > 0)
@@ -442,7 +441,7 @@ internal sealed partial class Http2Connection
         var preface = _buffer.AsMemory(0, PrefaceBytes.Length);
         try
         {
-            await _inputStream.ReadExactlyAsync(preface, token);
+            await _inputDataStream.ReadExactlyAsync(preface, token);
         }
         catch (OperationCanceledException)
         {

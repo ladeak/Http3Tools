@@ -15,8 +15,6 @@ internal class Http2ResponseWriter : IResponseWriter
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
     private const string WriteGoAway = nameof(WriteGoAway);
 
-    private record class StreamWriteRequest(Http2Stream Stream, string OperationName, ulong Data = 0);
-
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
     private int _maxFrameSize;
