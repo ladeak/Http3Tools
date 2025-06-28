@@ -11,6 +11,7 @@ internal struct Http2SettingsPayload
         SendMaxFrameSize = 16_384; // Receiver can change it settings
         ReceiveMaxFrameSize = 16_384 * 2; // Advertised by the server
         SettingsReceived = false;
+        DisableRFC7540Priority = false;
     }
 
     public uint HeaderTableSize { get; set; }
@@ -28,4 +29,6 @@ internal struct Http2SettingsPayload
     public uint MaxHeaderListSize { get; set; }
 
     public bool SettingsReceived { get; set; }
+
+    public bool DisableRFC7540Priority { get; init; }
 }

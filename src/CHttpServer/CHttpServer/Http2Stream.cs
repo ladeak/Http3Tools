@@ -19,8 +19,9 @@ internal partial class Http2Stream
     }
 
     private readonly Http2Connection _connection;
-    private readonly Http2ResponseWriter _writer;
+    private readonly IResponseWriter _writer;
     private readonly FeatureCollection _featureCollection;
+    private readonly bool _usePriority;
     private FlowControlSize _serverWindowSize; // Controls Data received
     private FlowControlSize _clientWindowSize; // Controls Data sent
     private StreamState _state;
@@ -57,7 +58,11 @@ internal partial class Http2Stream
         _featureCollection.Add<IHttpResponseTrailersFeature>(this);
         _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
         _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
+        _featureCollection.Add<IPriority9218Feature>(this);
         _featureCollection.Checkpoint();
+
+        _usePriority = _connection.ServerOptions.UsePriority;
+        Priority = Priority9218.Default;
     }
 
     public void Initialize(uint streamId, uint initialWindowSize, uint serverStreamFlowControlSize)
@@ -106,6 +111,7 @@ internal partial class Http2Stream
         _clientFlowControlBarrier = new(1, 1);
         _responseWriterFlushedResponse = new(0);
         _featureCollection.ResetCheckpoint();
+        Priority = Priority9218.Default;
     }
 
     public uint StreamId { get; private set; }
@@ -150,6 +156,16 @@ internal partial class Http2Stream
                 }
                 ;
                 break;
+        }
+    }
+
+    internal void SetHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+        var (key, values) = RequestHeaders.Add(name, value);
+        if (_usePriority && key == "priority")
+        {
+            Priority9218.TryParse(values, out var priority);
+            Priority = priority;
         }
     }
 
@@ -222,7 +238,7 @@ internal partial class Http2Stream
     }
 }
 
-internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature, IHttpRequestLifetimeFeature
+internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature, IHttpRequestLifetimeFeature, IPriority9218Feature
 {
     private HeaderCollection _requestHeaders;
 
@@ -250,6 +266,8 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
 
     public HeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
+
+    public Priority9218 Priority { get; set; }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature

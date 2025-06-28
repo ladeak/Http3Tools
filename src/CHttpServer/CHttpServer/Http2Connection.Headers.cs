@@ -2,7 +2,7 @@
 
 namespace CHttpServer;
 
-internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStreamHeadersHandler
+internal sealed partial class Http2Connection : IHttpStreamHeadersHandler
 {
     private RequestHeaderParsingState _requestHeaderParsingState = RequestHeaderParsingState.Ready;
     private PseudoHeaderFields _parsedPseudoHeaderFields;
@@ -19,7 +19,7 @@ internal sealed partial class Http2Connection : System.Net.Http.HPack.IHttpStrea
 
     public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        _currentStream.RequestHeaders.Add(name, value);
+        _currentStream.SetHeader(name, value);
     }
 
     public void OnHeadersComplete(bool endStream)
