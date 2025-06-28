@@ -455,6 +455,82 @@ public class Http2ConnectionTests
         await connectionProcessing;
     }
 
+    [Fact]
+    public async Task UsePriorty_Sends_NoRfc7540Priorities()
+    {
+        var (pipe, connection) = CreateConnnection(new() { UsePriority = true });
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            Assert.True(ctx.Request.Headers.TryGetValue("priority", out var values));
+#pragma warning disable xUnit2017
+            Assert.True(values.Contains("u=2, i"));
+#pragma warning restore xUnit2017
+            return Task.CompletedTask;
+
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: true);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        var requestHeaders = new HeaderCollection();
+        requestHeaders.Add("priority", "u=2, i");
+        await client.SendHeadersAsync(requestHeaders);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.False(headers.TryGetValue("priority", out var responsePriority)); // No change
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Theory]
+    [InlineData("u=1,i", 1, true)]
+    [InlineData("u=1, i", 1, true)]
+    [InlineData("u=2, i=1", 2, true)]
+    [InlineData("u=4, i=0", 4, false)]
+    [InlineData("u=5", 5, false)]
+    [InlineData("i", 3, true)]
+    [InlineData("u=9, i=2", 3, false)]
+    [InlineData("invalid", 3, false)]
+    [InlineData("u=7, i=1;u=4, i=0", 7, true)]
+    [InlineData("u=9, i=2;u=0, i", 3, false)]
+    public async Task UsePriorty_Sends_RequestUsesPriorityFeature(string header, uint urgency, bool incremental)
+    {
+        var (pipe, connection) = CreateConnnection(new() { UsePriority = true });
+        // Initiate connection
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            var priorityFeature = ctx.Features.Get<IPriority9218Feature>();
+            var priority = priorityFeature!.Priority;
+            Assert.Equal(urgency, priority.Urgency);
+            Assert.Equal(incremental, priority.Incremental);
+            return Task.CompletedTask;
+
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: true);
+        await AssertWindowUpdateFrameAsync(pipe);
+
+        var requestHeaders = new HeaderCollection();
+        requestHeaders.Add("priority", header);
+        await client.SendHeadersAsync(requestHeaders);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
     private static async Task<Http2Frame> AssertEmptyEndStream(TestDuplexPipe pipe)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);
@@ -540,7 +616,8 @@ public class Http2ConnectionTests
         return frame;
     }
 
-    private static async Task<Http2Frame> AssertSettingsFrameAsync(TestDuplexPipe pipe)
+    private static async Task<Http2Frame> AssertSettingsFrameAsync(TestDuplexPipe pipe,
+        bool withNoRfc7540Priorities = false)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);
         Assert.Equal(Http2FrameType.SETTINGS, frame.Type);
@@ -571,6 +648,13 @@ public class Http2ConnectionTests
         // ReceiveMaxFrameSize
         Assert.Equal(5, IntegerSerializer.ReadUInt16BigEndian(payload[..2]));
         Assert.Equal(32_768L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
+
+        if (withNoRfc7540Priorities)
+        {
+            payload = payload[6..];
+            Assert.Equal(9, IntegerSerializer.ReadUInt16BigEndian(payload[..2]));
+            Assert.Equal(1L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
+        }
 
         return frame;
     }
