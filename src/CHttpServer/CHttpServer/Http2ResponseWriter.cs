@@ -96,8 +96,8 @@ internal class Http2ResponseWriter : IResponseWriter
     public void ScheduleEndStream(Http2Stream source) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteEndStream));
 
-    public void ScheduleWriteTrailers(Http2Stream http2Stream) =>
-        _channel.Writer.TryWrite(new StreamWriteRequest(http2Stream, WriteTrailers));
+    public void ScheduleWriteTrailers(Http2Stream source) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteTrailers));
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteWindowUpdate, size));

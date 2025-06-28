@@ -17,7 +17,7 @@ internal interface IResponseWriter
 
     void ScheduleWritePingAck(ulong value);
 
-    void ScheduleWriteTrailers(Http2Stream http2Stream);
+    void ScheduleWriteTrailers(Http2Stream source);
 
     void ScheduleWriteWindowUpdate(Http2Stream source, uint size);
 
