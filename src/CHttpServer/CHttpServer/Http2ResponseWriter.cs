@@ -107,7 +107,11 @@ internal class Http2ResponseWriter : IResponseWriter
     public void ScheduleWriteGoAway(uint streamId) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(null!, WriteGoAway, streamId));
 
-    public void Complete() => _channel.Writer.Complete();
+    public void Complete()
+    {
+        _channel.Writer.TryComplete();
+        _priorityChannel.Writer.TryComplete();
+    }
 
     private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
     {

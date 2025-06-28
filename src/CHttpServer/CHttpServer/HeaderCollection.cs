@@ -108,12 +108,14 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         Count++;
     }
 
-    public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> rawValue)
+    public (string, StringValues) Add(ReadOnlySpan<byte> rawKey, ReadOnlySpan<byte> rawValue)
     {
         ValidateReadOnly();
         var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        _headers.TryAdd(Encoding.Latin1.GetString(key), value);
+        var key = Encoding.Latin1.GetString(rawKey);
+        _headers.TryAdd(key, value);
         Count++;
+        return (key, value);
     }
 
     public void Clear()

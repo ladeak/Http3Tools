@@ -54,26 +54,27 @@ internal sealed class FrameWriter
 
     internal void WriteSettings(Http2SettingsPayload payload)
     {
-        uint size = 5 * (2 + 4);
+        uint size = 6 * (2 + 4);
         var totalSize = (int)(size + FrameHeaderSize);
         _frame.SetSettings(size);
         var buffer = _destination.GetSpan(totalSize);
         WriteFrameHeader(buffer);
         buffer = buffer[FrameHeaderSize..];
 
-        buffer = WriteSetting(buffer, 1, payload.HeaderTableSize);
-        buffer = WriteSetting(buffer, 2, payload.EnablePush);
-        buffer = WriteSetting(buffer, 3, payload.MaxConcurrentStream);
-        buffer = WriteSetting(buffer, 4, payload.InitialWindowSize);
-        buffer = WriteSetting(buffer, 5, payload.ReceiveMaxFrameSize);
+        WriteSetting(ref buffer, 1, payload.HeaderTableSize);
+        WriteSetting(ref buffer, 2, payload.EnablePush);
+        WriteSetting(ref buffer, 3, payload.MaxConcurrentStream);
+        WriteSetting(ref buffer, 4, payload.InitialWindowSize);
+        WriteSetting(ref buffer, 5, payload.ReceiveMaxFrameSize);
+        if (payload.DisableRFC7540Priority)
+            WriteSetting(ref buffer, 9, 1);
 
-        static Span<byte> WriteSetting(Span<byte> buffer, ushort id, uint value)
+        static void WriteSetting(ref Span<byte> buffer, ushort id, uint value)
         {
             IntegerSerializer.WriteUInt16BigEndian(buffer, id);
             buffer = buffer[2..];
             IntegerSerializer.WriteUInt32BigEndian(buffer, value);
             buffer = buffer[4..];
-            return buffer;
         }
         _destination.Advance(totalSize);
     }
