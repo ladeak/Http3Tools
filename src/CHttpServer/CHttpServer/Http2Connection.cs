@@ -35,7 +35,7 @@ internal sealed partial class Http2Connection
     private byte[] _buffer;
     private FrameWriter? _writer;
     private Http2Frame _readFrame;
-    private Http2ResponseWriter? _responseWriter;
+    private IResponseWriter? _responseWriter;
     private Http2SettingsPayload _h2Settings;
     private ConcurrentDictionary<uint, Http2Stream> _streams;
     private Http2Stream _currentStream;
@@ -63,14 +63,18 @@ internal sealed partial class Http2Connection
     }
 
     // Setter is atest hook
-    internal Http2ResponseWriter? ResponseWriter { get => _responseWriter; init => _responseWriter = value; }
+    internal IResponseWriter? ResponseWriter { get => _responseWriter; init => _responseWriter = value; }
 
     internal CHttpServerOptions ServerOptions => _context.ServerOptions;
 
     public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         _writer = new FrameWriter(_context);
-        _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
+        var serverOptions = _context.ServerOptions;
+        if (serverOptions.UsePriority)
+            _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
+        else
+            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
@@ -79,8 +83,8 @@ internal sealed partial class Http2Connection
             ValidateTlsRequirements();
             var token = _aborted.Token;
             await ReadPreface(token);
-            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = _context.ServerOptions.ServerStreamFlowControlSize });
-            _writer.WriteWindowUpdate(0, _context.ServerOptions.ServerConnectionFlowControlSize);
+            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = serverOptions.ServerStreamFlowControlSize, DisableRFC7540Priority = serverOptions.UsePriority });
+            _writer.WriteWindowUpdate(0, serverOptions.ServerConnectionFlowControlSize);
             await _writer.FlushAsync();
             while (!token.IsCancellationRequested)
             {
@@ -364,6 +368,8 @@ internal sealed partial class Http2Connection
 
             // Let all streams know, so that they can schedule data writes (if
             // they were blocked by connection windows earlier).
+
+            // TODO order by priority
             foreach (var stream in _streams.Values)
                 stream.OnConnectionWindowUpdateSize();
         }

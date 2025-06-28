@@ -23,6 +23,8 @@ public class CHttpServerOptions
 
     public int MaxRequestHeaderLength { get; set; } = 65_535;
 
+    public bool UsePriority { get; set; }
+
     public X509Certificate2? Certificate { get; set; }
 
     internal X509Certificate2? GetCertificate()
