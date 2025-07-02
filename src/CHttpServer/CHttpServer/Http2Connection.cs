@@ -22,7 +22,7 @@ internal sealed partial class Http2Connection
 
     private const int MaxFrameHeaderLength = 9;
     private const uint MaxStreamId = uint.MaxValue >> 1;
-    internal const int ServerMaxConcurrentStream = 128;
+    internal const int DefaultServerMaxConcurrentStream = 128;
     internal const uint MaxWindowUpdateSize = 2_147_483_647; // int.MaxValue
 
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
@@ -75,7 +75,7 @@ internal sealed partial class Http2Connection
         if (serverOptions.UsePriority)
             _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         else
-            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize, ServerMaxConcurrentStream);
+            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize, DefaultServerMaxConcurrentStream);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;
@@ -84,7 +84,7 @@ internal sealed partial class Http2Connection
             ValidateTlsRequirements();
             var token = _aborted.Token;
             await ReadPreface(token);
-            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = serverOptions.ServerStreamFlowControlSize, MaxConcurrentStream = ServerMaxConcurrentStream, DisableRFC7540Priority = serverOptions.UsePriority });
+            _writer.WriteSettings(new Http2SettingsPayload() { InitialWindowSize = serverOptions.ServerStreamFlowControlSize, MaxConcurrentStream = DefaultServerMaxConcurrentStream, DisableRFC7540Priority = serverOptions.UsePriority });
             _writer.WriteWindowUpdate(0, serverOptions.ServerConnectionFlowControlSize);
             await _writer.FlushAsync();
             while (!token.IsCancellationRequested)

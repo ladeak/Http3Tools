@@ -3,6 +3,8 @@ namespace CHttpServer;
 
 internal interface IResponseWriter
 {
+    // Indicates that there are no further streams to write
+    // to the response stream.
     void Complete();
 
     Task RunAsync(CancellationToken token);
@@ -10,8 +12,6 @@ internal interface IResponseWriter
     void ScheduleEndStream(Http2Stream source);
 
     void ScheduleWriteData(Http2Stream source);
-
-    void ScheduleWriteGoAway(uint streamId);
 
     void ScheduleWriteHeaders(Http2Stream source);
 
