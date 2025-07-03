@@ -72,7 +72,7 @@ internal sealed partial class Http2Connection
     {
         _writer = new FrameWriter(_context);
         var serverOptions = _context.ServerOptions;
-        if (serverOptions.UsePriority)
+        if (!serverOptions.UsePriority)
             _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         else
             _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize, DefaultServerMaxConcurrentStream);

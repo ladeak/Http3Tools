@@ -640,7 +640,7 @@ public class Http2ConnectionTests
 
         // MaxConcurrentStream
         Assert.Equal(3, IntegerSerializer.ReadUInt16BigEndian(payload[..2]));
-        Assert.Equal(100L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
+        Assert.Equal(128L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
         payload = payload[6..];
 
         // InitialWindowSize
