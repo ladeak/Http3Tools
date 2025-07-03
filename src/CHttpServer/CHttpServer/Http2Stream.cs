@@ -47,8 +47,8 @@ internal partial class Http2Stream
         });
         _cts = new();
         StatusCode = 200;
-        _responseWriterFlushedResponse = new(0);
-        _clientFlowControlBarrier = new(1, 1);
+        _responseWriterFlushedResponse = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
+        _clientFlowControlBarrier = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
         _responseWritingTask = new TaskCompletionSource<Task>();
 
         _featureCollection = featureCollection.Copy();
@@ -108,8 +108,8 @@ internal partial class Http2Stream
         _onCompletedState = null;
         _responseWritingTask = new TaskCompletionSource<Task>();
 
-        _clientFlowControlBarrier = new(1, 1);
-        _responseWriterFlushedResponse = new(0);
+        _clientFlowControlBarrier.Reset();
+        _responseWriterFlushedResponse.Reset();
         _featureCollection.ResetCheckpoint();
         Priority = Priority9218.Default;
     }
@@ -274,8 +274,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 {
     private readonly Pipe _responseBodyPipe;
     private readonly Http2StreamPipeWriter _responseBodyPipeWriter;
-    private SemaphoreSlim _clientFlowControlBarrier;
-    private SemaphoreSlim _responseWriterFlushedResponse;
+    private ManualResetValueTaskSource<bool> _clientFlowControlBarrier;
+    private ManualResetValueTaskSource<bool> _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
     private TaskCompletionSource<Task> _responseWritingTask;
@@ -345,14 +345,12 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             throw new Http2ProtocolException(); //Stream error
 
         _clientWindowSize.ReleaseSize(updateSize);
-        if (_clientFlowControlBarrier.CurrentCount == 0)
-            _clientFlowControlBarrier.Release(1);
+        _clientFlowControlBarrier.TrySetResult(true);
     }
 
     public void OnConnectionWindowUpdateSize()
     {
-        if (_clientFlowControlBarrier.CurrentCount == 0)
-            _clientFlowControlBarrier.Release(1);
+        _clientFlowControlBarrier.TrySetResult(true);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -408,15 +406,21 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             {
                 // Reserve flow control size for the response body.
                 var size = buffer.Length > uint.MaxValue ? uint.MaxValue : (uint)buffer.Length;
+                _clientFlowControlBarrier.Reset();
                 if (!ReserveClientFlowControlSize(size, out size)) // Reserve here to block write pipe.
                 {
-                    await _clientFlowControlBarrier.WaitAsync(token);
+                    await new ValueTask(_clientFlowControlBarrier, _clientFlowControlBarrier.Version)
+                        .AsTask()
+                        .WaitAsync(token);
                     continue;
                 }
 
                 ResponseBodyBuffer = buffer.Slice(0, size);
+                
+                _responseWriterFlushedResponse.Reset();
                 _writer.ScheduleWriteData(this);
-                await _responseWriterFlushedResponse.WaitAsync(token);
+                await new ValueTask(_responseWriterFlushedResponse, _responseWriterFlushedResponse.Version)
+                    .AsTask().WaitAsync(token);
                 buffer = buffer.Slice(size);
             }
             _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);
@@ -434,7 +438,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     public void OnResponseDataFlushed()
     {
         // Release semaphore for the next write.
-        _responseWriterFlushedResponse.Release(1);
+        _responseWriterFlushedResponse.TrySetResult(true);
     }
 
     private bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)

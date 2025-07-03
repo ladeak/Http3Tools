@@ -96,7 +96,7 @@ internal class PriorityResponseWriter : IResponseWriter
     private int _maxFrameSize;
     private byte[] _buffer;
     private volatile bool _isCompleted;
-    private ManualResetValueTaskSource _semaphore;
+    private ManualResetValueTaskSource<bool> _semaphore;
 
     static PriorityResponseWriter()
     {
@@ -194,7 +194,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteEndStream));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void ScheduleWriteData(Http2Stream source)
@@ -203,7 +203,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteData));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void ScheduleWriteHeaders(Http2Stream source)
@@ -212,7 +212,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteHeaders));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void ScheduleWritePingAck(ulong value)
@@ -220,7 +220,7 @@ internal class PriorityResponseWriter : IResponseWriter
         if (_isCompleted)
             return;
         _queues[0].Enqueue(new StreamWriteRequest(null!, WritePingFrame, value));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void ScheduleWriteTrailers(Http2Stream source)
@@ -229,7 +229,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteTrailers));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size)
@@ -238,7 +238,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteWindowUpdate, size));
-        _semaphore.SetResult();
+        _semaphore.TrySetResult(true);
     }
 
     public void UpdateFrameSize(uint size)

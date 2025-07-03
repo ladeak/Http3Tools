@@ -2,7 +2,7 @@
 
 namespace CHttpServer;
 
-internal sealed class ManualResetValueTaskSource<T> : IValueTaskSource<T>, IValueTaskSource
+internal class ManualResetValueTaskSource<T> : IValueTaskSource<T>, IValueTaskSource
 {
     private ManualResetValueTaskSourceCore<T> _core;
     public bool RunContinuationsAsynchronously { get => _core.RunContinuationsAsynchronously; set => _core.RunContinuationsAsynchronously = value; }

@@ -7,9 +7,9 @@ namespace CHttpServer;
 
 public class FeatureCollection : IFeatureCollection
 {
-    private const int MaxFeatures = 14;
+    private const int MaxFeatures = 15;
     private readonly Dictionary<Type, object> _features = new();
-    private InlineArray14<(Type Key, object Value)> _featuresFrozen = new();
+    private InlineArray15<(Type Key, object Value)> _featuresFrozen = new();
     private volatile int _revision = 0;
     private int _checkpointRevision = 0;
 
