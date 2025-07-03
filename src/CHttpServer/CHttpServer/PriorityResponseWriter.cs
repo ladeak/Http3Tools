@@ -123,7 +123,7 @@ internal class PriorityResponseWriter : IResponseWriter
         {
             _hpackEncoder = new();
             _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
-            while (_isCompleted || token.IsCancellationRequested)
+            while (!_isCompleted && !token.IsCancellationRequested)
             {
                 await WriteAllLevels(null);
             }
