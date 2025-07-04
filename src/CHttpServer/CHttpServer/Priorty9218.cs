@@ -18,7 +18,7 @@ public record struct Priority9218(byte Urgency, bool Incremental) : IComparable<
             return false;
         }
         var parameters = values[0].AsSpan();
-        if (parameters.Length > 8)
+        if (parameters.Length > 32)
         {
             priority = new Priority9218(urgency, incremental);
             return false;

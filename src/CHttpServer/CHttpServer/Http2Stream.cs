@@ -416,7 +416,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
                 }
 
                 ResponseBodyBuffer = buffer.Slice(0, size);
-                
+
                 _responseWriterFlushedResponse.Reset();
                 _writer.ScheduleWriteData(this);
                 await new ValueTask(_responseWriterFlushedResponse, _responseWriterFlushedResponse.Version)
@@ -463,9 +463,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         return true;
     }
 
-    internal async Task OnStreamCompletedAsync()
+    internal async ValueTask OnStreamCompletedAsync()
     {
-        await (_onCompletedCallback?.Invoke(_onCompletedState!) ?? Task.CompletedTask);
+        if (_onCompletedCallback != null)
+            await _onCompletedCallback.Invoke(_onCompletedState!);
         _state = StreamState.Closed;
         _responseBodyPipe.Reader.Complete();
         _connection.OnStreamCompleted(this);

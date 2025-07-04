@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -96,7 +97,7 @@ internal class PriorityResponseWriter : IResponseWriter
     private int _maxFrameSize;
     private byte[] _buffer;
     private volatile bool _isCompleted;
-    private ManualResetValueTaskSource<bool> _semaphore;
+    private ManualResetValueTaskSource<bool> _writeScheduledBarrier;
 
     static PriorityResponseWriter()
     {
@@ -112,7 +113,7 @@ internal class PriorityResponseWriter : IResponseWriter
         _buffer = [];
         for (int i = 0; i < PriortyLevels; i++)
             _queues[i] = _scheduleLevelPools.Get();
-        _semaphore = new();
+        _writeScheduledBarrier = new();
     }
 
     public void Complete() => _isCompleted = true;
@@ -125,7 +126,7 @@ internal class PriorityResponseWriter : IResponseWriter
             _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
             while (!_isCompleted && !token.IsCancellationRequested)
             {
-                await WriteAllLevels(null);
+                await WriteAllLevels(token);
             }
         }
         catch (OperationCanceledException)
@@ -142,10 +143,10 @@ internal class PriorityResponseWriter : IResponseWriter
         }
     }
 
-    private async Task WriteAllLevels(object? p)
+    private async ValueTask WriteAllLevels(CancellationToken token)
     {
         bool allLevelsEmpty = true;
-        _semaphore.Reset();
+        _writeScheduledBarrier.Reset();
         for (int i = 0; i < PriortyLevels; i++)
         {
             var queueLevels = _queues[i];
@@ -159,7 +160,7 @@ internal class PriorityResponseWriter : IResponseWriter
                 break;
         }
         if (allLevelsEmpty)
-            await new ValueTask(_semaphore, _semaphore.Version);
+            await new ValueTask(_writeScheduledBarrier, _writeScheduledBarrier.Version).AsTask().WaitAsync(token);
     }
 
     private async Task<bool> WriteLevel(PrioritySchedule queueLevels)
@@ -194,7 +195,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteEndStream));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void ScheduleWriteData(Http2Stream source)
@@ -203,7 +204,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteData));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void ScheduleWriteHeaders(Http2Stream source)
@@ -212,7 +213,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteHeaders));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void ScheduleWritePingAck(ulong value)
@@ -220,7 +221,7 @@ internal class PriorityResponseWriter : IResponseWriter
         if (_isCompleted)
             return;
         _queues[0].Enqueue(new StreamWriteRequest(null!, WritePingFrame, value));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void ScheduleWriteTrailers(Http2Stream source)
@@ -229,7 +230,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteTrailers));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size)
@@ -238,7 +239,7 @@ internal class PriorityResponseWriter : IResponseWriter
             return;
         var level = GetLevel(source);
         _queues[level].Enqueue(new StreamWriteRequest(source, WriteWindowUpdate, size));
-        _semaphore.TrySetResult(true);
+        _writeScheduledBarrier.TrySetResult(true);
     }
 
     public void UpdateFrameSize(uint size)
@@ -343,7 +344,7 @@ internal class PriorityResponseWriter : IResponseWriter
         await _frameWriter.FlushAsync();
     }
 
-    private async Task WriteTrailersAsync(Http2Stream stream)
+    private async ValueTask WriteTrailersAsync(Http2Stream stream)
     {
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
         int totalLength = 0;
@@ -352,6 +353,7 @@ internal class PriorityResponseWriter : IResponseWriter
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
             // This is stateful
+            Debug.Assert(_hpackEncoder != null);
             if (!_hpackEncoder.EncodeHeader(buffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
                 header.Key, header.Value.ToString(), Encoding.Latin1, out var writtenLength))
                 throw new InvalidOperationException("Trailer too large");
