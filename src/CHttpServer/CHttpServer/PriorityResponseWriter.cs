@@ -82,8 +82,9 @@ internal class PriorityResponseWriter : IResponseWriter
     private const string WritePingFrame = nameof(WritePingFrame);
     private const string WriteTrailers = nameof(WriteTrailers);
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
+    private const string WriteRstStream = nameof(WriteRstStream);
     private const int PriortyLevels = 16;
-    private const int MaxDataFrames = 6;
+    private const int PreemptFramesLimit = 6;
 
     /// <summary>
     /// Each entry corresponds to a level of priority (urgency and incremental)
@@ -124,7 +125,7 @@ internal class PriorityResponseWriter : IResponseWriter
         {
             _hpackEncoder = new();
             _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
-            while (!_isCompleted && !token.IsCancellationRequested)
+            while (!token.IsCancellationRequested)
             {
                 await WriteAllLevels(token);
             }
@@ -172,8 +173,9 @@ internal class PriorityResponseWriter : IResponseWriter
             if (request.OperationName == WriteData)
             {
                 // If writes are preempted, requeue data writes for the stream.
-                if (!await WriteDataAsync(request))
-                    queueLevels.Enqueue(request);
+                var totalWritten = await WriteDataAsync(request.Stream, (long)request.Data);
+                if (totalWritten >= 0)
+                    queueLevels.Enqueue(request with { Data = (ulong)totalWritten });
             }
             else if (request.OperationName == WriteHeaders)
                 await WriteHeadersAsync(request.Stream);
@@ -183,8 +185,10 @@ internal class PriorityResponseWriter : IResponseWriter
                 await WriteTrailersAsync(request.Stream);
             else if (request.OperationName == WriteWindowUpdate)
                 await WriteWindowUpdateAsync(request.Stream, request.Data);
-            if (request.OperationName == WritePingFrame)
+            else if (request.OperationName == WritePingFrame)
                 await WritePingAckAsync(request.Data);
+            else if (request.OperationName == WriteRstStream)
+                await WriteRstStreamAsync(request.Stream, request.Data);
         }
         return isEmpty;
     }
@@ -242,6 +246,15 @@ internal class PriorityResponseWriter : IResponseWriter
         _writeScheduledBarrier.TrySetResult(true);
     }
 
+    public void ScheduleResetStream(Http2Stream source, Http2ErrorCode errorCode)
+    {
+        if (_isCompleted)
+            return;
+        var level = GetLevel(source);
+        _queues[level].Enqueue(new StreamWriteRequest(source, WriteRstStream, (ulong)errorCode));
+        _writeScheduledBarrier.TrySetResult(true);
+    }
+
     public void UpdateFrameSize(uint size)
     {
         if (size < 16384 || size > 16777215)
@@ -258,22 +271,26 @@ internal class PriorityResponseWriter : IResponseWriter
         return level + 1;
     }
 
-    private async ValueTask<bool> WriteDataAsync(StreamWriteRequest writeRequest)
+    private async ValueTask<long> WriteDataAsync(Http2Stream stream, long initialStart)
     {
-        var stream = writeRequest.Stream;
-        var responseContent = stream.ResponseBodyBuffer;
-        var totalFramesWritten = 0;
+        var responseContent = stream.ResponseBodyBuffer.Slice(initialStart);
+        long totalWritten = initialStart;
+        var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
+        var limit = PreemptFramesLimit * maxFrameSize;
         do
         {
-            var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
             var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
             _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
             await _frameWriter.FlushAsync();
             responseContent = responseContent.Slice(currentSize);
-            totalFramesWritten++;
-        } while (!responseContent.IsEmpty && totalFramesWritten <= MaxDataFrames);
+            totalWritten += currentSize;
+        } while (!responseContent.IsEmpty && totalWritten <= limit);
+        
+        if (!responseContent.IsEmpty)
+            return totalWritten;
+
         stream.OnResponseDataFlushed();
-        return responseContent.IsEmpty;
+        return -1;
     }
 
     private async Task WriteEndStreamAsync(Http2Stream stream)
@@ -373,6 +390,13 @@ internal class PriorityResponseWriter : IResponseWriter
         await _frameWriter.FlushAsync();
     }
 
+    private async ValueTask WriteRstStreamAsync(Http2Stream stream, ulong data)
+    {
+        _frameWriter.WriteRstStream(stream.StreamId, (Http2ErrorCode)data);
+        await _frameWriter.FlushAsync();
+        await stream.OnStreamCompletedAsync();
+    }
+
     private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)
     {
         return headerIndex switch
@@ -383,5 +407,4 @@ internal class PriorityResponseWriter : IResponseWriter
             _ => HeaderEncodingHint.Index
         };
     }
-
 }

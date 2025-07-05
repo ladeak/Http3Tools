@@ -22,4 +22,6 @@ internal interface IResponseWriter
     void ScheduleWriteWindowUpdate(Http2Stream source, uint size);
 
     void UpdateFrameSize(uint size);
+
+    void ScheduleResetStream(Http2Stream source, Http2ErrorCode errorCode);
 }

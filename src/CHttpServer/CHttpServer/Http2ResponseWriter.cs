@@ -13,6 +13,7 @@ internal class Http2ResponseWriter : IResponseWriter
     private const string WriteOutOfOrderFrame = nameof(WriteOutOfOrderFrame);
     private const string WriteTrailers = nameof(WriteTrailers);
     private const string WriteWindowUpdate = nameof(WriteWindowUpdate);
+    private const string WriteRstStream = nameof(WriteRstStream);
 
     private readonly DynamicHPackEncoder _hpackEncoder;
     private readonly FrameWriter _frameWriter;
@@ -61,6 +62,8 @@ internal class Http2ResponseWriter : IResponseWriter
                     await WriteTrailersAsync(request.Stream);
                 else if (request.OperationName == WriteWindowUpdate)
                     await WriteWindowUpdateAsync(request.Stream, request.Data);
+                else if (request.OperationName == WriteRstStream)
+                    await WriteRstStreamAsync(request.Stream, request.Data);
             }
         }
         catch (OperationCanceledException)
@@ -98,6 +101,9 @@ internal class Http2ResponseWriter : IResponseWriter
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
         _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteWindowUpdate, size));
+
+    public void ScheduleResetStream(Http2Stream source, Http2ErrorCode errorCode) =>
+        _channel.Writer.TryWrite(new StreamWriteRequest(source, WriteRstStream, (ulong)errorCode));
 
     public void Complete()
     {
@@ -214,6 +220,13 @@ internal class Http2ResponseWriter : IResponseWriter
         _frameWriter.WriteWindowUpdate(stream.StreamId, size);
         _frameWriter.WriteWindowUpdate(0, size);
         await _frameWriter.FlushAsync();
+    }
+
+    private async ValueTask WriteRstStreamAsync(Http2Stream stream, ulong data)
+    {
+        _frameWriter.WriteRstStream(stream.StreamId, (Http2ErrorCode)data);
+        await _frameWriter.FlushAsync();
+        await stream.OnStreamCompletedAsync();
     }
 
     private HeaderEncodingHint GetHeaderEncodingHint(int headerIndex)

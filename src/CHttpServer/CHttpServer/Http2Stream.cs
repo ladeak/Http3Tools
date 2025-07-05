@@ -187,13 +187,34 @@ internal partial class Http2Stream
 
     public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        _requestHeaders.SetReadOnly();
-        var context = application.CreateContext(_featureCollection);
-        await application.ProcessRequestAsync(context);
+        bool applicationProcessedRequest = false;
+        try
+        {
+            _requestHeaders.SetReadOnly();
+            var context = application.CreateContext(_featureCollection);
+            await application.ProcessRequestAsync(context);
+            applicationProcessedRequest = true;
+        }
+        catch (Exception)
+        {
+            Abort();
+        }
+
+        // Writing response might be already in progress,
+        // hence CompleteAsync needs to be awaited before
+        // RST_STREAM is sent.
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
         _responseBodyPipeWriter.Complete();
-        await CompleteAsync();
+        try
+        {
+            await CompleteAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        if (!applicationProcessedRequest)
+            _writer.ScheduleResetStream(this, Http2ErrorCode.INTERNAL_ERROR);
     }
 
     public void Abort()
@@ -367,11 +388,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public async Task CompleteAsync()
     {
-        var task = _responseWritingTask.Task;
-        if (!task.IsCompleted)
+        var writingStarted = _responseWritingTask.Task;
+        if (!writingStarted.IsCompleted)
             await StartAsync();
 
-        var responseWriting = await task.WaitAsync(_cts.Token);
+        var responseWriting = await writingStarted.WaitAsync(_cts.Token);
         await responseWriting;
     }
 
@@ -477,7 +498,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         if (!_usePriority)
             throw new InvalidOperationException("Priority server option must be disabled.");
-        
+
         ResponseHeaders["priority"] = serverPriority.ToString();
         Priority = serverPriority;
     }

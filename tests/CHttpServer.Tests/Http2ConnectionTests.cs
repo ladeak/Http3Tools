@@ -600,7 +600,6 @@ public class Http2ConnectionTests
             var priorityFeature = ctx.Features.Get<IPriority9218Feature>();
             Assert.NotNull(priorityFeature);
             Assert.Throws<InvalidOperationException>(() => priorityFeature.SetPriority(new Priority9218(2, true)));
-
         });
         await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: withPriority);
         await AssertWindowUpdateFrameAsync(pipe);
@@ -640,6 +639,33 @@ public class Http2ConnectionTests
         await AssertDataStream(pipe, data);
         Assert.Equal(responseContent, Encoding.UTF8.GetString(data));
         await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task ExceptionWhenStreaming_RstStream()
+    {
+        string responseContent = "response";
+        var (pipe, connection) = CreateConnnection();
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) =>
+        {
+            await ctx.Response.WriteAsync(responseContent);
+            throw new InvalidOperationException("Test exception");
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(frame.EndHeaders);
+
+        frame = await ReadAllDataStream(pipe);
+        await AssertRstStreamFrameAsync(frame, pipe, Http2ErrorCode.INTERNAL_ERROR);
 
         // Shutdown connection
         await client.ShutdownConnectionAsync();
@@ -785,11 +811,46 @@ public class Http2ConnectionTests
         return frame;
     }
 
+    private static async Task<Http2Frame> ReadAllDataStream(TestDuplexPipe pipe)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        while (frame.Type == Http2FrameType.DATA)
+        {
+            var buffer = new byte[frame.PayloadLength];
+            await pipe.Response.ReadExactlyAsync(buffer, TestContext.Current.CancellationToken);
+            frame = await ReadFrameHeaderAsync(pipe.Response);
+        }
+        return frame;
+    }
+
     private async Task AssertPingAckAsync(TestDuplexPipe pipe)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);
         Assert.Equal(Http2FrameType.PING, frame.Type);
         Assert.Equal(1, frame.Flags);
         await pipe.Response.ReadExactlyAsync(new byte[8]).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task<Http2Frame> AssertRstStreamAsync(TestDuplexPipe pipe, Http2ErrorCode? expectedErrorCode = null)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.RST_STREAM, frame.Type);
+        var buffer = new byte[4];
+        await pipe.Response.ReadExactlyAsync(buffer).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+        var errorCode = IntegerSerializer.ReadUInt32BigEndian(buffer);
+        if (expectedErrorCode.HasValue)
+            Assert.Equal((uint)expectedErrorCode.Value, errorCode);
+        return frame;
+    }
+
+    private async Task<Http2Frame> AssertRstStreamFrameAsync(Http2Frame frame, TestDuplexPipe pipe, Http2ErrorCode? expectedErrorCode = null)
+    {
+        Assert.Equal(Http2FrameType.RST_STREAM, frame.Type);
+        var buffer = new byte[4];
+        await pipe.Response.ReadExactlyAsync(buffer).AsTask().WaitAsync(TestContext.Current.CancellationToken);
+        var errorCode = IntegerSerializer.ReadUInt32BigEndian(buffer);
+        if (expectedErrorCode.HasValue)
+            Assert.Equal((uint)expectedErrorCode.Value, errorCode);
+        return frame;
     }
 }
