@@ -5,6 +5,7 @@ using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Http.Headers;
 
 namespace CHttpServer;
 
@@ -267,7 +268,7 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     public HeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
 
-    public Priority9218 Priority { get; set; }
+    public Priority9218 Priority { get; private set; }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
@@ -470,6 +471,15 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         _state = StreamState.Closed;
         _responseBodyPipe.Reader.Complete();
         _connection.OnStreamCompleted(this);
+    }
+
+    public void SetPriority(Priority9218 serverPriority)
+    {
+        if (!_usePriority)
+            throw new InvalidOperationException("Priority server option must be disabled.");
+        
+        ResponseHeaders["priority"] = serverPriority.ToString();
+        Priority = serverPriority;
     }
 }
 

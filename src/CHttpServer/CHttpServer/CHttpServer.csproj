@@ -9,6 +9,7 @@
     <Authors>LaDeak</Authors>
     <Description>A simple HTTP/2 server.</Description>
     <DebugType>full</DebugType>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Reflection.PortableExecutable;
+using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http;
@@ -503,14 +503,13 @@ public class Http2ConnectionTests
     [InlineData("u=2,i=1 ", 2, true)]
     [InlineData("i=1 ,u=2 ", 2, true)]
     [InlineData("ii=1 ,uu=2 ", 3, false)]
-    public async Task UsePriorty_Sends_RequestUsesPriorityFeature(string header, uint urgency, bool incremental)
+    public async Task UsePriorty_Sends_RequestUsesPriorityFeature(string header, byte urgency, bool incremental)
     {
         var (pipe, connection) = CreateConnnection(new() { UsePriority = true });
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
         {
-            var priorityFeature = ctx.Features.Get<IPriority9218Feature>();
-            var priority = priorityFeature!.Priority;
+            var priority = ctx.Priority();
             Assert.Equal(urgency, priority.Urgency);
             Assert.Equal(incremental, priority.Incremental);
             return Task.CompletedTask;
@@ -526,6 +525,120 @@ public class Http2ConnectionTests
         // Assert response
         var (frame, headers) = await AssertResponseHeaders(pipe);
         Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Theory]
+    [InlineData(1, true, "u=1,i")]
+    [InlineData(2, false, "u=2")]
+    public async Task UsePriorty_Response_AddsPriorityHeader(byte urgency, bool incremental, string expectedHeader)
+    {
+        var (pipe, connection) = CreateConnnection(new() { UsePriority = true });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            ctx.SetPriority(new Priority9218(urgency, incremental));
+            return Task.CompletedTask;
+
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: true);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue("priority", out var responsePriority) && responsePriority == expectedHeader);
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task NoUsePriorty_Response_Throws()
+    {
+        bool withPriority = false;
+        var (pipe, connection) = CreateConnnection(new() { UsePriority = withPriority });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            var priorityFeature = ctx.Features.Get<IPriority9218Feature>();
+            Assert.NotNull(priorityFeature);
+            Assert.Throws<InvalidOperationException>(() => priorityFeature.SetPriority(new Priority9218(2, true)));
+            return Task.CompletedTask;
+
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: withPriority);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task ResponseStarted_SetPriorty_Throws()
+    {
+        bool withPriority = true;
+        var (pipe, connection) = CreateConnnection(new() { UsePriority = withPriority });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) =>
+        {
+            await ctx.Response.WriteAsync("response");
+            var priorityFeature = ctx.Features.Get<IPriority9218Feature>();
+            Assert.NotNull(priorityFeature);
+            Assert.Throws<InvalidOperationException>(() => priorityFeature.SetPriority(new Priority9218(2, true)));
+
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: withPriority);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(frame.EndHeaders);
+
+        await AssertDataStream(pipe, new byte[8]);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task DataFrames_Written()
+    {
+        string responseContent = "response";
+        var (pipe, connection) = CreateConnnection();
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) =>
+        {
+            await ctx.Response.WriteAsync(responseContent);
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(frame.EndHeaders);
+
+        var data = new byte[8];
+        await AssertDataStream(pipe, data);
+        Assert.Equal(responseContent, Encoding.UTF8.GetString(data));
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -659,6 +772,16 @@ public class Http2ConnectionTests
             Assert.Equal(1L, IntegerSerializer.ReadUInt32BigEndian(payload[2..6]));
         }
 
+        return frame;
+    }
+
+    private static async Task<Http2Frame> AssertDataStream(TestDuplexPipe pipe, Memory<byte> destination)
+    {
+        var frame = await ReadFrameHeaderAsync(pipe.Response);
+        Assert.Equal(Http2FrameType.DATA, frame.Type);
+        Assert.Equal((uint)destination.Length, frame.PayloadLength);
+        Assert.False(frame.EndStream);
+        await pipe.Response.ReadExactlyAsync(destination, TestContext.Current.CancellationToken);
         return frame;
     }
 

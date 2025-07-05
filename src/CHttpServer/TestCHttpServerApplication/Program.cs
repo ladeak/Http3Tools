@@ -65,5 +65,5 @@ internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary
 
 internal class SampleRequest
 {
-    public string A { get; set; }
+    public required string A { get; set; }
 }

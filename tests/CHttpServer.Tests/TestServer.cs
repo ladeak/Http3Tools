@@ -118,6 +118,11 @@ public class TestServer : IAsyncDisposable, IDisposable
                 await ctx.Response.BodyWriter.FlushAsync();
             }
         });
+        _app.MapGet("/responsePriority", (HttpContext ctx) =>
+        {
+            ctx.Features.Get<IPriority9218Feature>()?.SetPriority(new Priority9218(1, true));
+            return TypedResults.NoContent();
+        });
         return _app.RunAsync();
     }
 

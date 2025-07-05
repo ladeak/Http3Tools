@@ -51,4 +51,6 @@ public record struct Priority9218(byte Urgency, bool Incremental) : IComparable<
         }
         return (int)other.Urgency - (int)Urgency;
     }
+
+    public override string ToString() => Incremental ? $"u={Urgency},i" : $"u={Urgency}";
 }

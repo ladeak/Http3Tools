@@ -271,7 +271,7 @@ internal class PriorityResponseWriter : IResponseWriter
             await _frameWriter.FlushAsync();
             responseContent = responseContent.Slice(currentSize);
             totalFramesWritten++;
-        } while (!responseContent.IsEmpty || totalFramesWritten <= MaxDataFrames);
+        } while (!responseContent.IsEmpty && totalFramesWritten <= MaxDataFrames);
         stream.OnResponseDataFlushed();
         return responseContent.IsEmpty;
     }
