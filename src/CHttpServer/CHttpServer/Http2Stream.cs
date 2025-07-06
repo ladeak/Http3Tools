@@ -1,6 +1,8 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
@@ -50,7 +52,7 @@ internal partial class Http2Stream
         StatusCode = 200;
         _responseWriterFlushedResponse = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
         _clientFlowControlBarrier = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
-        _responseWritingTask = new TaskCompletionSource<Task>();
+        _responseWritingTask = new TaskCompletionSource<Task<bool>>();
 
         _featureCollection = featureCollection.Copy();
         _featureCollection.Add<IHttpRequestFeature>(this);
@@ -107,7 +109,7 @@ internal partial class Http2Stream
         _onStartingState = null;
         _onCompletedCallback = null;
         _onCompletedState = null;
-        _responseWritingTask = new TaskCompletionSource<Task>();
+        _responseWritingTask = new TaskCompletionSource<Task<bool>>();
 
         _clientFlowControlBarrier.Reset();
         _responseWriterFlushedResponse.Reset();
@@ -187,34 +189,20 @@ internal partial class Http2Stream
 
     public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
-        bool applicationProcessedRequest = false;
         try
         {
             _requestHeaders.SetReadOnly();
             var context = application.CreateContext(_featureCollection);
             await application.ProcessRequestAsync(context);
-            applicationProcessedRequest = true;
         }
         catch (Exception)
         {
             Abort();
         }
-
-        // Writing response might be already in progress,
-        // hence CompleteAsync needs to be awaited before
-        // RST_STREAM is sent.
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
         _responseBodyPipeWriter.Complete();
-        try
-        {
-            await CompleteAsync();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        if (!applicationProcessedRequest)
-            _writer.ScheduleResetStream(this, Http2ErrorCode.INTERNAL_ERROR);
+        await CompleteAsync();
     }
 
     public void Abort()
@@ -300,7 +288,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private ManualResetValueTaskSource<bool> _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
-    private TaskCompletionSource<Task> _responseWritingTask;
+    private TaskCompletionSource<Task<bool>> _responseWritingTask;
     private HeaderCollection? _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
@@ -393,17 +381,32 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             await StartAsync();
 
         var responseWriting = await writingStarted.WaitAsync(_cts.Token);
-        await responseWriting;
+        
+        bool endStreamWritten;
+        try
+        {
+            endStreamWritten = await responseWriting;
+        }
+        catch (OperationCanceledException)
+        {
+            endStreamWritten = false;
+        }
+        if (IsAborted && !endStreamWritten)
+        {
+            _writer.ScheduleResetStream(this, Http2ErrorCode.INTERNAL_ERROR);
+            return;
+        }
     }
 
-    private async Task WriteResponseAsync(CancellationToken cancellationToken = default)
+    private async Task<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
-            return;
+            return false;
         _writer.ScheduleWriteHeaders(this);
         await WriteBodyResponseAsync(cancellationToken);
         if (cancellationToken.IsCancellationRequested)
-            return;
+            return false;
+
         if (_responseTrailers != null)
         {
             _responseTrailers.SetReadOnly();
@@ -413,6 +416,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         }
         else
             _writer.ScheduleEndStream(this);
+        return true;
     }
 
     private async Task WriteBodyResponseAsync(CancellationToken token = default)

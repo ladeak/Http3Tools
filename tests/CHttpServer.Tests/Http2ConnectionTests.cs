@@ -162,6 +162,7 @@ public class Http2ConnectionTests
         await client.SendRstStreamAsync();
 
         await cancellationProcessed.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await AssertRstStreamAsync(pipe);
 
         // Shutdown connection
         await client.ShutdownConnectionAsync();
@@ -193,6 +194,7 @@ public class Http2ConnectionTests
         await client.SendRstStreamAsync();
 
         await requestCompleted.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await AssertRstStreamAsync(pipe);
 
         // Shutdown connection
         await client.ShutdownConnectionAsync();
