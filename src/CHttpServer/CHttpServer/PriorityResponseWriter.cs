@@ -106,7 +106,7 @@ internal class PriorityResponseWriter : IResponseWriter
         _scheduleLevelPools = poolProvider.Create(new PrioritySchedulePolicy());
     }
 
-    public PriorityResponseWriter(FrameWriter writer, uint maxFrameSize, uint maxConcurrentStreams)
+    public PriorityResponseWriter(FrameWriter writer, uint maxFrameSize)
     {
         _frameWriter = writer;
         _maxFrameSize = (int)maxFrameSize;
@@ -125,7 +125,7 @@ internal class PriorityResponseWriter : IResponseWriter
         {
             _hpackEncoder = new();
             _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
-            while (!token.IsCancellationRequested)
+            while (!_isCompleted && !token.IsCancellationRequested)
             {
                 await WriteAllLevels(token);
             }
@@ -136,6 +136,7 @@ internal class PriorityResponseWriter : IResponseWriter
         }
         finally
         {
+            Complete();
             ArrayPool<byte>.Shared.Return(_buffer);
 
             // Return schedule levels to the pool
@@ -264,9 +265,9 @@ internal class PriorityResponseWriter : IResponseWriter
 
     private static int GetLevel(Http2Stream source)
     {
-        var priorty = source.Priority;
-        var level = priorty.Urgency;
-        if (source.Priority.Incremental)
+        var priority = source.Priority;
+        var level = priority.Urgency * 2;
+        if (priority.Incremental)
             return level;
         return level + 1;
     }

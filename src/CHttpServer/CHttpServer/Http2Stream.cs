@@ -278,6 +278,13 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public HeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
 
     public Priority9218 Priority { get; private set; }
+
+    // TestHook
+    internal void CompleteRequestBodyPipe()
+    {
+        _requestBodyPipeReader.Complete();
+        _requestBodyPipeWriter.Complete();
+    }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature

@@ -75,7 +75,7 @@ internal sealed partial class Http2Connection
         if (!serverOptions.UsePriority)
             _responseWriter = new Http2ResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         else
-            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize, DefaultServerMaxConcurrentStream);
+            _responseWriter = new PriorityResponseWriter(_writer, _h2Settings.SendMaxFrameSize);
         CancellationTokenSource cts = new();
         var responseWriting = _responseWriter.RunAsync(cts.Token);
         Http2ErrorCode errorCode = Http2ErrorCode.NO_ERROR;

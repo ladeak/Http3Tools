@@ -49,7 +49,7 @@ internal class TestBase
         frame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(headerBuffer[0..3]);
         frame.Type = (Http2FrameType)headerBuffer[3];
         frame.Flags = headerBuffer[4];
-        var streamId = IntegerSerializer.ReadUInt32BigEndian(headerBuffer[5..]);
+        frame.StreamId = IntegerSerializer.ReadUInt32BigEndian(headerBuffer[5..]);
         return frame;
     }
 
