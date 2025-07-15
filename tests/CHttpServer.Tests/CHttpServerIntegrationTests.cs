@@ -4,10 +4,9 @@ using System.Text;
 
 namespace CHttpServer.Tests;
 
-
 [Collection(nameof(VanilaCHttpServerIntegrationTests))]
 [CollectionDefinition(DisableParallelization = true)]
-public class VanilaCHttpServerIntegrationTests : CHttpServerIntegrationTests
+public class VanilaCHttpServerIntegrationTests : CHttpServerIntegrationTests, IClassFixture<TestServer>
 {
     private const int Port = 7222;
 
@@ -19,7 +18,7 @@ public class VanilaCHttpServerIntegrationTests : CHttpServerIntegrationTests
 
 [Collection(nameof(PriorityCHttpServerIntegrationTests))]
 [CollectionDefinition(DisableParallelization = true)]
-public class PriorityCHttpServerIntegrationTests : CHttpServerIntegrationTests
+public class PriorityCHttpServerIntegrationTests : CHttpServerIntegrationTests, IClassFixture<TestServer>
 {
     private const int Port = 7223;
 
@@ -39,7 +38,7 @@ public class PriorityCHttpServerIntegrationTests : CHttpServerIntegrationTests
     }
 }
 
-public abstract class CHttpServerIntegrationTests : IClassFixture<TestServer>
+public abstract class CHttpServerIntegrationTests
 {
     protected readonly TestServer _server;
     protected readonly string _port;
