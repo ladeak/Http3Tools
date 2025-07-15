@@ -502,6 +502,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             await _onCompletedCallback.Invoke(_onCompletedState!);
         _state = StreamState.Closed;
         _responseBodyPipe.Reader.Complete();
+        _responseBodyPipeWriter.Complete();
         _connection.OnStreamCompleted(this);
     }
 

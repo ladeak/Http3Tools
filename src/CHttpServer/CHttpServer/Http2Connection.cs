@@ -364,14 +364,17 @@ internal sealed partial class Http2Connection
         if (streamId > 0)
             _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
         else
-        {
-            _clientWindow.ReleaseSize(updateSize);
+            UpdateConnectionWindowSize(updateSize);
+    }
 
-            // Let all streams know, so that they can schedule data writes (if
-            // they were blocked by connection windows earlier).
-            foreach (var stream in _streams)
-                stream.Value.OnConnectionWindowUpdateSize();
-        }
+    internal void UpdateConnectionWindowSize(uint updateSize) // Internal as hook
+    {
+        _clientWindow.ReleaseSize(updateSize);
+
+        // Let all streams know, so that they can schedule data writes (if
+        // they were blocked by connection windows earlier).
+        foreach (var stream in _streams)
+            stream.Value.OnConnectionWindowUpdateSize();
     }
 
     private async Task ReadFrameHeader(CancellationToken token)

@@ -108,6 +108,7 @@ internal class PriorityResponseWriter : IResponseWriter
 
     public PriorityResponseWriter(FrameWriter writer, uint maxFrameSize)
     {
+        ValidateFrameSize(maxFrameSize);
         _frameWriter = writer;
         _maxFrameSize = (int)maxFrameSize;
         _hpackEncoder = new DynamicHPackEncoder();
@@ -126,9 +127,7 @@ internal class PriorityResponseWriter : IResponseWriter
             _hpackEncoder = new();
             _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
             while (!_isCompleted && !token.IsCancellationRequested)
-            {
                 await WriteAllLevels(token);
-            }
         }
         catch (OperationCanceledException)
         {
@@ -147,6 +146,11 @@ internal class PriorityResponseWriter : IResponseWriter
 
     private async ValueTask WriteAllLevels(CancellationToken token)
     {
+        if (_buffer.Length < _maxFrameSize)
+        {
+            ArrayPool<byte>.Shared.Return(_buffer);
+            _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
+        }
         bool allLevelsEmpty = true;
         _writeScheduledBarrier.Reset();
         for (int i = 0; i < PriortyLevels; i++)
@@ -258,9 +262,14 @@ internal class PriorityResponseWriter : IResponseWriter
 
     public void UpdateFrameSize(uint size)
     {
+        ValidateFrameSize(size);
+        _maxFrameSize = (int)size;
+    }
+
+    private static void ValidateFrameSize(uint size)
+    {
         if (size < 16384 || size > 16777215)
             throw new Http2ProtocolException(); // Invalid frame size
-        _maxFrameSize = (int)size;
     }
 
     private static int GetLevel(Http2Stream source)
@@ -277,7 +286,7 @@ internal class PriorityResponseWriter : IResponseWriter
         var responseContent = stream.ResponseBodyBuffer.Slice(initialStart);
         long totalWritten = initialStart;
         var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
-        var limit = PreemptFramesLimit * maxFrameSize;
+        var limit = initialStart + PreemptFramesLimit * maxFrameSize;
         do
         {
             var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
@@ -286,7 +295,7 @@ internal class PriorityResponseWriter : IResponseWriter
             responseContent = responseContent.Slice(currentSize);
             totalWritten += currentSize;
         } while (!responseContent.IsEmpty && totalWritten <= limit);
-        
+
         if (!responseContent.IsEmpty)
             return totalWritten;
 

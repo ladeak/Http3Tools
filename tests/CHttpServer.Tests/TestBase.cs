@@ -101,8 +101,8 @@ internal class TestBase
 
     internal class TestDuplexPipe() : IDuplexPipe
     {
-        private readonly Pipe _input = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool, writerScheduler: PipeScheduler.ThreadPool));
-        private readonly Pipe _output = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool, writerScheduler: PipeScheduler.ThreadPool));
+        private readonly Pipe _input = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool, writerScheduler: PipeScheduler.ThreadPool, pauseWriterThreshold: 0, resumeWriterThreshold: 0));
+        private readonly Pipe _output = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool, writerScheduler: PipeScheduler.ThreadPool, pauseWriterThreshold: 0, resumeWriterThreshold: 0));
 
         public PipeReader Input => _input.Reader;
 
