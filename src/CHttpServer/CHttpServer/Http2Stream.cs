@@ -280,10 +280,12 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public Priority9218 Priority { get; private set; }
 
     // TestHook
-    internal void CompleteRequestBodyPipe()
+    internal void CompleteRequest(ReadOnlySequence<byte>? responseBody = null)
     {
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
+        if (responseBody.HasValue)
+            ResponseBodyBuffer = responseBody.Value;
     }
 }
 
@@ -388,7 +390,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             await StartAsync();
 
         var responseWriting = await writingStarted.WaitAsync(_cts.Token);
-        
+
         bool endStreamWritten;
         try
         {

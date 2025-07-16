@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO;
 using Xunit.Sdk;
 using static CHttpServer.Tests.TestBase;
@@ -145,7 +146,7 @@ public class PriorityResponseWriterTests
     {
         var (pipe, ctx, sut) = CreateResponseWriter();
         var stream = CreateStream(ctx, id: 1);
-        stream.CompleteRequestBodyPipe();
+        stream.CompleteRequest();
         stream.Writer.Complete();
         var tcs = new TaskCompletionSource();
         stream.OnCompleted(_ => { tcs.SetResult(); return Task.CompletedTask; }, null!);
@@ -164,7 +165,7 @@ public class PriorityResponseWriterTests
     {
         var (pipe, ctx, sut) = CreateResponseWriter();
         var stream = CreateStream(ctx, id: 1);
-        stream.CompleteRequestBodyPipe();
+        stream.CompleteRequest();
         stream.Writer.Complete();
         var tcs = new TaskCompletionSource();
         stream.OnCompleted(_ => { tcs.SetResult(); return Task.CompletedTask; }, null!);
@@ -183,7 +184,7 @@ public class PriorityResponseWriterTests
     {
         var (pipe, ctx, sut) = CreateResponseWriter();
         var stream = CreateStream(ctx, 1);
-        stream.CompleteRequestBodyPipe();
+        stream.CompleteRequest();
         stream.Writer.Complete();
         var tcs = new TaskCompletionSource();
         stream.OnCompleted(_ => { tcs.SetResult(); return Task.CompletedTask; }, null!);
@@ -357,7 +358,7 @@ public class PriorityResponseWriterTests
     }
 
     [Fact]
-    public async Task Preempted_Mixes_ScheduleData()
+    public async Task Preempted_Mixes_ScheduleData_AssertFrames()
     {
         var frameSize = 50_000U;
         var (pipe, ctx, sut) = CreateResponseWriter();
@@ -369,19 +370,19 @@ public class PriorityResponseWriterTests
         streamHigh.Initialize(streamId: 1, 0, 0);
         streamHigh.SetPriority(new(1, false));
         streamHigh.UpdateWindowSize(frameSize * 15);
-        streamHigh.CompleteRequestBodyPipe();
+        streamHigh.CompleteRequest();
         var streamHighWriting = streamHigh.Writer.WriteAsync(new byte[frameSize * 15], TestContext.Current.CancellationToken);
         Http2Stream streamLow = new Http2Stream(connection, ctx.Features);
         streamLow.Initialize(streamId: 2, 0, 0);
         streamLow.SetPriority(new(2, true));
         streamLow.UpdateWindowSize(frameSize * 15);
-        streamLow.CompleteRequestBodyPipe();
+        streamLow.CompleteRequest();
         var streamLowWriting = streamLow.Writer.WriteAsync(new byte[frameSize * 15], TestContext.Current.CancellationToken);
         Http2Stream streamMiddle = new Http2Stream(connection, ctx.Features);
         streamMiddle.Initialize(streamId: 3, 0, 0);
         streamMiddle.SetPriority(new(1, false));
         streamMiddle.UpdateWindowSize(frameSize * 15);
-        streamMiddle.CompleteRequestBodyPipe();
+        streamMiddle.CompleteRequest();
         var streamMiddleWriting = streamMiddle.Writer.WriteAsync(new byte[frameSize * 15], TestContext.Current.CancellationToken);
 
         // Start output writer
@@ -406,9 +407,46 @@ public class PriorityResponseWriterTests
         }
 
         Assert.Equal(3, frames.Count(x => x.Type == Http2FrameType.HEADERS));
+        Assert.Equal(3, frames.Count(x => x.Type == Http2FrameType.DATA && x.EndStream));
+        Assert.Equal(45, frames.Count(x => x.Type == Http2FrameType.DATA && !x.EndStream));
+
+        // Stop output writer
+        cts.Cancel();
+        await writerTask;
+    }
+
+    [Fact]
+    public async Task Preempted_Mixes_ScheduleData()
+    {
+        var frameSize = 50_000U;
+        var (pipe, ctx, sut) = CreateResponseWriter();
+        sut.UpdateFrameSize(frameSize);
+        var connection = new Http2Connection(ctx) { ResponseWriter = sut };
+        connection.UpdateConnectionWindowSize(frameSize * 15 * 3);
+        Http2Stream streamHigh = CreateStream(ctx, id: 1, priority: new(1, false));
+        streamHigh.CompleteRequest(new ReadOnlySequence<byte>(new byte[frameSize * 15]));
+        Http2Stream streamLow = CreateStream(ctx, id: 2, priority: new(2, true));
+        streamLow.CompleteRequest(new ReadOnlySequence<byte>(new byte[frameSize * 15]));
+        Http2Stream streamMiddle = CreateStream(ctx, id: 3, priority: new(1, false));
+        streamMiddle.CompleteRequest(new ReadOnlySequence<byte>(new byte[frameSize * 15]));
+        sut.ScheduleWriteData(streamHigh);
+        sut.ScheduleWriteData(streamMiddle);
+        sut.ScheduleWriteData(streamLow);
+
+        // Start output writer
+        CancellationTokenSource cts = new();
+        var writerTask = sut.RunAsync(cts.Token);
+
+        List<Http2Frame> frames = new();
+        while (frames.Count < 45)
+        {
+            var frame = await ReadFrame(pipe);
+            frames.Add(frame);
+        }
 
         // All stream 2 DATA frames are after stream 1 and stream 3 DATA frames
         var stream2StartIndex = frames.FindIndex(x => x.Type == Http2FrameType.DATA && x.StreamId == 2);
+        Assert.Equal(30, stream2StartIndex);
         Assert.DoesNotContain(frames.Index(), x => x.Item.Type == Http2FrameType.DATA && !x.Item.EndStream && x.Item.StreamId == 1 && x.Index > stream2StartIndex);
         Assert.DoesNotContain(frames.Index(), x => x.Item.Type == Http2FrameType.DATA && !x.Item.EndStream && x.Item.StreamId == 3 && x.Index > stream2StartIndex);
 
@@ -442,7 +480,7 @@ public class PriorityResponseWriterTests
         Http2Stream streamHigh = new Http2Stream(connection, ctx.Features);
         streamHigh.Initialize(streamId: 1, 0, 0);
         streamHigh.SetPriority(new(1, false));
-        streamHigh.CompleteRequestBodyPipe();
+        streamHigh.CompleteRequest();
         var streamHighWriting = streamHigh.Writer.WriteAsync(new byte[frameSize * 3], TestContext.Current.CancellationToken);
 
         // Start output writer
@@ -488,7 +526,7 @@ public class PriorityResponseWriterTests
         Http2Stream streamHigh = new Http2Stream(connection, ctx.Features);
         streamHigh.Initialize(streamId: 1, 0, 0);
         streamHigh.SetPriority(new(1, false));
-        streamHigh.CompleteRequestBodyPipe();
+        streamHigh.CompleteRequest();
         var streamHighWriting = streamHigh.Writer.WriteAsync(new byte[frameSize * 15], TestContext.Current.CancellationToken);
 
         // Start output writer
