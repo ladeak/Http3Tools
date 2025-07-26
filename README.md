@@ -54,24 +54,22 @@ Usage:
   CHttp [command] [options]
 
 Options:
-  -v, --http-version <1.0|1.1|2|3>                   The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3]
-  -m, --method                                       HTTP Method [default: GET]
-  <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>
-  -h, --header <header>                              Headers Key-Value pairs separated by ':'. For example
-                                                     --header="key:myvalue"  []
-  -t, --timeout <timeout>                            Timeout in seconds. [default: 30]
-  --no-redirects                                     Disables following redirects on requests [default: False]
-  --no-cert-validation, --no-certificate-validation  Disables certificate validation [default: False]
-  -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
-  -o, --output <output>                              Output to file. []
-  --cookie-container <cookie-container>              A file to share cookies among requests. []
-  -b, --body <body>                                  Request body or a file path containing the request
-  -u, --uri <uri> (REQUIRED)                         The URL of the resource
-  --upload-throttle <upload-throttle>                Specify HTTP level throttling in kbyte/sec when sending the
-                                                     request []
-  -k, --kerberos-auth                                Use Kerberos Auth [default: False]
-  --version                                          Show version information
-  -?, -h, --help                                     Show help and usage information
+  -?, -h, --help                                                 Show help and usage information
+  --version                                                      Show version information
+  -v, --http-version <1.0|1.1|2|3>                               The version of the HTTP request: 1.0, 1.1, 2, 3 [default:
+                                                                 3.0]
+  -m, --method <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>  HTTP Method [default: GET]
+  -h, --header                                                   Headers Key-Value pairs separated by ':'. For example --header="key:myvalue"  []
+  -t, --timeout                                                  Timeout in seconds. [default: 30]
+  --no-redirects                                                 Disables following redirects on requests [default: False]
+  --no-cert-validation, --no-certificate-validation              Disables certificate validation [default: False]
+  -l, --log <Normal|Quiet|Silent|Verbose>                        Level of logging details. [default: Verbose]
+  -o, --output                                                   Output to file.
+  --cookie-container                                             A file to share cookies among requests.
+  -b, --body                                                     Request body or a file path containing the request
+  -u, --uri (REQUIRED)                                           The URL of the resource
+  --upload-throttle                                              Specify HTTP level throttling in kbyte/sec when sending the request []
+  -k, --kerberos-auth                                            Use Kerberos Auth [default: False]
 
 Commands:
   forms  Forms request
@@ -119,24 +117,22 @@ Usage:
   CHttp perf [options]
 
 Options:
-  -n, --requestCount <requestCount>                  Number of total requests sent. [default: 100]
-  -b, --body <body>                                  Request body or a file path containing the request
-  -c, --clients <clients>                            Number of parallel clients. [default: 20]
-  -u, --uri <uri> (REQUIRED)                         The URL of the resource
-  --metrics <metrics>                                When Application Insights connection string is set, it pushes
-                                                     performance metrics data. []
-  -v, --http-version <1.0|1.1|2|3>                   The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3]
-  -m, --method                                       HTTP Method [default: GET]
-  <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>
-  -h, --header <header>                              Headers Key-Value pairs separated by ':'. For example
-                                                     --header="key:myvalue"  []
-  -t, --timeout <timeout>                            Timeout in seconds. [default: 30]
-  --no-redirects                                     Disables following redirects on requests [default: False]
-  --no-cert-validation, --no-certificate-validation  Disables certificate validation [default: False]
-  -l, --log <Normal|Quiet|Verbose>                   Level of logging details. [default: Verbose]
-  -o, --output <output>                              Output to file. []
-  --cookie-container <cookie-container>              A file to share cookies among requests. []
-  -?, -h, --help                                     Show help and usage information
+  -v, --http-version <1.0|1.1|2|3>                               The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3.0]
+  -m, --method <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>  HTTP Method [default: GET]
+  -h, --header                                                   Headers Key-Value pairs separated by ':'. For example --header="key:myvalue"  []
+  -t, --timeout                                                  Timeout in seconds. [default: 30]
+  --no-redirects                                                 Disables following redirects on requests [default: False]
+  --no-cert-validation, --no-certificate-validation              Disables certificate validation [default: False]
+  -o, --output                                                   Output to file.
+  --cookie-container                                             A file to share cookies among requests.
+  -k, --kerberos-auth                                            Use Kerberos Auth [default: False]
+  -n, --requestCount                                             Number of total requests sent. [default: 100]
+  -b, --body                                                     Request body or a file path containing the request
+  -c, --clients                                                  Number of parallel clients. [default: 20]
+  -u, --uri (REQUIRED)                                           The URL of the resource
+  --metrics                                                      Performance metrics data publihed to gRPC OpenTelemetry dashboards such as Aspire. Set format <endpoint;header> []
+  --shared-sockethandler                                         Use pool sockets handler with allowng multiple connection [default: False]
+  -?, -h, --help                                                 Show help and usage information
 ```
 
 Performance measurements yields results such as:
@@ -183,7 +179,8 @@ Usage:
   CHttp diff [options]
 
 Options:
- --files <files>                                    List of 2 files to be compared. []
+  --files         List 2 files to be compared. []
+  -?, -h, --help  Show help and usage information
 ```
 
 Such as: 
