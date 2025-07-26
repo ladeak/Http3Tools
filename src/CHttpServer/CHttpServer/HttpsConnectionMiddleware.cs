@@ -20,9 +20,8 @@ internal sealed class HttpsConnectionMiddleware
 
     private readonly SslStreamCertificateContext? _serverCertificateContext;
     private readonly X509Certificate2? _serverCertificate;
-    private readonly Func<CHttpConnectionContext, string?, X509Certificate2?>? _serverCertificateSelector;
 
-    public HttpsConnectionMiddleware(Func<CHttpConnectionContext,Task> next, HttpsConnectionAdapterOptions options)
+    public HttpsConnectionMiddleware(Func<CHttpConnectionContext, Task> next, HttpsConnectionAdapterOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -33,21 +32,12 @@ internal sealed class HttpsConnectionMiddleware
         // capture the certificate now so it can't be switched after validation
         _serverCertificate = options.ServerCertificate;
 
-        // If a selector is provided then ignore the cert, it may be a default cert.
-        if (_serverCertificateSelector != null)
-        {
-            // SslStream doesn't allow both.
-            _serverCertificate = null;
-        }
-        else
-        {
-            Debug.Assert(_serverCertificate != null);
-            var certificate = _serverCertificate;
+        Debug.Assert(_serverCertificate != null);
+        var certificate = _serverCertificate;
 
-            // This might be do blocking IO but it'll resolve the certificate chain up front before any connections are
-            // made to the server
-            _serverCertificateContext = SslStreamCertificateContext.Create(certificate, additionalCertificates: options.ServerCertificateChain);
-        }
+        // This might be do blocking IO but it'll resolve the certificate chain up front before any connections are
+        // made to the server
+        _serverCertificateContext = SslStreamCertificateContext.Create(certificate, additionalCertificates: options.ServerCertificateChain);
 
         var remoteCertificateValidationCallback = _options.ClientCertificateMode == ClientCertificateMode.NoCertificate ?
             (RemoteCertificateValidationCallback?)null : RemoteCertificateValidationCallback;
@@ -87,7 +77,7 @@ internal sealed class HttpsConnectionMiddleware
             await sslStream.DisposeAsync();
             return;
         }
-        catch (IOException e)
+        catch (IOException)
         {
             await sslStream.DisposeAsync();
             return;
@@ -258,6 +248,7 @@ internal sealed class CHttpTlsConnectionFeature : ITlsConnectionFeature, ITlsApp
     public SslStream SslStream => _sslStream;
 
     // We don't store the values for these because they could be changed by a renegotiation.
+    // Required for TLS Handshake feature
 
     public TlsCipherSuite? NegotiatedCipherSuite => _sslStream.NegotiatedCipherSuite;
 

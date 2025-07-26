@@ -117,6 +117,7 @@ internal sealed partial class Http2Connection
         }
         catch (Exception e)
         {
+            Debug.WriteLine($"Unexpected error in HTTP/2 connection: {e}");
         }
         finally
         {
@@ -191,34 +192,28 @@ internal sealed partial class Http2Connection
     // +---------------------------------------------------------------+
     private async ValueTask ProcessGoAwayFrame()
     {
-        try
-        {
-            if (_readFrame.StreamId != 0)
-                throw new Http2ConnectionException("GOAWAY frame must be sent on connection stream (stream id 0)");
+        if (_readFrame.StreamId != 0)
+            throw new Http2ConnectionException("GOAWAY frame must be sent on connection stream (stream id 0)");
 
-            var payloadLength = (int)_readFrame.PayloadLength;
-            var memory = _buffer.AsMemory(0, payloadLength);
-            await _inputDataStream.ReadExactlyAsync(memory);
-            var lastStreamId = IntegerSerializer.ReadUInt32BigEndian(memory.Span[..4]);
-            var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(memory.Span.Slice(4, 4));
-            if (errorCode == Http2ErrorCode.NO_ERROR)
-            {
-                _gracefulShutdownRequested = true;
-                TryGracefulShutdown();
-            }
-
-            string additionalDebugData = string.Empty;
-            if (_readFrame.PayloadLength > 8)
-            {
-                // Read additional debug data if present
-                additionalDebugData = Encoding.Latin1.GetString(memory.Span[8..]);
-            }
-            if (_readFrame.GoAwayErrorCode != Http2ErrorCode.NO_ERROR)
-                throw new Http2ConnectionException($"GOAWAY frame received {additionalDebugData}");
-        }
-        catch (Exception e)
+        var payloadLength = (int)_readFrame.PayloadLength;
+        var memory = _buffer.AsMemory(0, payloadLength);
+        await _inputDataStream.ReadExactlyAsync(memory);
+        var _ = IntegerSerializer.ReadUInt32BigEndian(memory.Span[..4]);
+        var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(memory.Span.Slice(4, 4));
+        if (errorCode == Http2ErrorCode.NO_ERROR)
         {
+            _gracefulShutdownRequested = true;
+            TryGracefulShutdown();
         }
+
+        string additionalDebugData = string.Empty;
+        if (_readFrame.PayloadLength > 8)
+        {
+            // Read additional debug data if present
+            additionalDebugData = Encoding.Latin1.GetString(memory.Span[8..]);
+        }
+        if (_readFrame.GoAwayErrorCode != Http2ErrorCode.NO_ERROR)
+            throw new Http2ConnectionException($"GOAWAY frame received {additionalDebugData}");
     }
 
     // +---------------+

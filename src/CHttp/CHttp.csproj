@@ -20,7 +20,6 @@
   <ItemGroup>
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta6.25358.103" />
-    <PackageReference Include="System.IO.Pipelines" Version="10.0.0-preview.6.25358.103" />
   </ItemGroup>
 
   <ItemGroup>

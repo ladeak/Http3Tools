@@ -94,7 +94,7 @@ internal class PriorityResponseWriter : IResponseWriter
     private static readonly ObjectPool<PrioritySchedule> _scheduleLevelPools;
 
     private readonly FrameWriter _frameWriter;
-    private DynamicHPackEncoder? _hpackEncoder;
+    private DynamicHPackEncoder _hpackEncoder;
     private int _maxFrameSize;
     private byte[] _buffer;
     private volatile bool _isCompleted;
@@ -321,7 +321,7 @@ internal class PriorityResponseWriter : IResponseWriter
             var staticTableIndex = H2StaticTable.GetStaticTableHeaderIndex(header.Key);
 
             // This is stateful
-            while (!_hpackEncoder.EncodeHeader(encodingBuffer.Slice(totalLength), staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
+            while (!_hpackEncoder.EncodeHeader(encodingBuffer[totalLength..], staticTableIndex, GetHeaderEncodingHint(staticTableIndex),
                 header.Key, header.Value.ToString(), Encoding.Latin1, out writtenLength))
             {
                 var newBuffer = ArrayPool<byte>.Shared.Rent(encodingBuffer.Length * 2);

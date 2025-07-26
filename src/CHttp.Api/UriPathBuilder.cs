@@ -390,7 +390,6 @@ internal static class PathNormalizer
     private static bool HandleSlashDotBegin(Span<char> src, ref int writtenLength, ref int readPointer)
     {
         ReadOnlySpan<char> dotSlash = "./";
-        ReadOnlySpan<char> slashDot = "/.";
 
         // Case of /../ or /./
         int remainingLength = src.Length - readPointer;
