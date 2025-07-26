@@ -1,21 +1,19 @@
 ﻿using System.CommandLine;
-using System.CommandLine.Binding;
 using CHttp.Performance.Data;
 
 namespace CHttp.Binders;
 
-internal sealed class PerformanceBehaviorBinder(Option<int> requestsCount, Option<int> clientsCount, Option<bool> sharedSocketsHandler) : BinderBase<PerformanceBehavior>
+internal sealed class PerformanceBehaviorBinder(Option<int> requestsCount, Option<int> clientsCount, Option<bool> sharedSocketsHandler)
 {
     private readonly Option<int> _requestsCount = requestsCount;
     private readonly Option<int> _clientsCount = clientsCount;
     private readonly Option<bool> _sharedSocketsHandler = sharedSocketsHandler;
 
-    protected override PerformanceBehavior GetBoundValue(BindingContext bindingContext)
+    internal PerformanceBehavior Bind(ParseResult parseResult)
     {
-        var requestsCount = bindingContext.ParseResult.GetValueForOption<int>(_requestsCount);
-        var clientsCount = bindingContext.ParseResult.GetValueForOption<int>(_clientsCount);
-        var sharedSocketsHandler = bindingContext.ParseResult.GetValueForOption<bool>(_sharedSocketsHandler);
-
+        var requestsCount = parseResult.GetRequiredValue<int>(_requestsCount);
+        var clientsCount = parseResult.GetRequiredValue<int>(_clientsCount);
+        var sharedSocketsHandler = parseResult.GetRequiredValue<bool>(_sharedSocketsHandler);
         return new PerformanceBehavior(requestsCount, clientsCount, sharedSocketsHandler);
     }
 }

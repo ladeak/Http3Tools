@@ -1,25 +1,24 @@
 ﻿using System.CommandLine;
-using System.CommandLine.Binding;
 using CHttp.Data;
 using CHttp.Writers;
 
 namespace CHttp.Binders;
 
-internal sealed class OutputBehaviorBinder : BinderBase<OutputBehavior>
+internal sealed class OutputBehaviorBinder
 {
     private readonly Option<LogLevel> _logLevelOption;
-    private readonly Option<string> _outputFileOption;
+    private readonly Option<FileInfo?> _outputFileOption;
 
-    public OutputBehaviorBinder(Option<LogLevel> logLevelOption, Option<string> outputFileOption)
+    public OutputBehaviorBinder(Option<LogLevel> logLevelOption, Option<FileInfo?> outputFileOption)
     {
         _logLevelOption = logLevelOption;
         _outputFileOption = outputFileOption;
     }
 
-    protected override OutputBehavior GetBoundValue(BindingContext bindingContext)
+    internal OutputBehavior Bind(ParseResult parseResult)
     {
-        var logLevel = bindingContext.ParseResult.GetValueForOption(_logLevelOption);
-        var outputFile = bindingContext.ParseResult.GetValueForOption(_outputFileOption) ?? string.Empty;
+        var logLevel = parseResult.GetValue(_logLevelOption);
+        var outputFile = parseResult.GetValue(_outputFileOption)?.Name ?? string.Empty;
 
         return new OutputBehavior(logLevel, outputFile);
     }

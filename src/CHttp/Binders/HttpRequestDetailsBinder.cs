@@ -1,31 +1,30 @@
-﻿using System.CommandLine.Binding;
+﻿using System.CommandLine;
 using CHttp.Data;
 using CHttp.Http;
 
 namespace CHttp.Binders;
 
-internal sealed class HttpRequestDetailsBinder : BinderBase<HttpRequestDetails>
+internal sealed class HttpRequestDetailsBinder
 {
-    private readonly Binder<HttpMethod> _httpMethodBinder;
-    private readonly Binder<Uri> _uriBinder;
-    private readonly Binder<Version> _versionBinder;
-    private readonly Binder<IEnumerable<KeyValueDescriptor>> _headerBinder;
+    private readonly Option<Uri> _uriOption;
+    private readonly Option<HttpMethod> _httpMethodOption;
+    private readonly Option<Version> _versionOption;
+    private readonly Option<IEnumerable<KeyValueDescriptor>> _headerOption;
 
-    public HttpRequestDetailsBinder(Binder<HttpMethod> httpMethodBinder, Binder<Uri> uriBinder, Binder<Version> versionBinder, Binder<IEnumerable<KeyValueDescriptor>> headerBinder)
+    public HttpRequestDetailsBinder(Option<HttpMethod> httpMethodOption, Option<Uri> uriOption, Option<Version> versionOption, Option<IEnumerable<KeyValueDescriptor>> headerOption)
     {
-        _httpMethodBinder = httpMethodBinder;
-        _uriBinder = uriBinder;
-        _versionBinder = versionBinder;
-        _headerBinder = headerBinder;
+        _uriOption = uriOption;
+        _httpMethodOption = httpMethodOption;
+        _versionOption = versionOption;
+        _headerOption = headerOption;
     }
 
-    protected override HttpRequestDetails GetBoundValue(BindingContext bindingContext)
+    public HttpRequestDetails Bind(ParseResult parseResult, HttpContent? content = null)
     {
-        var httpMethod = _httpMethodBinder.GetValue(bindingContext);
-        var uri = _uriBinder.GetValue(bindingContext);
-        var version = _versionBinder.GetValue(bindingContext);
-        var headers = _headerBinder.GetValue(bindingContext) ?? Enumerable.Empty<KeyValueDescriptor>();
-
-        return new HttpRequestDetails(httpMethod, uri, version, headers);
+        var httpMethod = parseResult.GetRequiredValue(_httpMethodOption);
+        var uri = parseResult.GetRequiredValue(_uriOption);
+        var version = parseResult.GetRequiredValue(_versionOption);
+        var headers = parseResult.GetRequiredValue(_headerOption);
+        return new HttpRequestDetails(httpMethod, uri, version, headers) { Content = content };
     }
 }

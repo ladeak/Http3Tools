@@ -184,7 +184,7 @@ public static class CHttpExt
     [SupportedOSPlatform("windows")]
     private static Version ParseHttpVersion(string version)
     {
-        var parsedVersion = VersionBinder.Map(version);
+        var parsedVersion = VersionParser.Map(version);
 #pragma warning disable CA2252 // This API requires opting into preview features
         if (parsedVersion == HttpVersion.Version30 && !QuicConnection.IsSupported)
             throw new InvalidOperationException($"QUIC is not supported or not available in folder {AppContext.BaseDirectory}");

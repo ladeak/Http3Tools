@@ -1,7 +1,6 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Text;
-using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Writers;
 
@@ -30,7 +29,7 @@ internal sealed class HttpMessageSender
         _toUtf8 = false;
     }
 
-    public async Task SendRequestAsync(HttpRequestDetails requestData)
+    public async Task SendRequestAsync(HttpRequestDetails requestData, CancellationToken token = default)
     {
         var request = new HttpRequestMessage(requestData.Method, requestData.Uri);
         request.Version = requestData.Version;
@@ -40,23 +39,23 @@ internal sealed class HttpMessageSender
         else
             request.Content = requestData.Content;
         SetHeaders(requestData, request);
-        await SendRequestAsync(_client, request);
+        await SendRequestAsync(_client, request, token);
     }
 
     public async Task SendRequestAsync(HttpRequestMessage request) => await SendRequestAsync(_client, request);
 
-    private async Task SendRequestAsync(HttpClient client, HttpRequestMessage request)
+    private async Task SendRequestAsync(HttpClient client, HttpRequestMessage request, CancellationToken token = default)
     {
         Summary summary = new Summary(request.RequestUri?.ToString() ?? string.Empty);
         HttpResponseHeaders? trailers = null;
         {
             try
             {
-                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
                 var charSet = response.Content.Headers.ContentType?.CharSet;
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
                 await _writer.InitializeResponseAsync(new HttpResponseInitials(response.StatusCode, response.Headers, response.Content.Headers, response.Version, encoding));
-                await ProcessResponseAsync(response, encoding);
+                await ProcessResponseAsync(response, encoding, token);
                 summary.RequestCompleted(response.StatusCode);
                 trailers = response.TrailingHeaders;
             }
@@ -68,9 +67,13 @@ internal sealed class HttpMessageSender
             {
                 summary = summary with { Error = $"Protocol Error {protocolException.ErrorCode}", ErrorCode = ErrorType.HttpProtocolException };
             }
+            catch (TaskCanceledException)
+            {
+                summary = summary with { Error = "Request Timed Out or Canceled", ErrorCode = ErrorType.Timeout };
+            }
             catch (OperationCanceledException)
             {
-                summary = summary with { Error = "Request Timed Out", ErrorCode = ErrorType.Timeout };
+                summary = summary with { Error = "Request Timed Out or Canceled", ErrorCode = ErrorType.Timeout };
             }
             catch (Exception ex)
             {
@@ -80,11 +83,11 @@ internal sealed class HttpMessageSender
         await _writer.WriteSummaryAsync(trailers, summary);
     }
 
-    private async Task ProcessResponseAsync(HttpResponseMessage response, Encoding encoding)
+    private async Task ProcessResponseAsync(HttpResponseMessage response, Encoding encoding, CancellationToken token = default)
     {
-        var contentStream = await response.Content.ReadAsStreamAsync();
+        var contentStream = await response.Content.ReadAsStreamAsync(token);
         var transcodingStream = _toUtf8 ? Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8) : contentStream;
-        await transcodingStream.CopyToAsync(_writer.Buffer);
+        await transcodingStream.CopyToAsync(_writer.Buffer, token);
         await _writer.Buffer.CompleteAsync();
     }
 

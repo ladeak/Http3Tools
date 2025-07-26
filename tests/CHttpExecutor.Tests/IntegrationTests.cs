@@ -1,4 +1,3 @@
-using System.CommandLine.IO;
 using System.Text.Json;
 using CHttp.Abstractions;
 using CHttp.Tests;
@@ -55,7 +54,7 @@ my: {{myheader}}"u8.ToArray();
             requestReceived.TrySetResult();
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_singleRequest);
 
@@ -64,7 +63,7 @@ my: {{myheader}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -79,7 +78,7 @@ my: {{myheader}}"u8.ToArray();
                 requestReceived.TrySetResult();
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_multiRequest);
 
@@ -88,7 +87,7 @@ my: {{myheader}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -103,7 +102,7 @@ my: {{myheader}}"u8.ToArray();
             context.Response.Headers["my"] = testHeaderValue;
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingRequest);
 
@@ -112,7 +111,7 @@ my: {{myheader}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -127,7 +126,7 @@ my: {{myheader}}"u8.ToArray();
             await context.Response.WriteAsync("test");
             context.Response.AppendTrailer("my", testHeaderValue);
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingRequest);
 
@@ -136,7 +135,7 @@ my: {{myheader}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     private byte[] _postProcessingContentHeaderRequest = @"###
@@ -163,7 +162,7 @@ my: {{myheader}}"u8.ToArray();
             context.Response.ContentType = testHeaderValue;
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingContentHeaderRequest);
 
@@ -172,7 +171,7 @@ my: {{myheader}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     private byte[] _postProcessingBodyRequest = @"###
@@ -203,7 +202,7 @@ mynumber: {{mynumber}}"u8.ToArray();
                 requestReceived.TrySetResult();
             await context.Response.WriteAsJsonAsync(new Root([new(testValue, testDate, 1), new(testValue, testDate, 2)]));
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingBodyRequest);
 
@@ -212,7 +211,7 @@ mynumber: {{mynumber}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     private byte[] _postProcessingBodyArrayRequest = @"###
@@ -239,7 +238,7 @@ myvalue: {{myvalue}}"u8.ToArray();
                 requestReceived.TrySetResult();
             await context.Response.WriteAsJsonAsync(new Root([new(testValue, testDate, 1), new(testValue, testDate, 2)]), new JsonSerializerOptions() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingBodyArrayRequest);
 
@@ -248,7 +247,7 @@ myvalue: {{myvalue}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     private byte[] _postProcessingBodyArrayIntegersRequest = @"###
@@ -273,7 +272,7 @@ myvalue: {{myvalue}}"u8.ToArray();
                 requestReceived.TrySetResult();
             await context.Response.WriteAsJsonAsync(new RootInts([1, 2, 3]));
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_postProcessingBodyArrayIntegersRequest);
 
@@ -282,7 +281,7 @@ myvalue: {{myvalue}}"u8.ToArray();
         var executor = new Executor(plan, new NoOpConsole());
         await executor.ExecuteAsync();
 
-        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     private byte[] _assertionRequest = @"###
@@ -305,7 +304,7 @@ GET {{host}} HTTP/2
             await Task.Delay(2);
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_assertionRequest);
 
@@ -334,7 +333,7 @@ GET {{host}} HTTP/2
         {
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_successfulAssertionRequest);
 
@@ -364,7 +363,7 @@ GET {{host}} HTTP/2
             await Task.Delay(1);
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var stream = new MemoryStream(_failingAssertionRequest);
 

@@ -1,22 +1,21 @@
 ﻿using System.CommandLine;
-using System.CommandLine.Binding;
 using CHttp.Http;
 
 namespace CHttp.Binders;
 
-internal sealed class HttpBehaviorBinder : BinderBase<HttpBehavior>
+internal sealed class HttpBehaviorBinder
 {
-    private readonly Binder<bool> _redirectBinder;
-    private readonly Binder<bool> _enableCertificateValidationBinder;
+    private readonly Option<bool> _redirectBinder;
+    private readonly Option<bool> _enableCertificateValidationBinder;
     private readonly Option<double> _timeoutOption;
-    private readonly Option<string> _cookieContainerOption;
+    private readonly Option<FileInfo?> _cookieContainerOption;
     private readonly Option<bool> _kerberosAuthOption;
 
     public HttpBehaviorBinder(
-        Binder<bool> redirectBinder,
-        Binder<bool> enableCertificateValidationBinder,
+        Option<bool> redirectBinder,
+        Option<bool> enableCertificateValidationBinder,
         Option<double> timeout,
-        Option<string> cookieContainerOption,
+        Option<FileInfo?> cookieContainerOption,
         Option<bool> kerberosAuthOption)
     {
         _redirectBinder = redirectBinder;
@@ -27,13 +26,13 @@ internal sealed class HttpBehaviorBinder : BinderBase<HttpBehavior>
 
     }
 
-    protected override HttpBehavior GetBoundValue(BindingContext bindingContext)
+    internal HttpBehavior Bind(ParseResult parseResult)
     {
-        var redirects = _redirectBinder.GetValue(bindingContext);
-        var enableCertificateValidation = _enableCertificateValidationBinder.GetValue(bindingContext);
-        var timeout = bindingContext.ParseResult.GetValueForOption<double>(_timeoutOption);
-        var cookieContainer = bindingContext.ParseResult.GetValueForOption<string>(_cookieContainerOption) ?? string.Empty;
-        var kerberosAuth = bindingContext.ParseResult.GetValueForOption<bool>(_kerberosAuthOption);
+        var redirects = parseResult.GetValue(_redirectBinder);
+        var enableCertificateValidation = parseResult.GetValue(_enableCertificateValidationBinder);
+        var timeout = parseResult.GetValue(_timeoutOption);
+        var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.Name ?? string.Empty;
+        var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         return new HttpBehavior(timeout, ToUtf8: true, cookieContainer, new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1));
     }
 }

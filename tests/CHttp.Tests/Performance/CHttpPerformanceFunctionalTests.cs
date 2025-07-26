@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.CommandLine;
 using System.Text.Json;
 using CHttp.Abstractions;
 using CHttp.Performance.Data;
@@ -19,11 +18,13 @@ public class CHttpPerformanceFunctionalTests
     public async Task TestPerformance_OutputsBasicResults(string response)
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), HttpProtocols.Http3, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
         var console = new TestConsolePerWrite();
 
-        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 2 -v 3")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+        var client = await CommandFactory.CreateRootCommand(console: console)
+            .Parse($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 2 -v 3")
+            .InvokeAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("[=-----]      0/0", console.Text);
         Assert.Contains("100%          2/2", console.Text);
         Assert.Contains("1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
@@ -76,11 +77,13 @@ public class CHttpPerformanceFunctionalTests
             }
             return context.Response.WriteAsync("response");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
         var console = new TestConsolePerWrite();
 
-        var client = await CommandFactory.CreateRootCommand(console: console).InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 2")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+        var client = await CommandFactory.CreateRootCommand(console: console)
+            .Parse($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c {clients} -n {requests} -v 2")
+            .InvokeAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         // Each client does a preflight warnup request.
         Assert.Equal(requests + clients, requestCounter);
@@ -93,13 +96,14 @@ public class CHttpPerformanceFunctionalTests
     public async Task TestPerformance_WritesToOutputFile(string response)
     {
         using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync(response), HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
         var fileSystem = new MemoryFileSystem();
         var console = new TestConsolePerWrite();
         const int count = 2;
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
-            .InvokeAsync($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n {count} -v 2 -o file.json")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+            .Parse($"perf --method GET --no-certificate-validation --uri https://localhost:{Port} -c 2 -n {count} -v 2 -o file.json")
+            .InvokeAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         var data = fileSystem.GetFile("file.json");
         var results = JsonSerializer.Deserialize<PerformanceMeasurementResults>(data);
@@ -120,11 +124,12 @@ public class CHttpPerformanceFunctionalTests
             ArrayPool<byte>.Shared.Return(buffer);
             await context.Response.WriteAsync("response");
         }, HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
         var console = new TestConsolePerWrite();
         var client = await CommandFactory.CreateRootCommand(console: console)
-            .InvokeAsync($"perf --method POST --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 4 -v 2 -b {content}")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+            .Parse($"perf --method POST --no-certificate-validation --uri https://localhost:{Port} -c 2 -n 4 -v 2 -b {content}")
+            .InvokeAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("2xx: 4", console.Text);
         Assert.True(received);
@@ -145,12 +150,13 @@ public class CHttpPerformanceFunctionalTests
                 return Results.NoContent();
             }).DisableAntiforgery();
         }, protocol: HttpProtocols.Http2, port: Port);
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
 
         var console = new TestConsolePerWrite();
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
-            .InvokeAsync($"""perf --method POST --no-certificate-validation --uri https://localhost:{Port} -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+            .Parse($"""perf --method POST --no-certificate-validation --uri https://localhost:{Port} -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" -c 2 -n 4""")
+            .InvokeAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var start = console.Text.IndexOf("2xx");
         Assert.Contains("2xx: 4", console.Text.Substring(start, 30));
 
