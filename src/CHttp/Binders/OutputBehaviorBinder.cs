@@ -18,7 +18,7 @@ internal sealed class OutputBehaviorBinder
     internal OutputBehavior Bind(ParseResult parseResult)
     {
         var logLevel = parseResult.GetValue(_logLevelOption);
-        var outputFile = parseResult.GetValue(_outputFileOption)?.Name ?? string.Empty;
+        var outputFile = parseResult.GetValue(_outputFileOption)?.FullName ?? string.Empty;
 
         return new OutputBehavior(logLevel, outputFile);
     }

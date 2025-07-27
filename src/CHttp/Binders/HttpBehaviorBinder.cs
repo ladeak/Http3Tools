@@ -31,7 +31,7 @@ internal sealed class HttpBehaviorBinder
         var redirects = parseResult.GetValue(_redirectBinder);
         var enableCertificateValidation = parseResult.GetValue(_enableCertificateValidationBinder);
         var timeout = parseResult.GetValue(_timeoutOption);
-        var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.Name ?? string.Empty;
+        var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.FullName ?? string.Empty;
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         return new HttpBehavior(timeout, ToUtf8: true, cookieContainer, new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1));
     }

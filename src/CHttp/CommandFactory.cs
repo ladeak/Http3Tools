@@ -401,7 +401,7 @@ internal static class CommandFactory
             var requestDetails = new HttpRequestDetailsBinder(methodOptions, uriOption, versionOptions, headerOptions).Bind(parseResult);
             var performanceBehavior = new PerformanceBehaviorBinder(nOption, cOption, shareSocketsHandlerOption).Bind(parseResult);
             var body = parseResult.GetValue(bodyOptions);
-            var outputFile = parseResult.GetValue(outputFileOption)?.Name ?? string.Empty;
+            var outputFile = parseResult.GetValue(outputFileOption)?.FullName ?? string.Empty;
             var metricsConnectionString = parseResult.GetValue(metricsOption);
 
             fileSystem ??= new FileSystem();
@@ -437,14 +437,14 @@ internal static class CommandFactory
                 return;
             if (filesCount == 1)
             {
-                var session = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First().Name);
+                var session = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First().FullName);
                 await new StatisticsPrinter(console).SummarizeResultsAsync(session);
                 return;
             }
             if (filesCount > 1)
             {
-                var session0 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First().Name);
-                var session1 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.Last().Name);
+                var session0 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.First().FullName);
+                var session1 = await PerformanceFileHandler.LoadAsync(fileSystem, diffFiles.Last().FullName);
                 var comparer = new DiffPrinter(console);
                 comparer.Compare(session0, session1);
             }

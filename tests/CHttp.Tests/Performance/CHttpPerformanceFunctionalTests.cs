@@ -105,14 +105,14 @@ public class CHttpPerformanceFunctionalTests
             .InvokeAsync(TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        var data = fileSystem.GetFile("file.json");
+        var data = fileSystem.GetFile(Path.Join(Environment.CurrentDirectory, "file.json"));
         var results = JsonSerializer.Deserialize<PerformanceMeasurementResults>(data);
         Assert.Equal(count, results!.Summaries.Count);
         Assert.True(results.TotalBytesRead > 0);
     }
 
     [Fact]
-    public async Task WithContent_WritesToOutputFile()
+    public async Task WithContent_WritesBody()
     {
         string content = nameof(content);
         bool received = true;

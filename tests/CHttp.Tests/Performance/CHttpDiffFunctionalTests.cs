@@ -20,7 +20,7 @@ public class CHttpDiffFunctionalTests
             Behavior = new(1, 1, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem).Parse($"diff --files session0.json")
             .InvokeAsync(TestContext.Current.CancellationToken)
@@ -79,7 +79,7 @@ public class CHttpDiffFunctionalTests
             Behavior = new(1, 1, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session0.json")
@@ -118,8 +118,8 @@ public class CHttpDiffFunctionalTests
             Behavior = new(1, 1, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session1.json", session1);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
@@ -159,8 +159,8 @@ public class CHttpDiffFunctionalTests
             Behavior = new(1, 1, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session1.json", session1);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
@@ -193,11 +193,11 @@ public class CHttpDiffFunctionalTests
             Behavior = new(2, 1, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session1.json", session1);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
-            .Parse($"diff --files .\\session0.json --files session1.json")
+            .Parse($"diff --files session0.json --files session1.json")
             .InvokeAsync(TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
@@ -230,8 +230,8 @@ public class CHttpDiffFunctionalTests
             Behavior = new(2, 2, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session1.json", session1);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse("diff --files session0.json --files session1.json")
@@ -268,8 +268,8 @@ public class CHttpDiffFunctionalTests
             Behavior = new(100, 10, false)
         };
 
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session0.json", session0);
-        await PerformanceFileHandler.SaveAsync(fileSystem, "session1.json", session1);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")

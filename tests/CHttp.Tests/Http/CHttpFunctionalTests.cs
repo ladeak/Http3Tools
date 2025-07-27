@@ -176,7 +176,7 @@ public class CHttpFunctionalTests
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json").InvokeAsync(TestContext.Current.CancellationToken);
 
         Assert.True(cookieAttached);
-        Assert.True(MemoryFileSystem.Exists("cookies.json"));
+        Assert.True(MemoryFileSystem.Exists(Path.Join(Environment.CurrentDirectory, "cookies.json")));
     }
 
     [Fact]
