@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,9 +27,17 @@ public class CHttpServerOptions
 
     public X509Certificate2? Certificate { get; set; }
 
+    public string? CertificatePath { get; set; }
+
+    public string? CertificatePassword { get; set; }
+
     internal X509Certificate2? GetCertificate()
     {
-        return Certificate ?? GetDevelopmentCertificateFromStore();
+        if (Certificate != null)
+            return Certificate;
+        if (!string.IsNullOrEmpty(CertificatePath) && !string.IsNullOrEmpty(CertificatePassword))
+            return X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, CertificatePassword);
+        return GetDevelopmentCertificateFromStore();
     }
 
     private static X509Certificate2? GetDevelopmentCertificateFromStore()
@@ -59,14 +67,13 @@ public class CHttpServerOptions
 
 public static class HostExtensions
 {
-    public static IWebHostBuilder UseCHttpServer(this IWebHostBuilder hostBuilder, Action<CHttpServerOptions> configure)
+    public static WebApplicationBuilder UseCHttpServer(this WebApplicationBuilder builder, Action<CHttpServerOptions>? configure = null)
     {
-        hostBuilder.ConfigureServices(services =>
-        {
-            services.TryAddSingleton<IConnectionListenerFactory, SocketTransportFactory>();
-            services.Configure<CHttpServerOptions>(configure);
-            services.AddSingleton<IServer, CHttpServerImpl>();
-        });
-        return hostBuilder;
+        builder.Services.TryAddSingleton<IConnectionListenerFactory, SocketTransportFactory>();
+        builder.Services.Configure<CHttpServerOptions>(builder.Configuration.GetSection("CHttpServer"));
+        if (configure != null)
+            builder.Services.PostConfigure<CHttpServerOptions>(configure);
+        builder.Services.AddSingleton<IServer, CHttpServerImpl>();
+        return builder;
     }
 }

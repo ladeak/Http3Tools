@@ -49,7 +49,7 @@ app.MapGet("/jsonresponse", context =>
 	return context.Response.WriteAsync("""{"message":"Hello World"}""");
 });
 
-app.MapPost("/jsonrequest", (Data input) => Results.Ok(input.Message.Length));
+app.MapPost("/jsonrequest", (Data input) => Results.Ok(input.Message?.Length ?? 0));
 
 app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
 
@@ -73,7 +73,5 @@ async IAsyncEnumerable<string> GenerateData()
 
 public class Data
 {
-	public string Message { get; set; }
+	public string? Message { get; set; }
 }
-
-public partial class Program { }

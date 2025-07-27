@@ -2,7 +2,7 @@ using CHttpServer;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseCHttpServer(o => { });
+builder.UseCHttpServer();
 var app = builder.Build();
 app.UseHttpsRedirection();
 

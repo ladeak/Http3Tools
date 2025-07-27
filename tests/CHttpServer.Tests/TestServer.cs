@@ -16,7 +16,7 @@ public class TestServer : IAsyncDisposable, IDisposable
         if (_app != null)
             return Task.CompletedTask;
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseCHttpServer(o =>
+        builder.UseCHttpServer(o =>
         {
             o.Port = port;
             o.Certificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword");
