@@ -675,6 +675,29 @@ public class Http2ConnectionTests
         await connectionProcessing;
     }
 
+    [Fact]
+    public async Task InputReaderClose_ShutsdownConnection()
+    {
+        string responseContent = "response";
+        var (pipe, connection) = CreateConnnection();
+        var (client, connectionProcessing) = CreateApp(pipe, connection, async (HttpContext ctx) =>
+        {
+            await ctx.Response.WriteAsync(responseContent);
+        });
+        await AssertSettingsFrameAsync(pipe);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        await AssertDataStream(pipe, new byte[8]);
+        await AssertEmptyEndStream(pipe);
+
+        pipe.Response.Close(); // Closing the stream
+        await pipe.RequestWriter.CompleteAsync(); // Closing the stream
+        await connectionProcessing;
+    }
+
     private static async Task<Http2Frame> AssertEmptyEndStream(TestDuplexPipe pipe)
     {
         var frame = await ReadFrameHeaderAsync(pipe.Response);

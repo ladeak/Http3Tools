@@ -39,7 +39,16 @@ internal class DuplexPipeStreamAdapter<TStream> : Stream, IDuplexPipe where TStr
 
     protected override void Dispose(bool disposing)
     {
-        throw new NotSupportedException();
+        lock (_disposeLock)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+        }
+
+        Input.Complete();
+        Output.Complete();
+        Stream.Close();
     }
 
     public void CancelPendingRead()

@@ -89,7 +89,9 @@ internal sealed partial class Http2Connection
             await _writer.FlushAsync();
             while (!token.IsCancellationRequested)
             {
-                await ReadFrameHeader(token);
+                var dataRead = await ReadFrameHeader(token);
+                if (dataRead == 0) // On End of Stream
+                    return;
                 await ProcessFrame(application);
             }
 
@@ -113,7 +115,7 @@ internal sealed partial class Http2Connection
         }
         catch (IOException)
         {
-            errorCode = Http2ErrorCode.STREAM_CLOSED;
+            errorCode = Http2ErrorCode.CONNECT_ERROR;
         }
         catch (Exception e)
         {
@@ -121,9 +123,12 @@ internal sealed partial class Http2Connection
         }
         finally
         {
-            foreach (var stream in _streams.Values)
-                stream.Abort();
-            _streams.Clear();
+            if (_streams.Count > 0)
+            {
+                foreach (var stream in _streams.Values)
+                    stream.Abort();
+                _streams.Clear();
+            }
 
             if (!responseWriting.IsCompleted)
             {
@@ -372,10 +377,12 @@ internal sealed partial class Http2Connection
             stream.Value.OnConnectionWindowUpdateSize();
     }
 
-    private async Task ReadFrameHeader(CancellationToken token)
+    private async Task<int> ReadFrameHeader(CancellationToken token)
     {
         var frameHeader = _buffer.AsMemory(0, MaxFrameHeaderLength);
-        await _inputDataStream.ReadExactlyAsync(frameHeader, token);
+        var bytesRead = await _inputDataStream.ReadAtLeastAsync(frameHeader, frameHeader.Length, false, token);
+        if (bytesRead == 0) // Input Stream closed
+            return 0;
         _readFrame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(frameHeader.Span[0..3]);
         _readFrame.Type = (Http2FrameType)frameHeader.Span[3];
         _readFrame.Flags = frameHeader.Span[4];
@@ -383,6 +390,7 @@ internal sealed partial class Http2Connection
         if (streamId >= MaxStreamId)
             throw new Http2ConnectionException("Reserved bit must be unset");
         _readFrame.StreamId = streamId;
+        return bytesRead;
     }
 
     private async ValueTask ProcessSettingsFrame()

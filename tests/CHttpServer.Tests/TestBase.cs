@@ -62,10 +62,7 @@ internal class TestBase
 
         }
 
-        public Task ProcessRequestAsync(HttpContext context)
-        {
-            return handler(context);
-        }
+        public Task ProcessRequestAsync(HttpContext context) => handler(context);
     }
 
     internal class TestHttpStreamHeadersHandler : IHttpStreamHeadersHandler
