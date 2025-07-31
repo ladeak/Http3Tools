@@ -46,24 +46,27 @@ internal class Http2ResponseWriter : IResponseWriter
                     _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
                 }
 
+                ValueTask writeTask = ValueTask.CompletedTask;
+                if (request.OperationName == WriteData)
+                    writeTask = WriteDataAsync(request);
+                else if (request.OperationName == WriteHeaders)
+                    writeTask = WriteHeadersAsync(request.Stream);
+                else if (request.OperationName == WriteEndStream)
+                    writeTask = WriteEndStreamAsync(request.Stream);
+                else if (request.OperationName == WriteTrailers)
+                    writeTask = WriteTrailersAsync(request.Stream);
+                else if (request.OperationName == WriteWindowUpdate)
+                    writeTask = WriteWindowUpdateAsync(request.Stream, request.Data);
+                else if (request.OperationName == WriteRstStream)
+                    writeTask = WriteRstStreamAsync(request.Stream, request.Data);
+                await writeTask;
+                
                 // Priority requests always have a corresponding regular channel request too.
                 while (_priorityChannel.Reader.TryRead(out var priorityRequest))
                 {
                     if (priorityRequest.OperationName == WriteOutOfOrderFrame)
                         await WritePingAckAsync(priorityRequest.Data);
                 }
-                if (request.OperationName == WriteData)
-                    await WriteDataAsync(request);
-                else if (request.OperationName == WriteHeaders)
-                    await WriteHeadersAsync(request.Stream);
-                else if (request.OperationName == WriteEndStream)
-                    await WriteEndStreamAsync(request.Stream);
-                else if (request.OperationName == WriteTrailers)
-                    await WriteTrailersAsync(request.Stream);
-                else if (request.OperationName == WriteWindowUpdate)
-                    await WriteWindowUpdateAsync(request.Stream, request.Data);
-                else if (request.OperationName == WriteRstStream)
-                    await WriteRstStreamAsync(request.Stream, request.Data);
             }
         }
         catch (OperationCanceledException)
@@ -126,7 +129,7 @@ internal class Http2ResponseWriter : IResponseWriter
         stream.OnResponseDataFlushed();
     }
 
-    private async Task WriteEndStreamAsync(Http2Stream stream)
+    private async ValueTask WriteEndStreamAsync(Http2Stream stream)
     {
         _frameWriter.WriteEndStream(stream.StreamId);
         await _frameWriter.FlushAsync();
@@ -194,7 +197,7 @@ internal class Http2ResponseWriter : IResponseWriter
         await _frameWriter.FlushAsync();
     }
 
-    private async Task WriteTrailersAsync(Http2Stream stream)
+    private async ValueTask WriteTrailersAsync(Http2Stream stream)
     {
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
         int totalLength = 0;

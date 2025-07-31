@@ -141,7 +141,7 @@ internal partial class Http2Stream
         switch (pseudoHeader)
         {
             case Http2Connection.PseudoHeaderFields.Authority:
-                _requestHeaders.Add("Host", value.ToArray());
+                _requestHeaders.Add("Host", value);
                 break;
             case Http2Connection.PseudoHeaderFields.Path:
                 SetPath(value);
