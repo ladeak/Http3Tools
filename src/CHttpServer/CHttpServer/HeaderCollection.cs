@@ -20,9 +20,9 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public long? ContentLength { get => _contentLength; set => _contentLength = value; }
 
-    public ICollection<string> Keys => new List<string>(this.Select(x => x.Key));
+    public ICollection<string> Keys => [.. this.Select(x => x.Key)];
 
-    public ICollection<StringValues> Values => new List<StringValues>(this.Select(x => x.Value));
+    public ICollection<StringValues> Values => [.. this.Select(x => x.Value)];
 
     public int Count { get; private set; }
 
@@ -202,6 +202,18 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     public void Reset()
     {
         throw new NotSupportedException();
+    }
+
+    public void ResetHeaderCollection()
+    {
+        _readonly = false;
+        _headers.Clear();
+        _headersRaw.Clear();
+        Count = 0;
+        _contentLength = null;
+        _passedParsed = false;
+        _enumerator = default;
+        _enumeratorRaw = default;
     }
 
     public void Dispose()

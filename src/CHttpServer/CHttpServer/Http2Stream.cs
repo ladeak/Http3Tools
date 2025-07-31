@@ -41,7 +41,7 @@ internal partial class Http2Stream
         _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
         _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
 
-        _responseHeaders = null;
+        _responseHeaders = new HeaderCollection();
         _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _responseBodyPipeWriter = new(_responseBodyPipe.Writer, flushStartingCallback: size =>
         {
@@ -87,7 +87,7 @@ internal partial class Http2Stream
             throw new InvalidOperationException("Stream is in use.");
         StreamId = 0;
         RequestEndHeaders = false;
-        _requestHeaders = new();
+        _requestHeaders.ResetHeaderCollection();
         _requestBodyPipe.Reset();
         _requestBodyPipeReader.Reset();
         _requestBodyPipeWriter.Reset();
@@ -96,7 +96,7 @@ internal partial class Http2Stream
         _responseBodyPipeWriter.Reset();
 
         _cts = new();
-        _responseHeaders = null;
+        _responseHeaders.ResetHeaderCollection();
         _responseTrailers = null;
         StatusCode = 200;
         ReasonPhrase = null;
@@ -298,7 +298,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     private bool _hasStarted = false;
     private TaskCompletionSource<Task<bool>> _responseWritingTask;
-    private HeaderCollection? _responseHeaders;
+    private readonly HeaderCollection _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
     public int StatusCode { get; set; }
@@ -328,7 +328,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         set => throw new NotSupportedException();
     }
 
-    public HeaderCollection ResponseHeaders => _responseHeaders ??= new();
+    public HeaderCollection ResponseHeaders => _responseHeaders;
 
     public void DisableBuffering()
     {
@@ -377,7 +377,6 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         if (Interlocked.CompareExchange(ref _hasStarted, true, false))
             return;
         await (_onStartingCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
-        _responseHeaders ??= new();
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
         _responseWritingTask.SetResult(WriteResponseAsync(_cts.Token));

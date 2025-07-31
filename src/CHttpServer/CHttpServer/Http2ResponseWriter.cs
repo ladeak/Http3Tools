@@ -120,9 +120,9 @@ internal class Http2ResponseWriter : IResponseWriter
             var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
             var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
             _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
-            await _frameWriter.FlushAsync();
             responseContent = responseContent.Slice(currentSize);
         } while (!responseContent.IsEmpty);
+        await _frameWriter.FlushAsync();
         stream.OnResponseDataFlushed();
     }
 
