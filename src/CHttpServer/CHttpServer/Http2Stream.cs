@@ -1,13 +1,11 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks.Sources;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Http.Headers;
 
 namespace CHttpServer;
 
@@ -208,6 +206,9 @@ internal partial class Http2Stream
     public void Abort()
     {
         _cts.Cancel();
+        var cancelledException = new TaskCanceledException();
+        _clientFlowControlBarrier.SetException(cancelledException);
+        _responseWriterFlushedResponse.SetException(cancelledException);
         _state = StreamState.Closed;
         IsAborted = true;
     }
@@ -411,7 +412,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         if (cancellationToken.IsCancellationRequested)
             return false;
         _writer.ScheduleWriteHeaders(this);
-        await WriteBodyResponseAsync(cancellationToken);
+        await WriteResponseBodyAsync(cancellationToken);
         if (cancellationToken.IsCancellationRequested)
             return false;
 
@@ -427,7 +428,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         return true;
     }
 
-    private async Task WriteBodyResponseAsync(CancellationToken token = default)
+    private async ValueTask WriteResponseBodyAsync(CancellationToken token = default)
     {
         while (!token.IsCancellationRequested)
         {
@@ -443,9 +444,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
                 _clientFlowControlBarrier.Reset();
                 if (!ReserveClientFlowControlSize(size, out size)) // Reserve here to block write pipe.
                 {
-                    await new ValueTask(_clientFlowControlBarrier, _clientFlowControlBarrier.Version)
-                        .AsTask()
-                        .WaitAsync(token);
+                    await new ValueTask(_clientFlowControlBarrier, _clientFlowControlBarrier.Version);
                     continue;
                 }
 
@@ -453,8 +452,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
                 _responseWriterFlushedResponse.Reset();
                 _writer.ScheduleWriteData(this);
-                await new ValueTask(_responseWriterFlushedResponse, _responseWriterFlushedResponse.Version)
-                    .AsTask().WaitAsync(token);
+                if (_responseWriterFlushedResponse.GetStatus() != ValueTaskSourceStatus.Succeeded)
+                    await new ValueTask(_responseWriterFlushedResponse, _responseWriterFlushedResponse.Version);
                 buffer = buffer.Slice(size);
             }
             _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);

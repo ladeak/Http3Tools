@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Text;
 using System.Threading.Channels;
 using CHttpServer.System.Net.Http.HPack;
@@ -167,27 +168,35 @@ internal class Http2ResponseWriter : IResponseWriter
             await _frameWriter.FlushAsync();
             return;
         }
-
-        // Slow path for large headers, write a single HEADER frame followed by CONTINUATION frames.
-        _frameWriter.WriteHeader(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
-        await _frameWriter.FlushAsync();
-        flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
-
-        while (flushingBuffer.Length > currentMaxFrameSize)
+        else
         {
-            _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
-            await _frameWriter.FlushAsync();
-            flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
+            // Slow path for large headers, write a single HEADER frame followed by CONTINUATION frames.
+            await WriteLargeHeadersAsync(stream, currentMaxFrameSize, totalLength, flushingBuffer);
+            return;
         }
 
-        // Flush the remaining part and set endHeaders.
-        _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer, endHeaders: true, endStream: false);
-        await _frameWriter.FlushAsync();
-
-        if (totalLength > currentMaxFrameSize)
+        async ValueTask WriteLargeHeadersAsync(Http2Stream stream, int currentMaxFrameSize, int totalLength, Memory<byte> flushingBuffer)
         {
-            ArrayPool<byte>.Shared.Return(_buffer);
-            _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
+            _frameWriter.WriteHeader(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
+            await _frameWriter.FlushAsync();
+            flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
+
+            while (flushingBuffer.Length > currentMaxFrameSize)
+            {
+                _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer.Slice(0, currentMaxFrameSize), endHeaders: false, endStream: false);
+                await _frameWriter.FlushAsync();
+                flushingBuffer = flushingBuffer.Slice(currentMaxFrameSize);
+            }
+
+            // Flush the remaining part and set endHeaders.
+            _frameWriter.WriteContinuation(stream.StreamId, flushingBuffer, endHeaders: true, endStream: false);
+            await _frameWriter.FlushAsync();
+
+            if (totalLength > currentMaxFrameSize)
+            {
+                ArrayPool<byte>.Shared.Return(_buffer);
+                _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
+            }
         }
     }
 
