@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks.Sources;
 using CHttpServer.System.Net.Http.HPack;
@@ -52,7 +53,7 @@ internal partial class Http2Stream
         StatusCode = 200;
         _responseWriterFlushedResponse = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
         _clientFlowControlBarrier = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
-        _responseWritingTask = new TaskCompletionSource<Task<bool>>();
+        _responseWritingTask = new TaskCompletionSource<ValueTask<bool>>();
 
         _featureCollection = featureCollection.Copy();
         _featureCollection.Add<IHttpRequestFeature>(this);
@@ -110,7 +111,7 @@ internal partial class Http2Stream
         _onStartingState = null;
         _onCompletedCallback = null;
         _onCompletedState = null;
-        _responseWritingTask = new TaskCompletionSource<Task<bool>>();
+        _responseWritingTask = new TaskCompletionSource<ValueTask<bool>>();
 
         _clientFlowControlBarrier.Reset();
         _responseWriterFlushedResponse.Reset();
@@ -267,10 +268,10 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     private byte[] _pathLatinEncoded;
 
     public string Protocol { get => "HTTP/2"; set => throw new NotSupportedException(); }
-    public string Scheme { get; set; }
+    public string Scheme { get; set; } = string.Empty;
     public string Method { get; set; } = string.Empty;
     public string PathBase { get; set; } = string.Empty;
-    public string Path { get => _isPathSet ? field : string.Empty; set => field = value; }
+    public string Path { get => _isPathSet ? field : string.Empty; set => field = value; } = string.Empty;
     public string QueryString { get; set; } = string.Empty;
     public string RawTarget { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
@@ -307,7 +308,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private ManualResetValueTaskSource<bool> _responseWriterFlushedResponse;
 
     private bool _hasStarted = false;
-    private TaskCompletionSource<Task<bool>> _responseWritingTask;
+    private TaskCompletionSource<ValueTask<bool>> _responseWritingTask;
     private readonly HeaderCollection _responseHeaders;
     private HeaderCollection? _responseTrailers;
 
@@ -416,7 +417,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         }
     }
 
-    private async Task<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+    private async ValueTask<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
             return false;
@@ -437,13 +439,14 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         return true;
     }
 
-    private async ValueTask WriteResponseBodyAsync(CancellationToken token = default)
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+    private async ValueTask<bool> WriteResponseBodyAsync(CancellationToken token = default)
     {
         while (!token.IsCancellationRequested)
         {
             var readResult = await _responseBodyPipe.Reader.ReadAsync(token);
             if (readResult.IsCanceled)
-                return;
+                return true;
 
             var buffer = readResult.Buffer;
             while (!buffer.IsEmpty)
@@ -467,11 +470,12 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             }
             _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);
             if (readResult.IsCompleted)
-                return;
+                return true;
         }
 
         // Complete when cancelled or the body is fully written.
         _responseBodyPipe.Reader.Complete();
+        return true;
     }
 
     /// <summary>

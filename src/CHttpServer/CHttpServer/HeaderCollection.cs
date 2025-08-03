@@ -8,14 +8,17 @@ namespace CHttpServer;
 
 public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<string, StringValues>>
 {
-    private Dictionary<string, byte[]> _headersRaw { get; set; } = new();
+    // Known header keys
+    private StringValues _hostValue = StringValues.Empty;
+    // Move to bitmap with more known headers
+    private bool _isHostValueSet = false;
+
     private Dictionary<string, StringValues> _headers { get; set; } = new();
     private bool _readonly;
     private long? _contentLength;
 
     public HeaderCollection()
     {
-        
     }
 
     public long? ContentLength { get => _contentLength; set => _contentLength = value; }
@@ -39,7 +42,11 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
         set
         {
             ValidateReadOnly();
-            if (_headers.TryAdd(key, value))
+
+            bool valueSet = TrySetKnownHeader(key, value);
+            if (!valueSet)
+                valueSet = _headers.TryAdd(key, value);
+            if (valueSet)
                 Count++;
             else
                 _headers[key] = value;
@@ -51,7 +58,8 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     public void Add(string key, StringValues value)
     {
         ValidateReadOnly();
-        _headers.Add(key, value);
+        if (!TrySetKnownHeader(key, value))
+            _headers.Add(key, value);
         Count++;
     }
 
@@ -65,14 +73,22 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public bool ContainsKey(string key)
     {
-        return _headers.ContainsKey(key) || _headersRaw.ContainsKey(key);
+        if (key == "Host")
+            return _isHostValueSet;
+        return _headers.ContainsKey(key);
     }
 
     public bool Remove(string key)
     {
         ValidateReadOnly();
+        if (key == "Host")
+        {
+            _isHostValueSet = false;
+            Count--;
+            return true;
+        }
+
         var result = _headers.Remove(key);
-        result |= _headersRaw.Remove(key);
         if (result)
             Count--;
         return result;
@@ -80,31 +96,25 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public bool TryGetValue(string key, [MaybeNullWhen(false)] out StringValues value)
     {
-        if (_headers.TryGetValue(key, out value))
-            return true;
+        if (key == "Host")
+        {
+            value = _isHostValueSet ? _hostValue : StringValues.Empty;
+            return _isHostValueSet;
+        }
 
-        if (!_headersRaw.TryGetValue(key, out var rawValue))
-            return false;
-
-        value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        _headers.TryAdd(key, value);
-        return true;
+        return _headers.TryGetValue(key, out value);
     }
 
     public void Add(KeyValuePair<string, StringValues> item) => Add(item.Key, item.Value);
 
-    public void Add(string key, byte[] value)
-    {
-        ValidateReadOnly();
-        _headersRaw.Add(key, value);
-        Count++;
-    }
+    public void Add(string key, byte[] value) => Add(key, value.AsSpan());
 
     public void Add(string key, ReadOnlySpan<byte> rawValue)
     {
         ValidateReadOnly();
         var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        _headers.TryAdd(key, value);
+        if (!TrySetKnownHeader(key, value))
+            _headers.TryAdd(key, value);
         Count++;
     }
 
@@ -112,17 +122,45 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         ValidateReadOnly();
         var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        var key = Encoding.Latin1.GetString(rawKey);
-        _headers.TryAdd(key, value);
+        if (!TrySetKnownHeader(rawKey, value, out var key))
+        {
+            key = Encoding.Latin1.GetString(rawKey);
+            _headers.TryAdd(key, value);
+        }
         Count++;
         return (key, value);
+    }
+
+    private bool TrySetKnownHeader(ReadOnlySpan<byte> rawKey, StringValues value, [NotNullWhen(true)] out string? key)
+    {
+        if (rawKey == "Host"u8)
+        {
+            _hostValue = value;
+            _isHostValueSet = true;
+            key = "Host";
+            return true;
+        }
+
+        key = null;
+        return false;
+    }
+
+    private bool TrySetKnownHeader(string key, StringValues value)
+    {
+        if (key == "Host")
+        {
+            _hostValue = value;
+            _isHostValueSet = true;
+            return true;
+        }
+        return false;
     }
 
     public void Clear()
     {
         ValidateReadOnly();
         _headers.Clear();
-        _headersRaw.Clear();
+        _isHostValueSet = false;
         Count = 0;
     }
 
@@ -134,6 +172,8 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
 
     public void CopyTo(KeyValuePair<string, StringValues>[] array, int arrayIndex)
     {
+        if (_isHostValueSet)
+            array[arrayIndex++] = new KeyValuePair<string, StringValues>("Host", _hostValue);
         foreach (var item in this)
             array[arrayIndex++] = item;
     }
@@ -146,22 +186,19 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
             return true;
         }
         return false;
-
     }
 
     public IEnumerator<KeyValuePair<string, StringValues>> GetEnumerator()
     {
         _enumerator = _headers.GetEnumerator();
-        _enumeratorRaw = _headersRaw.GetEnumerator();
-        _passedParsed = false;
+        _iteratorState = 0;
         return this;
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    private bool _passedParsed = false;
+    private int _iteratorState = 0;
     private Dictionary<string, StringValues>.Enumerator _enumerator;
-    private Dictionary<string, byte[]>.Enumerator _enumeratorRaw;
 
     public KeyValuePair<string, StringValues> Current { get; private set; }
 
@@ -170,7 +207,16 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     public bool MoveNext()
     {
         bool hasNext;
-        if (!_passedParsed)
+        if (_iteratorState == 0)
+        {
+            _iteratorState = 1;
+            if (_isHostValueSet)
+            {
+                Current = new KeyValuePair<string, StringValues>("Host", _hostValue);
+                return true;
+            }
+        }
+        if (_iteratorState == 1)
         {
             hasNext = _enumerator.MoveNext();
             if (hasNext)
@@ -179,24 +225,9 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
                 return true;
             }
             else
-            {
-                _passedParsed = true;
-            }
+                _iteratorState = 2;
         }
-
-        do
-        {
-            hasNext = _enumeratorRaw.MoveNext();
-        } while (hasNext && _headers.ContainsKey(_enumeratorRaw.Current.Key));
-
-        if (!hasNext)
-            return false;
-
-        var currentRaw = _enumeratorRaw.Current;
-        var value = new StringValues(Encoding.Latin1.GetString(currentRaw.Value));
-        _headers.TryAdd(currentRaw.Key, value);
-        Current = new(currentRaw.Key, value);
-        return true;
+        return false;
     }
 
     public void Reset()
@@ -208,18 +239,17 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     {
         _readonly = false;
         _headers.Clear();
-        _headersRaw.Clear();
         Count = 0;
         _contentLength = null;
-        _passedParsed = false;
+        _iteratorState = 0;
         _enumerator = default;
-        _enumeratorRaw = default;
+        _isHostValueSet = false;
     }
 
     public void Dispose()
     {
         _enumerator.Dispose();
-        _enumeratorRaw.Dispose();
+        _iteratorState = 2;
         Current = default;
     }
 }
