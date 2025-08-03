@@ -1,69 +1,58 @@
+using System.Text.Json.Serialization;
 using CHttpServer;
-using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.UseCHttpServer();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+}); 
 var app = builder.Build();
-app.UseHttpsRedirection();
 
-var summaries = new[]
+app.MapGet("/", async context =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/a", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    //return forecast;
-    return TypedResults.Ok(forecast);
+    context.Response.Headers.TryAdd("x-custom", new Microsoft.Extensions.Primitives.StringValues("test"));
+    await context.Response.WriteAsync("Hello World " + context.Request.Protocol.ToString());
 });
 
-app.MapPost("/a", ([FromBody] SampleRequest a, CancellationToken token) =>
+app.MapGet("/direct", async context =>
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return TypedResults.Ok(forecast);
+    context.Response.StatusCode = 200;
+    var writer = context.Response.BodyWriter;
+    var buffer = writer.GetSpan(11);
+    "Hello World"u8.CopyTo(buffer);
+    writer.Advance(11);
+    await writer.FlushAsync();
 });
-app.MapGet("/stream", async (HttpContext ctx) =>
-                                  {
-                                      ctx.Response.StatusCode = 200;
-                                      await ctx.Response.WriteAsync("some content");
-                                      await Task.Delay(5000);
-                                      await ctx.Response.WriteAsync("some content2");
-                                  });
 
-app.MapGet("/stream2", GetStream);
-
-async IAsyncEnumerable<string> GetStream()
+app.MapGet("/delay", async (HttpContext context) =>
 {
-    foreach (var i in Enumerable.Range(0, 10))
-    {
-        await Task.Delay(1000);
-        yield return "some content";
-    }
-}
+    await Task.Delay(TimeSpan.FromMilliseconds(100));
+});
+
+app.MapPost("/post", context =>
+{
+    return context.Response.WriteAsync("Hello World " + context.Request.Protocol.ToString());
+});
+
+app.MapGet("/jsonresponse", () =>
+{
+    return TypedResults.Ok(new Data { Message = "Hello World" });
+});
+
+app.MapPost("/jsonrequest", (Data input) => Results.Ok(input.Message.Length));
+
+app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
 
 app.Run();
 
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+public class Data
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public string Message { get; set; }
 }
 
-internal class SampleRequest
+[JsonSerializable(typeof(Data))]
+internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
-    public required string A { get; set; }
 }
