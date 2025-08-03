@@ -112,36 +112,67 @@ public class HeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<stri
     public void Add(string key, ReadOnlySpan<byte> rawValue)
     {
         ValidateReadOnly();
-        var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        if (!TrySetKnownHeader(key, value))
+        if (!TrySetKnownHeader(key, rawValue))
+        {
+            var value = new StringValues(Encoding.Latin1.GetString(rawValue));
             _headers.TryAdd(key, value);
+        }
         Count++;
     }
 
     public (string, StringValues) Add(ReadOnlySpan<byte> rawKey, ReadOnlySpan<byte> rawValue)
     {
         ValidateReadOnly();
-        var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-        if (!TrySetKnownHeader(rawKey, value, out var key))
+        if (!TrySetKnownHeader(rawKey, rawValue, out var key, out var value))
         {
             key = Encoding.Latin1.GetString(rawKey);
+            value = new StringValues(Encoding.Latin1.GetString(rawValue));
             _headers.TryAdd(key, value);
         }
         Count++;
         return (key, value);
     }
 
-    private bool TrySetKnownHeader(ReadOnlySpan<byte> rawKey, StringValues value, [NotNullWhen(true)] out string? key)
+    private bool TrySetKnownHeader(ReadOnlySpan<byte> rawKey, ReadOnlySpan<byte> rawValue, [NotNullWhen(true)] out string? key, out StringValues value)
     {
         if (rawKey == "Host"u8)
         {
-            _hostValue = value;
+            Span<char> utf16Value = stackalloc char[rawValue.Length];
+            Encoding.Latin1.GetChars(rawValue, utf16Value);
+            if (_hostValue.Count > 0 && utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
+            {
+                key = "Host";
+                value = _hostValue;
+                return true;
+            }
+
+            _hostValue = new StringValues(utf16Value.ToString());
             _isHostValueSet = true;
             key = "Host";
+            value = _hostValue;
             return true;
         }
 
         key = null;
+        value = StringValues.Empty;
+        return false;
+    }
+
+    private bool TrySetKnownHeader(string key, ReadOnlySpan<byte> rawValue)
+    {
+        if (key == "Host")
+        {
+            Span<char> utf16Value = stackalloc char[rawValue.Length];
+            Encoding.Latin1.GetChars(rawValue, utf16Value);
+            if (_hostValue.Count > 0 && utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
+            {
+                key = "Host";
+                return true;
+            }
+            _hostValue = new StringValues(utf16Value.ToString());
+            _isHostValueSet = true;
+            return true;
+        }
         return false;
     }
 
