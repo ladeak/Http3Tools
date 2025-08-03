@@ -38,6 +38,8 @@ internal partial class Http2Stream
         _requestBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
         _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
+        _isPathSet = false;
+        _pathLatinEncoded = [];
 
         _responseHeaders = new HeaderCollection();
         _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
@@ -101,7 +103,8 @@ internal partial class Http2Stream
         Scheme = string.Empty;
         Method = string.Empty;
         PathBase = string.Empty;
-        Path = string.Empty;
+        _isPathSet = false;
+        // _pathLatinEncoded not reset
         QueryString = string.Empty;
         _onStartingCallback = null;
         _onStartingState = null;
@@ -175,14 +178,18 @@ internal partial class Http2Stream
     private void SetPath(ReadOnlySpan<byte> value)
     {
         var separatorIndex = value.IndexOf(QuestionMarkByte);
-        if (separatorIndex < 0)
+        if (separatorIndex >= 0)
         {
-            Path = Encoding.Latin1.GetString(value);
-            return;
+            QueryString = Encoding.Latin1.GetString(value[separatorIndex..]);
+            value = value[..separatorIndex];
         }
 
-        Path = Encoding.Latin1.GetString(value[0..separatorIndex]);
-        QueryString = Encoding.Latin1.GetString(value[separatorIndex..]);
+        if (!_pathLatinEncoded.SequenceEqual(value))
+        {
+            _pathLatinEncoded = value.ToArray();
+            Path = Encoding.Latin1.GetString(value);
+        }
+        _isPathSet = true;
     }
 
     public async void Execute<TContext>(IHttpApplication<TContext> application) where TContext : notnull
@@ -256,12 +263,14 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     private Pipe _requestBodyPipe;
     private Http2StreamPipeReader _requestBodyPipeReader;
     private Http2StreamPipeWriter _requestBodyPipeWriter;
+    private bool _isPathSet;
+    private byte[] _pathLatinEncoded;
 
     public string Protocol { get => "HTTP/2"; set => throw new NotSupportedException(); }
-    public string Scheme { get; set; } = string.Empty;
+    public string Scheme { get; set; }
     public string Method { get; set; } = string.Empty;
     public string PathBase { get; set; } = string.Empty;
-    public string Path { get; set; } = string.Empty;
+    public string Path { get => _isPathSet ? field : string.Empty; set => field = value; }
     public string QueryString { get; set; } = string.Empty;
     public string RawTarget { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new NotSupportedException(); }
