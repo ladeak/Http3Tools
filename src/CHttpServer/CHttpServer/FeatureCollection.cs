@@ -1,9 +1,15 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Hosting.Server.Abstractions;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer;
+
+internal class FeatureCollectionContext<TContext> : FeatureCollection, IHostContextContainer<TContext> where TContext : notnull
+{
+    public TContext? HostContext { get; set; }
+}
 
 public class FeatureCollection : IFeatureCollection
 {
@@ -100,5 +106,17 @@ public class FeatureCollection : IFeatureCollection
         if (!_features.TryGetValue(key, out var value))
             return null;
         return value;
+    }
+
+    internal FeatureCollection ToContextAware<TContext>() where TContext : notnull
+    {
+        var copy = new FeatureCollectionContext<TContext>();
+        foreach (var pair in _features)
+            copy._features.Add(pair.Key, pair.Value);
+        for (int i = 0; i < MaxFeatures; i++)
+            copy._featuresFrozen[i] = _featuresFrozen[i];
+        _revision++;
+        _checkpointRevision = _revision;
+        return copy;
     }
 }

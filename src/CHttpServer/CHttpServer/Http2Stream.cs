@@ -22,8 +22,8 @@ internal partial class Http2Stream
 
     private readonly Http2Connection _connection;
     private readonly IResponseWriter _writer;
-    private readonly FeatureCollection _featureCollection;
     private readonly bool _usePriority;
+    private FeatureCollection _featureCollection;
     private FlowControlSize _serverWindowSize; // Controls Data received
     private FlowControlSize _clientWindowSize; // Controls Data sent
     private StreamState _state;
@@ -197,6 +197,9 @@ internal partial class Http2Stream
     {
         try
         {
+            if (_featureCollection is not FeatureCollectionContext<TContext>)
+                _featureCollection = _featureCollection.ToContextAware<TContext>();
+
             _requestHeaders.SetReadOnly();
             var context = application.CreateContext(_featureCollection);
             await application.ProcessRequestAsync(context);
