@@ -29,7 +29,7 @@ internal class PriorityResponseWriter : IResponseWriter
             {
                 if (request.OperationName == WriteData)
                 {
-                    if (_scheduledDataStreams.Add(request.Stream.StreamId))
+                    if (_scheduledDataStreams.Add(request.H2Stream.StreamId))
                         _queue.Enqueue(request);
                 }
                 else
@@ -45,7 +45,7 @@ internal class PriorityResponseWriter : IResponseWriter
             {
                 var hasItem = _queue.TryDequeue(out request);
                 if (hasItem && request!.OperationName == WriteData)
-                    _scheduledDataStreams.Remove(request.Stream.StreamId);
+                    _scheduledDataStreams.Remove(request.H2Stream.StreamId);
                 return hasItem;
             }
         }
@@ -178,22 +178,22 @@ internal class PriorityResponseWriter : IResponseWriter
             if (request.OperationName == WriteData)
             {
                 // If writes are preempted, requeue data writes for the stream.
-                var totalWritten = await WriteDataAsync(request.Stream, (long)request.Data);
+                var totalWritten = await WriteDataAsync(request.H2Stream, (long)request.Data);
                 if (totalWritten >= 0)
                     queueLevels.Enqueue(request with { Data = (ulong)totalWritten });
             }
             else if (request.OperationName == WriteHeaders)
-                await WriteHeadersAsync(request.Stream);
+                await WriteHeadersAsync(request.H2Stream);
             else if (request.OperationName == WriteEndStream)
-                await WriteEndStreamAsync(request.Stream);
+                await WriteEndStreamAsync(request.H2Stream);
             else if (request.OperationName == WriteTrailers)
-                await WriteTrailersAsync(request.Stream);
+                await WriteTrailersAsync(request.H2Stream);
             else if (request.OperationName == WriteWindowUpdate)
-                await WriteWindowUpdateAsync(request.Stream, request.Data);
+                await WriteWindowUpdateAsync(request.H2Stream, request.Data);
             else if (request.OperationName == WritePingFrame)
                 await WritePingAckAsync(request.Data);
             else if (request.OperationName == WriteRstStream)
-                await WriteRstStreamAsync(request.Stream, request.Data);
+                await WriteRstStreamAsync(request.H2Stream, request.Data);
         }
         return isEmpty;
     }
