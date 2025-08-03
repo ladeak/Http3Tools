@@ -420,7 +420,6 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         }
     }
 
-    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
     private async ValueTask<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)

@@ -377,7 +377,7 @@ internal sealed partial class Http2Connection
             stream.Value.OnConnectionWindowUpdateSize();
     }
 
-    private async Task<int> ReadFrameHeader(CancellationToken token)
+    private async ValueTask<int> ReadFrameHeader(CancellationToken token)
     {
         var frameHeader = _buffer.AsMemory(0, MaxFrameHeaderLength);
         var bytesRead = await _inputDataStream.ReadAtLeastAsync(frameHeader, frameHeader.Length, false, token);
