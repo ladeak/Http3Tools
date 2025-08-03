@@ -46,6 +46,12 @@ internal class Http2ResponseWriter : IResponseWriter
                     ArrayPool<byte>.Shared.Return(_buffer);
                     _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
                 }
+                // Priority requests always have a corresponding regular channel request too.
+                while (_priorityChannel.Reader.TryRead(out var priorityRequest))
+                {
+                    if (priorityRequest.OperationName == WriteOutOfOrderFrame)
+                        await WritePingAckAsync(priorityRequest.Data);
+                }
 
                 ValueTask writeTask = ValueTask.CompletedTask;
                 if (request.OperationName == WriteData)
@@ -61,13 +67,7 @@ internal class Http2ResponseWriter : IResponseWriter
                 else if (request.OperationName == WriteRstStream)
                     writeTask = WriteRstStreamAsync(request.Stream, request.Data);
                 await writeTask;
-                
-                // Priority requests always have a corresponding regular channel request too.
-                while (_priorityChannel.Reader.TryRead(out var priorityRequest))
-                {
-                    if (priorityRequest.OperationName == WriteOutOfOrderFrame)
-                        await WritePingAckAsync(priorityRequest.Data);
-                }
+
             }
         }
         catch (OperationCanceledException)
