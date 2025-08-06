@@ -32,7 +32,7 @@ internal class Http2ResponseWriter : IResponseWriter
         _priorityChannel = Channel.CreateUnbounded<StreamWriteRequest>(new UnboundedChannelOptions() { SingleReader = true, AllowSynchronousContinuations = false });
     }
 
-    public async ValueTask RunAsync(CancellationToken token)
+    public async Task RunAsync(CancellationToken token)
     {
         _buffer = ArrayPool<byte>.Shared.Rent(_maxFrameSize);
         try
