@@ -2,6 +2,8 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipelines;
 using System.Security.Authentication;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
@@ -28,7 +30,7 @@ internal sealed partial class Http2Connection
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
 
     private readonly CHttpConnectionContext _context;
-    private readonly Stream _inputDataStream;
+    private readonly PipeReader _inputRequestReader;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
     private readonly LimitedObjectPool<Http2Stream> _streamPool;
@@ -52,8 +54,8 @@ internal sealed partial class Http2Connection
         _streams = [];
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
-        _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize));
-        _inputDataStream = connectionContext.Transport!;
+        _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize) + MaxFrameHeaderLength);
+        _inputRequestReader = connectionContext.TransportPipe!.Input;
         _aborted = new();
         _gracefulShutdownRequested = false;
         _readFrame = new();
@@ -90,9 +92,10 @@ internal sealed partial class Http2Connection
             while (!token.IsCancellationRequested)
             {
                 var dataRead = await ReadFrameHeader(token);
-                if (dataRead == 0) // On End of Stream
+                if (dataRead.IsEmpty) // On End of Stream
                     return;
-                await ProcessFrame(application);
+                await ProcessFrame(dataRead.Slice(MaxFrameHeaderLength), application);
+                _inputRequestReader.AdvanceTo(dataRead.GetPosition(MaxFrameHeaderLength + _readFrame.PayloadLength));
             }
 
         }
@@ -143,28 +146,30 @@ internal sealed partial class Http2Connection
 
     private void CloseConnection()
     {
-        _inputDataStream.Close();
+        _inputRequestReader.Complete();
+        _context.Transport!.Close();
         ArrayPool<byte>.Shared.Return(_buffer);
     }
 
-    private ValueTask ProcessFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
+    private ValueTask ProcessFrame<TContext>(ReadOnlySequence<byte> dataRead,
+        IHttpApplication<TContext> application) where TContext : notnull
     {
         if (_readFrame.Type == Http2FrameType.DATA)
-            return ProcessDataFrame();
+            return ProcessDataFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.WINDOW_UPDATE)
-            return ProcessWindowUpdateFrame();
+            return ProcessWindowUpdateFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.HEADERS)
-            return ProcessHeaderFrame(application);
+            return ProcessHeaderFrame(dataRead, application);
         if (_readFrame.Type == Http2FrameType.SETTINGS)
-            return ProcessSettingsFrame();
+            return ProcessSettingsFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.PING)
-            return ProcessPingFrame();
+            return ProcessPingFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.GOAWAY)
-            return ProcessGoAwayFrame();
+            return ProcessGoAwayFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.RST_STREAM)
-            return ProcessResetStreamFrame();
+            return ProcessResetStreamFrame(dataRead);
         if (_readFrame.Type == Http2FrameType.CONTINUATION)
-            return ProcessContinuationFrame(application);
+            return ProcessContinuationFrame(dataRead, application);
         return ValueTask.CompletedTask;
     }
 
@@ -173,19 +178,20 @@ internal sealed partial class Http2Connection
     // |                      Opaque Data(64)                         |
     // |                                                               |
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessPingFrame()
+    private ValueTask ProcessPingFrame(in ReadOnlySequence<byte> dataRead)
     {
         // Read Opague Data
         if (_readFrame.PayloadLength != 8)
             throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
         if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
-        await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 8));
+
         if (_readFrame.Flags == 0)
         {
-            var payload = BinaryPrimitives.ReadUInt64LittleEndian(_buffer.AsSpan(0, 8));
+            var payload = BinaryPrimitives.ReadUInt64LittleEndian(ToSpan(dataRead.Slice(0, 8)));
             _responseWriter!.ScheduleWritePingAck(payload);
         }
+        return ValueTask.CompletedTask;
     }
 
     // +-+-------------------------------------------------------------+
@@ -195,16 +201,13 @@ internal sealed partial class Http2Connection
     // +---------------------------------------------------------------+
     // |                  Additional Debug Data(*)                    |
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessGoAwayFrame()
+    private ValueTask ProcessGoAwayFrame(in ReadOnlySequence<byte> dataRead)
     {
         if (_readFrame.StreamId != 0)
             throw new Http2ConnectionException("GOAWAY frame must be sent on connection stream (stream id 0)");
-
-        var payloadLength = (int)_readFrame.PayloadLength;
-        var memory = _buffer.AsMemory(0, payloadLength);
-        await _inputDataStream.ReadExactlyAsync(memory);
-        var _ = IntegerSerializer.ReadUInt32BigEndian(memory.Span[..4]);
-        var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(memory.Span.Slice(4, 4));
+        var buffer = ToSpan(dataRead.Slice(0, _readFrame.PayloadLength));
+        var _ = IntegerSerializer.ReadUInt32BigEndian(buffer[0..4]);
+        var errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(buffer.Slice(4, 4));
         if (errorCode == Http2ErrorCode.NO_ERROR)
         {
             _gracefulShutdownRequested = true;
@@ -215,10 +218,11 @@ internal sealed partial class Http2Connection
         if (_readFrame.PayloadLength > 8)
         {
             // Read additional debug data if present
-            additionalDebugData = Encoding.Latin1.GetString(memory.Span[8..]);
+            additionalDebugData = Encoding.Latin1.GetString(buffer[8..]);
         }
         if (_readFrame.GoAwayErrorCode != Http2ErrorCode.NO_ERROR)
             throw new Http2ConnectionException($"GOAWAY frame received {additionalDebugData}");
+        return ValueTask.CompletedTask;
     }
 
     // +---------------+
@@ -228,7 +232,7 @@ internal sealed partial class Http2Connection
     // +---------------------------------------------------------------+
     // |                           Padding(*)                       ...
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessDataFrame()
+    private async ValueTask ProcessDataFrame(ReadOnlySequence<byte> dataRead)
     {
         var streamId = _readFrame.StreamId;
         if (!_streams.TryGetValue(streamId, out var httpStream))
@@ -237,26 +241,26 @@ internal sealed partial class Http2Connection
         int paddingLength = 0;
         if (_readFrame.HasPadding)
         {
-            await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 1));
-            paddingLength = _buffer[0];
+            paddingLength = dataRead.FirstSpan[0];
             if (paddingLength > _readFrame.PayloadLength)
                 throw new Http2ConnectionException("Invalid data pad length");
+            dataRead = dataRead.Slice(1);
         }
 
-        var buffer = httpStream.RequestPipe.GetMemory((int)_h2Settings.ReceiveMaxFrameSize)
-            .Slice(0, (int)_readFrame.PayloadLength); // framesize max
-        await _inputDataStream.ReadExactlyAsync(buffer);
-        httpStream.RequestPipe.Advance(buffer.Length - paddingLength); // Padding is read but not advanced.
-        await httpStream.RequestPipe.FlushAsync();
+        var buffer = httpStream.RequestPipe.GetSpan((int)_h2Settings.ReceiveMaxFrameSize); // framesize max
+        dataRead.Slice(0, _readFrame.PayloadLength).CopyTo(buffer);
 
+        httpStream.RequestPipe.Advance((int)_readFrame.PayloadLength - paddingLength); // Padding is read but not advanced.
+        await httpStream.RequestPipe.FlushAsync();
         if (_readFrame.EndStream)
         {
             httpStream.CompleteRequestStream();
-            return;
         }
     }
 
-    private async ValueTask ProcessHeaderFrame<TContext>(IHttpApplication<TContext> application) where TContext : notnull
+    private ValueTask ProcessHeaderFrame<TContext>(
+        in ReadOnlySequence<byte> dataRead,
+        IHttpApplication<TContext> application) where TContext : notnull
     {
         // +---------------+
         // | Pad Length ? (8) |
@@ -269,14 +273,12 @@ internal sealed partial class Http2Connection
         // +---------------------------------------------------------------+
         // | Padding(*)...
         // +---------------------------------------------------------------+
-        var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
-        await _inputDataStream.ReadExactlyAsync(memory);
         int payloadStart = 0;
         int paddingLength = 0;
         if (_readFrame.HasPadding)
         {
             payloadStart = 1;
-            paddingLength = memory.Span[0];
+            paddingLength = dataRead.FirstSpan[0];
         }
         if (_readFrame.HasPriorty)
             payloadStart += 5;
@@ -292,54 +294,57 @@ internal sealed partial class Http2Connection
         Debug.Assert(addResult);
         bool endHeaders = _readFrame.EndHeaders;
         ResetHeadersParsingState();
-        _hpackDecoder.Decode(memory.Span.Slice(payloadStart, (int)_readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
+
+        _hpackDecoder.Decode(dataRead.Slice(payloadStart, _readFrame.PayloadLength - payloadStart - paddingLength), endHeaders, this);
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
             StartStream(_currentStream, application);
         }
+        return ValueTask.CompletedTask;
     }
 
     // +---------------------------------------------------------------+
     // |                   Header Block Fragment(*)                 ...
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessContinuationFrame<TContext>(
+    private ValueTask ProcessContinuationFrame<TContext>(
+        ReadOnlySequence<byte> dataRead,
         IHttpApplication<TContext> application) where TContext : notnull
     {
         if (_currentStream.StreamId != _readFrame.StreamId || _currentStream.RequestEndHeaders)
             throw new Http2ProtocolException();
         if (!_streams.ContainsKey(_readFrame.StreamId))
-            return;
+            return ValueTask.CompletedTask;
 
-        var memory = _buffer.AsMemory(0, (int)_readFrame.PayloadLength);
-        await _inputDataStream.ReadExactlyAsync(memory);
         bool endHeaders = _readFrame.EndHeaders;
-        _hpackDecoder.Decode(memory.Span, endHeaders, this);
+        _hpackDecoder.Decode(dataRead.Slice(0, _readFrame.PayloadLength), endHeaders, this);
         if (endHeaders)
         {
             _currentStream.RequestEndHeadersReceived();
             StartStream(_currentStream, application);
         }
+        return ValueTask.CompletedTask;
     }
 
     // +---------------------------------------------------------------+
     // |                        Error Code(32)                        |
     // +---------------------------------------------------------------+
-    private async ValueTask ProcessResetStreamFrame()
+    private ValueTask ProcessResetStreamFrame(in ReadOnlySequence<byte> dataRead)
     {
         var streamId = _readFrame.StreamId;
         if (!_streams.TryGetValue(streamId, out var httpStream))
             throw new Http2ProtocolException();
         if (_readFrame.PayloadLength != 4)
             throw new Http2ConnectionException(Http2ErrorCode.FRAME_SIZE_ERROR);
-        await _inputDataStream.ReadExactlyAsync(_buffer.AsMemory(0, 4));
-        Http2ErrorCode errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(_buffer.AsSpan(0, 4));
+        var buffer = ToSpan(dataRead.Slice(0, 4));
+        Http2ErrorCode errorCode = (Http2ErrorCode)IntegerSerializer.ReadUInt32BigEndian(buffer);
 
         // Abort stream
         httpStream.Abort();
         OnStreamCompleted(httpStream);
         if (_currentStream.StreamId == streamId)
             _currentStream = _streamPool.Get(CreateConnection, (Connection: this, _context.Features));
+        return ValueTask.CompletedTask;
     }
 
     private static void StartStream<TContext>(Http2Stream stream, IHttpApplication<TContext> application) where TContext : notnull
@@ -350,13 +355,11 @@ internal sealed partial class Http2Connection
             preferLocal: false);
     }
 
-    private async ValueTask ProcessWindowUpdateFrame()
+    private ValueTask ProcessWindowUpdateFrame(in ReadOnlySequence<byte> dataRead)
     {
         if (_readFrame.PayloadLength != 4)
             throw new Http2ProtocolException();
-        var memory = _buffer.AsMemory(0, 4);
-        await _inputDataStream.ReadExactlyAsync(memory);
-        var updateSize = IntegerSerializer.ReadUInt32BigEndian(memory.Span);
+        var updateSize = IntegerSerializer.ReadUInt32BigEndian(ToSpan(dataRead.Slice(0, 4)));
         if (updateSize > MaxWindowUpdateSize)
             throw new Http2ProtocolException();
 
@@ -365,6 +368,7 @@ internal sealed partial class Http2Connection
             _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
         else
             UpdateConnectionWindowSize(updateSize);
+        return ValueTask.CompletedTask;
     }
 
     internal void UpdateConnectionWindowSize(uint updateSize) // Internal as hook
@@ -377,34 +381,56 @@ internal sealed partial class Http2Connection
             stream.Value.OnConnectionWindowUpdateSize();
     }
 
-    private async ValueTask<int> ReadFrameHeader(CancellationToken token)
+    private async ValueTask<ReadOnlySequence<byte>> ReadFrameHeader(CancellationToken token)
     {
-        var frameHeader = _buffer.AsMemory(0, MaxFrameHeaderLength);
-        var bytesRead = await _inputDataStream.ReadAtLeastAsync(frameHeader, frameHeader.Length, false, token);
-        if (bytesRead == 0) // Input Stream closed
-            return 0;
-        _readFrame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(frameHeader.Span[0..3]);
-        _readFrame.Type = (Http2FrameType)frameHeader.Span[3];
-        _readFrame.Flags = frameHeader.Span[4];
-        var streamId = IntegerSerializer.ReadUInt32BigEndian(frameHeader.Span[5..]);
-        if (streamId >= MaxStreamId)
-            throw new Http2ConnectionException("Reserved bit must be unset");
-        _readFrame.StreamId = streamId;
-        return bytesRead;
+        while (true)
+        {
+            var readResult = await _inputRequestReader.ReadAsync(token);
+            var buffer = readResult.Buffer;
+            if (buffer.IsEmpty && readResult.IsCompleted)
+                return ReadOnlySequence<byte>.Empty;
+            if (buffer.Length < MaxFrameHeaderLength)
+            {
+                _inputRequestReader.AdvanceTo(buffer.Start, buffer.End);
+                continue;
+            }
+            var frameHeader = ToSpan(buffer.Slice(0, MaxFrameHeaderLength));
+
+            _readFrame.PayloadLength = IntegerSerializer.ReadUInt24BigEndian(frameHeader[0..3]);
+            if (_readFrame.PayloadLength + MaxFrameHeaderLength > buffer.Length)
+            {
+                _inputRequestReader.AdvanceTo(buffer.Start, buffer.End);
+                continue;
+            }
+
+            _readFrame.Type = (Http2FrameType)frameHeader[3];
+            _readFrame.Flags = frameHeader[4];
+            var streamId = IntegerSerializer.ReadUInt32BigEndian(frameHeader[5..]);
+            if (streamId >= MaxStreamId)
+                throw new Http2ConnectionException("Reserved bit must be unset");
+            _readFrame.StreamId = streamId;
+
+            return buffer;
+        }
     }
 
-    private async ValueTask ProcessSettingsFrame()
+    public ReadOnlySpan<byte> ToSpan(in ReadOnlySequence<byte> buffer)
+    {
+        if (buffer.IsSingleSegment)
+            return buffer.FirstSpan;
+        var result = _buffer.AsSpan();
+        buffer.CopyTo(result);
+        return result;
+    }
+
+    private ValueTask ProcessSettingsFrame(in ReadOnlySequence<byte> dataRead)
     {
         if (_readFrame.StreamId != 0)
             throw new Http2ProtocolException();
         if (_readFrame.Flags == 1) // SETTING ACK
-            return;
+            return ValueTask.CompletedTask;
 
-        var payloadLength = (int)_readFrame.PayloadLength;
-        var memory = _buffer.AsMemory(0, payloadLength);
-        await _inputDataStream.ReadExactlyAsync(memory);
-
-        var span = memory.Span;
+        var span = ToSpan(dataRead.Slice(0, _readFrame.PayloadLength));
         while (span.Length > 0)
         {
             var settingId = IntegerSerializer.ReadUInt16BigEndian(span);
@@ -433,7 +459,7 @@ internal sealed partial class Http2Connection
             }
         }
         _writer!.WriteSettingAck();
-
+        return ValueTask.CompletedTask;
         //SETTINGS_HEADER_TABLE_SIZE
         //SETTINGS_ENABLE_PUSH
         //SETTINGS_MAX_CONCURRENT_STREAMS
@@ -444,17 +470,32 @@ internal sealed partial class Http2Connection
 
     private async Task ReadPreface(CancellationToken token)
     {
-        var preface = _buffer.AsMemory(0, PrefaceBytes.Length);
-        try
+        while (true)
         {
-            await _inputDataStream.ReadExactlyAsync(preface, token);
+            ReadResult dataRead;
+            try
+            {
+                dataRead = await _inputRequestReader.ReadAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new Http2ConnectionException("Connection aborted while reading preface");
+            }
+            if (dataRead.IsCanceled || dataRead.IsCompleted)
+                throw new Http2ConnectionException("Connection aborted while reading preface");
+
+            var buffer = dataRead.Buffer;
+            if (dataRead.Buffer.Length < PrefaceBytes.Length)
+            {
+                _inputRequestReader.AdvanceTo(buffer.Start, buffer.End);
+                continue;
+            }
+
+            if (!ToSpan(buffer.Slice(0, PrefaceBytes.Length)).SequenceEqual(PrefaceBytes))
+                throw new Http2ConnectionException("Request is not HTTP2");
+            _inputRequestReader.AdvanceTo(buffer.GetPosition(PrefaceBytes.Length));
+            return;
         }
-        catch (OperationCanceledException)
-        {
-            throw new Http2ConnectionException("Connection aborted while reading preface");
-        }
-        if (!preface.Span.SequenceEqual(PrefaceBytes))
-            throw new Http2ConnectionException("Request is not HTTP2");
     }
 
     private void OnHeartbeat(object state)

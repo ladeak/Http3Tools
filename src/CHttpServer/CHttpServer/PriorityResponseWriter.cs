@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Channels;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.Extensions.ObjectPool;
 
@@ -130,6 +131,10 @@ internal class PriorityResponseWriter : IResponseWriter
                 await WriteAllLevels(token);
         }
         catch (OperationCanceledException)
+        {
+            // Channel is closed by the connection.
+        }
+        catch (ChannelClosedException)
         {
             // Channel is closed by the connection.
         }

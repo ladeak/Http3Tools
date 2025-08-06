@@ -75,6 +75,10 @@ internal class Http2ResponseWriter : IResponseWriter
         {
             // Channel is closed by the connection.
         }
+        catch (ChannelClosedException)
+        {
+            // Channel is closed by the connection.
+        }
         finally
         {
             ArrayPool<byte>.Shared.Return(_buffer);
