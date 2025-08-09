@@ -2,6 +2,7 @@
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks.Sources;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -43,15 +44,12 @@ internal partial class Http2Stream
         _pathLatinEncoded = [];
 
         _responseHeaders = new HeaderCollection();
-        _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
-        _responseBodyPipeWriter = new(_responseBodyPipe.Writer, flushStartingCallback: size =>
-        {
-            if (!_hasStarted)
-                _ = StartAsync();
-        });
+        _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared, pauseWriterThreshold: 0));
+        _responseBodyPipeWriter = new(_responseBodyPipe.Writer,
+            flushStartingCallback: FlushResponseBodyAsync, pipeCompleted: ApplicationResponseBodyPipeCompleted);
         _cts = new();
         StatusCode = 200;
-        _responseWriterFlushedResponse = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
+        _responseWriterBodyFlushCompleted = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
         _clientFlowControlBarrier = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
         _responseWritingTask = new TaskCompletionSource<ValueTask<bool>>();
 
@@ -114,7 +112,7 @@ internal partial class Http2Stream
         _responseWritingTask = new TaskCompletionSource<ValueTask<bool>>();
 
         _clientFlowControlBarrier.Reset();
-        _responseWriterFlushedResponse.Reset();
+        _responseWriterBodyFlushCompleted.Reset();
         _featureCollection.ResetCheckpoint();
         Priority = Priority9218.Default;
     }
@@ -219,7 +217,7 @@ internal partial class Http2Stream
         _cts.Cancel();
         var cancelledException = new TaskCanceledException();
         _clientFlowControlBarrier.SetException(cancelledException);
-        _responseWriterFlushedResponse.SetException(cancelledException);
+        _responseWriterBodyFlushCompleted.SetException(cancelledException);
         _state = StreamState.Closed;
         IsAborted = true;
     }
@@ -294,26 +292,27 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
     public Priority9218 Priority { get; private set; }
 
     // TestHook
-    internal void CompleteRequest(ReadOnlySequence<byte>? responseBody = null)
+    internal async Task CompleteRequest(ReadOnlyMemory<byte>? responseBody = null)
     {
         _requestBodyPipeReader.Complete();
         _requestBodyPipeWriter.Complete();
         if (responseBody.HasValue)
-            ResponseBodyBuffer = responseBody.Value;
+            await _responseBodyPipeWriter.WriteAsync(responseBody.Value);
     }
 }
 
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
     private readonly Pipe _responseBodyPipe;
-    private readonly Http2StreamPipeWriter _responseBodyPipeWriter;
+    private readonly Http2StreamPipeWriter2 _responseBodyPipeWriter;
     private ManualResetValueTaskSource<bool> _clientFlowControlBarrier;
-    private ManualResetValueTaskSource<bool> _responseWriterFlushedResponse;
+    private ManualResetValueTaskSource<bool> _responseWriterBodyFlushCompleted;
 
     private bool _hasStarted = false;
     private TaskCompletionSource<ValueTask<bool>> _responseWritingTask;
     private readonly HeaderCollection _responseHeaders;
     private HeaderCollection? _responseTrailers;
+    private long _responseBodyBufferLength;
 
     public int StatusCode { get; set; }
     public string? ReasonPhrase { get; set; }
@@ -324,7 +323,11 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public PipeWriter Writer => _responseBodyPipeWriter;
 
-    public ReadOnlySequence<byte> ResponseBodyBuffer { get; private set; }
+    public PipeReader ResponseBodyReader => _responseBodyPipe.Reader;
+
+    public long ResponseBodyBufferLength => _responseBodyBufferLength;
+
+    public void OnResponseBodySegmentFlush(long consumed) => Interlocked.Add(ref _responseBodyBufferLength, -consumed);
 
     public IHeaderDictionary Trailers
     {
@@ -388,11 +391,12 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (Interlocked.CompareExchange(ref _hasStarted, true, false))
+        if (Interlocked.CompareExchange(ref _hasStarted, true, false) || IsAborted)
             return;
         await (_onStartingCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
+        _writer.ScheduleWriteHeaders(this);
         _responseWritingTask.SetResult(WriteResponseAsync(_cts.Token));
     }
 
@@ -402,11 +406,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         if (!writingStarted.IsCompleted)
             await StartAsync();
 
-        var responseWriting = await writingStarted.WaitAsync(_cts.Token);
-
         bool endStreamWritten;
         try
         {
+            var responseWriting = await writingStarted.WaitAsync(_cts.Token);
             endStreamWritten = await responseWriting;
         }
         catch (OperationCanceledException)
@@ -422,10 +425,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     private async ValueTask<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
     {
-        if (cancellationToken.IsCancellationRequested)
-            return false;
-        _writer.ScheduleWriteHeaders(this);
-        await WriteResponseBodyAsync(cancellationToken);
+        // Wait for the response body to be completly written by the response writer.
+        await new ValueTask(_responseWriterBodyFlushCompleted, _responseWriterBodyFlushCompleted.Version);
         if (cancellationToken.IsCancellationRequested)
             return false;
 
@@ -441,43 +442,33 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         return true;
     }
 
-    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
-    private async ValueTask<bool> WriteResponseBodyAsync(CancellationToken token = default)
+    private async ValueTask FlushResponseBodyAsync(uint size, CancellationToken token = default)
     {
-        while (!token.IsCancellationRequested)
+        if (!_hasStarted)
+            await StartAsync();
+
+        while (!IsAborted && !token.IsCancellationRequested && size > 0)
         {
-            var readResult = await _responseBodyPipe.Reader.ReadAsync(token);
-            if (readResult.IsCanceled)
-                return true;
-
-            var buffer = readResult.Buffer;
-            while (!buffer.IsEmpty)
+            // Reserve flow control size for the response body.
+            _clientFlowControlBarrier.Reset();
+            if (!ReserveClientFlowControlSize(size, out var reservedSize)) // Reserve here to block write pipe.
             {
-                // Reserve flow control size for the response body.
-                var size = buffer.Length > uint.MaxValue ? uint.MaxValue : (uint)buffer.Length;
-                _clientFlowControlBarrier.Reset();
-                if (!ReserveClientFlowControlSize(size, out size)) // Reserve here to block write pipe.
-                {
-                    await new ValueTask(_clientFlowControlBarrier, _clientFlowControlBarrier.Version);
-                    continue;
-                }
-
-                ResponseBodyBuffer = buffer.Slice(0, size);
-
-                _responseWriterFlushedResponse.Reset();
-                _writer.ScheduleWriteData(this);
-                if (_responseWriterFlushedResponse.GetStatus() != ValueTaskSourceStatus.Succeeded)
-                    await new ValueTask(_responseWriterFlushedResponse, _responseWriterFlushedResponse.Version);
-                buffer = buffer.Slice(size);
+                await new ValueTask(_clientFlowControlBarrier, _clientFlowControlBarrier.Version)
+                    .AsTask().WaitAsync(token);
+                continue;
             }
-            _responseBodyPipe.Reader.AdvanceTo(readResult.Buffer.End);
-            if (readResult.IsCompleted)
-                return true;
+            Interlocked.Add(ref _responseBodyBufferLength, reservedSize);
+            _writer.ScheduleWriteData(this);
+            size -= reservedSize;
         }
+    }
 
-        // Complete when cancelled or the body is fully written.
-        _responseBodyPipe.Reader.Complete();
-        return true;
+    private void ApplicationResponseBodyPipeCompleted()
+    {
+        if (ResponseBodyBufferLength > 0)
+            _writer.ScheduleWriteData(this);
+        else
+            OnResponseDataFlushed();
     }
 
     /// <summary>
@@ -486,7 +477,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     public void OnResponseDataFlushed()
     {
         // Release semaphore for the next write.
-        _responseWriterFlushedResponse.TrySetResult(true);
+        _responseWriterBodyFlushCompleted.TrySetResult(true);
     }
 
     private bool ReserveClientFlowControlSize(uint requestedSize, out uint reservedSize)
@@ -567,6 +558,59 @@ internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStarti
         _flushStartingCallback?.Invoke(checked((int)_unflushedBytes));
         var result = await _writer.FlushAsync(cancellationToken);
         _flushedCallback?.Invoke(checked((int)_unflushedBytes));
+        if (!result.IsCanceled && !result.IsCompleted)
+            _unflushedBytes = 0;
+        return result;
+    }
+
+    public override Memory<byte> GetMemory(int sizeHint = 0) => _writer.GetMemory(sizeHint);
+
+    public override Span<byte> GetSpan(int sizeHint = 0) => _writer.GetSpan(sizeHint);
+
+    public void Reset()
+    {
+        _unflushedBytes = 0;
+        _completed = false;
+    }
+}
+
+internal class Http2StreamPipeWriter2(PipeWriter writer,
+    Func<uint, CancellationToken, ValueTask> flushStartingCallback,
+    Action pipeCompleted) : PipeWriter
+{
+    private readonly PipeWriter _writer = writer;
+    private readonly Func<uint, CancellationToken, ValueTask> _flushStartingCallback = flushStartingCallback;
+    private readonly Action _pipeCompleted = pipeCompleted;
+    private volatile bool _completed;
+    private long _unflushedBytes;
+
+    public bool IsCompleted => _completed;
+
+    public override void Advance(int bytes)
+    {
+        _writer.Advance(bytes);
+        _unflushedBytes += bytes;
+    }
+
+    public override void CancelPendingFlush() =>
+        _writer.CancelPendingFlush();
+
+    public override bool CanGetUnflushedBytes => true;
+
+    public override long UnflushedBytes => _unflushedBytes;
+
+    public override void Complete(Exception? exception = null)
+    {
+        _writer.Complete(exception);
+        _completed = true;
+        _unflushedBytes = 0;
+        _pipeCompleted();
+    }
+
+    public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _writer.FlushAsync(cancellationToken);
+        await _flushStartingCallback.Invoke(checked((uint)_unflushedBytes), cancellationToken);
         if (!result.IsCanceled && !result.IsCompleted)
             _unflushedBytes = 0;
         return result;
