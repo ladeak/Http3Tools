@@ -183,9 +183,9 @@ internal class PriorityResponseWriter : IResponseWriter
             if (request.OperationName == WriteData)
             {
                 // If writes are preempted, requeue data writes for the stream.
-                var totalWritten = await WriteDataAsync(request.H2Stream, (long)request.Data);
+                var totalWritten = await WriteDataAsync(request.H2Stream);
                 if (totalWritten >= 0)
-                    queueLevels.Enqueue(request with { Data = (ulong)totalWritten });
+                    queueLevels.Enqueue(request);
             }
             else if (request.OperationName == WriteHeaders)
                 await WriteHeadersAsync(request.H2Stream);
@@ -286,25 +286,55 @@ internal class PriorityResponseWriter : IResponseWriter
         return level + 1;
     }
 
-    private async ValueTask<long> WriteDataAsync(Http2Stream stream, long initialStart)
+    private async ValueTask<long> WriteDataAsync(Http2Stream stream)
     {
-        var responseContent = stream.ResponseBodyBuffer.Slice(initialStart);
-        long totalWritten = initialStart;
-        var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
-        var limit = initialStart + PreemptFramesLimit * maxFrameSize;
-        do
+        var availableSize = stream.ResponseBodyBufferLength;
+        if (availableSize == 0)
+            return -1;
+
+        while (stream.ResponseBodyReader.TryRead(out var readResult))
         {
-            var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
-            _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
-            await _frameWriter.FlushAsync();
-            responseContent = responseContent.Slice(currentSize);
-            totalWritten += currentSize;
-        } while (!responseContent.IsEmpty && totalWritten <= limit);
+            if (readResult.IsCanceled)
+                return -1;
 
-        if (!responseContent.IsEmpty)
-            return totalWritten;
+            // Get the writeable chunk of response body
+            availableSize = stream.ResponseBodyBufferLength;
+            availableSize = Math.Min(availableSize, readResult.Buffer.Length);
+            var responseContent = readResult.Buffer.Slice(0, availableSize);
+            if (responseContent.IsEmpty)
+            {
+                if (readResult.IsCompleted)
+                    stream.OnResponseDataFlushed();
+                stream.ResponseBodyReader.AdvanceTo(readResult.Buffer.Start);
+                return -1;
+            }
 
-        stream.OnResponseDataFlushed();
+            long totalWritten = 0;
+            var maxFrameSize = _maxFrameSize; // Capture to avoid changing during data writes.
+            var limit = PreemptFramesLimit * maxFrameSize;
+            do
+            {
+                var currentSize = responseContent.Length > maxFrameSize ? maxFrameSize : responseContent.Length;
+                _frameWriter.WriteData(stream.StreamId, responseContent.Slice(0, currentSize));
+                await _frameWriter.FlushAsync();
+                responseContent = responseContent.Slice(currentSize);
+                totalWritten += currentSize;
+            } while (!responseContent.IsEmpty && totalWritten <= limit);
+
+            stream.ResponseBodyReader.AdvanceTo(readResult.Buffer.GetPosition(totalWritten));
+            stream.OnResponseBodySegmentFlush(totalWritten);
+
+            if (!responseContent.IsEmpty)
+                return totalWritten;
+
+            if (readResult.IsCompleted)
+            {
+                stream.OnResponseDataFlushed();
+                return -1;
+            }
+        }
+
+        // Empty but not completed.
         return -1;
     }
 
