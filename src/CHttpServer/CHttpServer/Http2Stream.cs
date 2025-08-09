@@ -1,9 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks.Sources;
 using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
@@ -39,7 +36,7 @@ internal partial class Http2Stream
         _requestHeaders = new HeaderCollection();
         _requestBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
-        _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl, flushedCallback: null);
+        _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl);
         _isPathSet = false;
         _pathLatinEncoded = [];
 
@@ -264,7 +261,7 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     private Pipe _requestBodyPipe;
     private Http2StreamPipeReader _requestBodyPipeReader;
-    private Http2StreamPipeWriter _requestBodyPipeWriter;
+    private PreFlushHttp2StreamPipeWriter _requestBodyPipeWriter;
     private bool _isPathSet;
     private byte[] _pathLatinEncoded;
 
@@ -304,7 +301,7 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
 {
     private readonly Pipe _responseBodyPipe;
-    private readonly Http2StreamPipeWriter2 _responseBodyPipeWriter;
+    private readonly PostFlushHttp2StreamPipeWriter _responseBodyPipeWriter;
     private ManualResetValueTaskSource<bool> _clientFlowControlBarrier;
     private ManualResetValueTaskSource<bool> _responseWriterBodyFlushCompleted;
 
@@ -523,11 +520,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 }
 
 
-internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStartingCallback = null, Action<int>? flushedCallback = null) : PipeWriter
+internal class PreFlushHttp2StreamPipeWriter(PipeWriter writer, Action<int>? flushStartingCallback = null) : PipeWriter
 {
     private readonly PipeWriter _writer = writer;
     private readonly Action<int>? _flushStartingCallback = flushStartingCallback;
-    private readonly Action<int>? _flushedCallback = flushedCallback;
     private volatile bool _completed;
     private long _unflushedBytes;
 
@@ -557,7 +553,6 @@ internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStarti
     {
         _flushStartingCallback?.Invoke(checked((int)_unflushedBytes));
         var result = await _writer.FlushAsync(cancellationToken);
-        _flushedCallback?.Invoke(checked((int)_unflushedBytes));
         if (!result.IsCanceled && !result.IsCompleted)
             _unflushedBytes = 0;
         return result;
@@ -574,7 +569,7 @@ internal class Http2StreamPipeWriter(PipeWriter writer, Action<int>? flushStarti
     }
 }
 
-internal class Http2StreamPipeWriter2(PipeWriter writer,
+internal class PostFlushHttp2StreamPipeWriter(PipeWriter writer,
     Func<uint, CancellationToken, ValueTask> flushStartingCallback,
     Action pipeCompleted) : PipeWriter
 {
