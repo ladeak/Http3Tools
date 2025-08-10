@@ -415,6 +415,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
                 _writer.ScheduleEndStream(this);
             endStreamWritten = true;
         }
+        catch (OperationCanceledException)
+        {
+            // May happen during shutdown.
+        }
         finally
         {
             if (IsAborted && !endStreamWritten)
