@@ -198,7 +198,6 @@ internal class Http2ResponseWriter : IResponseWriter
         if (flushingBuffer.Length <= currentMaxFrameSize)
         {
             _frameWriter.WriteHeader(h2Stream.StreamId, flushingBuffer, endHeaders: true, endStream: false);
-            await _frameWriter.FlushAsync();
             return;
         }
         else
