@@ -390,7 +390,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     {
         if (Interlocked.CompareExchange(ref _hasStarted, true, false) || IsAborted)
             return;
-        await (_onStartingCallback?.Invoke(_onStartingState!) ?? Task.CompletedTask);
+        if (_onStartingCallback != null)
+            await _onStartingCallback.Invoke(_onStartingState!);
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
         _writer.ScheduleWriteHeaders(this);
@@ -423,6 +424,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private async ValueTask<bool> WriteResponseAsync(CancellationToken cancellationToken = default)
     {
         // Wait for the response body to be completly written by the response writer.
+        // _responseWriterBodyFlushCompleted, gets cancelled, not converting to Task.
         await new ValueTask(_responseWriterBodyFlushCompleted, _responseWriterBodyFlushCompleted.Version);
         if (cancellationToken.IsCancellationRequested)
             return false;
@@ -520,10 +522,10 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 }
 
 
-internal class PreFlushHttp2StreamPipeWriter(PipeWriter writer, Action<int>? flushStartingCallback = null) : PipeWriter
+internal class PreFlushHttp2StreamPipeWriter(PipeWriter writer, Action<int> flushStartingCallback) : PipeWriter
 {
     private readonly PipeWriter _writer = writer;
-    private readonly Action<int>? _flushStartingCallback = flushStartingCallback;
+    private readonly Action<int> _flushStartingCallback = flushStartingCallback;
     private volatile bool _completed;
     private long _unflushedBytes;
 
@@ -551,7 +553,7 @@ internal class PreFlushHttp2StreamPipeWriter(PipeWriter writer, Action<int>? flu
 
     public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
     {
-        _flushStartingCallback?.Invoke(checked((int)_unflushedBytes));
+        _flushStartingCallback.Invoke(checked((int)_unflushedBytes));
         var result = await _writer.FlushAsync(cancellationToken);
         if (!result.IsCanceled && !result.IsCompleted)
             _unflushedBytes = 0;
