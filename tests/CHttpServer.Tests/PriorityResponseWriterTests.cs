@@ -396,6 +396,10 @@ public class PriorityResponseWriterTests
         streamMiddle.Writer.Complete();
         streamLow.Writer.Complete();
 
+        var streamHighComplete = streamHigh.CompleteAsync();
+        var streamMiddleComplete = streamMiddle.CompleteAsync();
+        var streamLowComplete = streamLow.CompleteAsync();
+
         List<Http2Frame> frames = new();
         int endStreamCount = 0;
         while (endStreamCount < 3)
@@ -405,6 +409,9 @@ public class PriorityResponseWriterTests
                 endStreamCount++;
             frames.Add(frame);
         }
+        await streamHighComplete;
+        await streamMiddleComplete;
+        await streamLowComplete;
 
         Assert.Equal(3, frames.Count(x => x.Type == Http2FrameType.HEADERS));
         Assert.Equal(3, frames.Count(x => x.Type == Http2FrameType.DATA && x.EndStream));
