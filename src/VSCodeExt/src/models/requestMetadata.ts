@@ -8,6 +8,7 @@ export enum RequestMetadata {
     NoCertificateValidation = 'no-certificate-validation',
     Timeout = 'timeout',
     KerberosAuth = 'kerberos-auth',
+    SharedSocketHandler = 'shared-sockethandler',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

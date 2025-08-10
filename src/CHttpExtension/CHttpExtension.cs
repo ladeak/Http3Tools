@@ -106,6 +106,7 @@ public static class CHttpExt
         string body,
         int requestCount,
         int clientsCount,
+        bool sharedSocketsHandler,
         Action<string> callback
     )
     {
@@ -117,7 +118,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth,
-                timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, callback);
+                timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, callback);
         }
         finally
         {
@@ -138,6 +139,7 @@ public static class CHttpExt
         string body,
         int requestCount,
         int clientsCount,
+        bool sharedSocketsHandler,
         Action<string> callback
     )
     {
@@ -155,7 +157,7 @@ public static class CHttpExt
         if (!string.IsNullOrWhiteSpace(body))
             requestDetails = requestDetails with { Content = new StringContent(body) };
 
-        var performanceBehavior = new PerformanceBehavior(requestCount, clientsCount, false);
+        var performanceBehavior = new PerformanceBehavior(requestCount, clientsCount, sharedSocketsHandler);
         var console = new StringConsole();
         var cookieContainer = new MemoryCookieContainer();
         ISummaryPrinter printer;

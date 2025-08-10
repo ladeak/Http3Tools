@@ -67,7 +67,7 @@ class RequestController {
                     CHttpModule.CHttpExt.cancel();
                 });
                 const CHttpModule = __webpack_require__(28);
-                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), (data) => progress.report({ message: data }));
+                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), metadatas.has(requestMetadata_1.RequestMetadata.SharedSocketHandler), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
                     return;
@@ -145,6 +145,7 @@ var RequestMetadata;
     RequestMetadata["NoCertificateValidation"] = "no-certificate-validation";
     RequestMetadata["Timeout"] = "timeout";
     RequestMetadata["KerberosAuth"] = "kerberos-auth";
+    RequestMetadata["SharedSocketHandler"] = "shared-sockethandler";
 })(RequestMetadata || (exports.RequestMetadata = RequestMetadata = {}));
 function fromString(value) {
     value = value.toLowerCase();
@@ -2404,7 +2405,7 @@ exports.HttpRequestParser = HttpRequestParser;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "378b8b8279ad3bda64e453584e2e1c0c.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "1d1a3a55f1908bbaf87f041be650853c.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }

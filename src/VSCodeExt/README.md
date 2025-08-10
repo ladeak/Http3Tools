@@ -78,6 +78,7 @@ Use attributes to change the HTTP request behavior. At the time of writing the f
 - no-redirect
 - name
 - kerberos-auth
+- shared-sockethandler
 
 Using named requests:
 

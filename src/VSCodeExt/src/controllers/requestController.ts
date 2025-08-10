@@ -78,6 +78,7 @@ export class RequestController {
                     performanceHttpRequest.content,
                     this.tryParseInt(metadatas.get(RequestMetadata.RequestCount), 100),
                     this.tryParseInt(metadatas.get(RequestMetadata.ClientsCount), 10),
+                    metadatas.has(RequestMetadata.SharedSocketHandler),
                     (data: string) => progress.report({ message: data }));
 
 
