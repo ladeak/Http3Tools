@@ -2,7 +2,7 @@
 
 CHttp is a tool to send HTTP requests. The tool is based on .NET10, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
-## Getting Startedh
+## Getting Started
 
 ### Install as a .NET Tool
 
