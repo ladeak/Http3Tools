@@ -1,6 +1,6 @@
 # CHttpTools
 
-CHttp is a tool to send HTTP requests. The tool is based on .NET8 and .NET9, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
+CHttp is a tool to send HTTP requests. The tool is based on .NET10, for HTTP/3 uses msquic. Linux dotnet tool installations should get libmsquic package.
 
 ## Getting Startedh
 
