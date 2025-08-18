@@ -4,7 +4,7 @@ namespace CHttpServer;
 
 internal sealed class LimitedObjectPool<T> where T : class?
 {
-    private const int Size = 10;
+    private const int Size = 20;
 
     [InlineArray(Size)]
     private struct Storage<T1> where T1 : class?

@@ -25,6 +25,8 @@ public class CHttpServerOptions
 
     public bool UsePriority { get; set; }
 
+    public int ConcurrentStreams { get; set; } = 20;
+
     public X509Certificate2? Certificate { get; set; }
 
     public string? CertificatePath { get; set; }
