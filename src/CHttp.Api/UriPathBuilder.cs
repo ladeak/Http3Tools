@@ -265,7 +265,7 @@ public ref struct UriPathInterpolatedStringHandler
             return true;
 
         var lastSlash = _chars[_pos - 1] == Slash;
-        var firstSlash = value[0] == Slash;
+        var firstSlash = value.Length > 0 && value[0] == Slash;
         if (firstSlash && lastSlash)
             _pos = int.Max(0, _pos - 1);
         else if (!firstSlash && !lastSlash)

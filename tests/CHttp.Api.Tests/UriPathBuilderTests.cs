@@ -77,6 +77,24 @@ public class UriPathBuilderTests
     }
 
     [Fact]
+    public void SlashEmpty()
+    {
+        string segment = "";
+        Assert.Equal($"/a", UriPathBuilder.Create($"{segment}/a"));
+        Assert.Equal($"", UriPathBuilder.Create($"{segment}"));
+        Assert.Equal($"/", UriPathBuilder.Create($"{segment}/"));
+        Assert.Equal($"/a", UriPathBuilder.Create($"/{segment:oridnal}/a"));
+        Assert.Equal($"/&a=", UriPathBuilder.Create($"/{segment:query}&a="));
+
+        int? segmentNumber = null;
+        Assert.Equal($"/a", UriPathBuilder.Create($"{segmentNumber}/a"));
+        Assert.Equal($"", UriPathBuilder.Create($"{segmentNumber}"));
+        Assert.Equal($"/", UriPathBuilder.Create($"{segmentNumber}/"));
+        Assert.Equal($"/a", UriPathBuilder.Create($"/{segmentNumber:oridnal}/a"));
+        Assert.Equal($"/&a=", UriPathBuilder.Create($"/{segmentNumber:query}&a="));
+    }
+
+    [Fact]
     public void DoubleFormat()
     {
         double segment = 1;
