@@ -364,10 +364,10 @@ internal sealed partial class Http2Connection
             throw new Http2ProtocolException();
 
         var streamId = _readFrame.StreamId;
-        if (streamId > 0)
-            _streams[_readFrame.StreamId].UpdateWindowSize(updateSize);
-        else
+        if (streamId == 0)
             UpdateConnectionWindowSize(updateSize);
+        else if (_streams.TryGetValue(_readFrame.StreamId, out var stream))
+            stream.UpdateWindowSize(updateSize);
         return ValueTask.CompletedTask;
     }
 

@@ -651,7 +651,6 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
         if (!result.IsCanceled)
             _lastReadStart = result.Buffer.Start;
         return hasRead;
-
     }
 
     public void Reset()
