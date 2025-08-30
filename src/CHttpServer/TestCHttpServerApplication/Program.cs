@@ -7,7 +7,7 @@ builder.UseCHttpServer();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
-}); 
+});
 var app = builder.Build();
 
 app.MapGet("/", async context =>
@@ -23,6 +23,15 @@ app.MapGet("/direct", async context =>
     var buffer = writer.GetSpan(11);
     "Hello World"u8.CopyTo(buffer);
     writer.Advance(11);
+    await writer.FlushAsync();
+});
+
+app.MapGet("/direct50", async context =>
+{
+    context.Response.StatusCode = 200;
+    var writer = context.Response.BodyWriter;
+    var buffer = writer.GetSpan(50 * 1024);
+    writer.Advance(50 * 1024);
     await writer.FlushAsync();
 });
 

@@ -1,0 +1,35 @@
+#@host = raspberrypi:5001
+@host = localhost:7297
+
+GET https://{{host}}/ HTTP/2
+
+###
+# @clientsCount 10
+# @requestCount 20000
+# @shared-socketHandler true
+GET https://{{host}}/direct HTTP/2
+
+###
+GET https://{{host}}/direct HTTP/2
+
+###
+
+GET https://{{host}}/delay HTTP/2
+
+###
+
+GET https://{{host}}/jsonresponse HTTP/2
+
+###
+
+POST https://{{host}}/jsonrequest HTTP/2
+Content-Type: application/json
+
+{
+    "message": "Hello CHttp!"
+}
+###
+
+# /home/Home/.dotnet/dotnet /home/Home/app/kestrel/TestCHttpServerApplication.dll --urls https://+:5001 --Kestrel:EndpointDefaults:Protocols=Http2 --Kestrel:Certificates:Default:Path=/home/Home/app/certificate.pfx --Kestrel:Certificates:Default:Password=rpi
+
+# /home/Home/.dotnet/dotnet /home/Home/app/chttp/TestCHttpServerApplication.dll --urls https://0.0.0.0:5001 --CHttpServer:CertificatePath=/home/Home/app/certificate.pfx --CHttpServer:CertificatePassword=rpi
