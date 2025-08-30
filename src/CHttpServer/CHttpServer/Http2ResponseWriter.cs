@@ -54,7 +54,7 @@ internal class Http2ResponseWriter : IResponseWriter
                         await WritePingAckAsync(priorityRequest.Data);
                 }
 
-                ValueTask writeTask = ValueTask.CompletedTask;
+                Task writeTask = Task.CompletedTask;
                 if (request.OperationName == WriteData)
                     writeTask = WriteDataAsync(request);
                 else if (request.OperationName == WriteHeaders)
@@ -120,7 +120,7 @@ internal class Http2ResponseWriter : IResponseWriter
         _priorityChannel.Writer.TryComplete();
     }
 
-    private async ValueTask WriteDataAsync(StreamWriteRequest writeRequest)
+    private async Task WriteDataAsync(StreamWriteRequest writeRequest)
     {
         var h2Stream = writeRequest.H2Stream;
         var availableSize = h2Stream.ResponseBodyBufferLength;
@@ -163,14 +163,14 @@ internal class Http2ResponseWriter : IResponseWriter
         }
     }
 
-    private async ValueTask WriteEndStreamAsync(Http2Stream h2Stream)
+    private async Task WriteEndStreamAsync(Http2Stream h2Stream)
     {
         _frameWriter.WriteEndStream(h2Stream.StreamId);
         await _frameWriter.FlushAsync();
         await h2Stream.OnStreamCompletedAsync();
     }
 
-    private async ValueTask WriteHeadersAsync(Http2Stream h2Stream)
+    private async Task WriteHeadersAsync(Http2Stream h2Stream)
     {
         var currentMaxFrameSize = _maxFrameSize;
         var encodingBuffer = _buffer.AsSpan(0, currentMaxFrameSize);
@@ -238,7 +238,7 @@ internal class Http2ResponseWriter : IResponseWriter
         await _frameWriter.FlushAsync();
     }
 
-    private async ValueTask WriteTrailersAsync(Http2Stream h2Stream)
+    private async Task WriteTrailersAsync(Http2Stream h2Stream)
     {
         var buffer = _buffer.AsSpan(0, _maxFrameSize);
         int totalLength = 0;
@@ -258,15 +258,15 @@ internal class Http2ResponseWriter : IResponseWriter
         await h2Stream.OnStreamCompletedAsync();
     }
 
-    private async ValueTask WriteWindowUpdateAsync(Http2Stream h2Stream, ulong data)
+    private Task WriteWindowUpdateAsync(Http2Stream h2Stream, ulong data)
     {
         var size = (uint)data;
         _frameWriter.WriteWindowUpdate(h2Stream.StreamId, size);
         _frameWriter.WriteWindowUpdate(0, size);
-        await _frameWriter.FlushAsync();
+        return _frameWriter.FlushAsync().AsTask();
     }
 
-    private async ValueTask WriteRstStreamAsync(Http2Stream h2Stream, ulong data)
+    private async Task WriteRstStreamAsync(Http2Stream h2Stream, ulong data)
     {
         _frameWriter.WriteRstStream(h2Stream.StreamId, (Http2ErrorCode)data);
         await _frameWriter.FlushAsync();

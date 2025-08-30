@@ -2,7 +2,6 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Pipelines;
 using System.Security.Authentication;
 using System.Text;
@@ -51,7 +50,8 @@ internal sealed partial class Http2Connection
     {
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);
-        _streams = [];
+        var concurrentStreamsCount = connectionContext.ServerOptions.ConcurrentStreams;
+        _streams = new ConcurrentDictionary<uint, Http2Stream>(concurrentStreamsCount, concurrentStreamsCount);
         _h2Settings = new();
         _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize) + MaxFrameHeaderLength);
