@@ -38,13 +38,13 @@ public class Http2StreamTests
         var header = await ReadFrameHeaderAsync(memoryStream);
         Assert.Equal(Http2FrameType.HEADERS, header.Type);
         Assert.True(header.EndHeaders);
-        Assert.Equal(1L, header.PayloadLength);
-        var buffer = new byte[1];
+        Assert.Equal(9L, header.PayloadLength);
+        var buffer = new byte[header.PayloadLength];
         memoryStream.ReadExactly(buffer);
         var decoder = new HPackDecoder();
         var headerHandler = new TestHttpStreamHeadersHandler();
         decoder.Decode(buffer.AsSpan(), true, headerHandler);
-        Assert.Equal("204", headerHandler.Headers[":status"]);
+        Assert.Equal("200", headerHandler.Headers[":status"]);
 
         header = await ReadFrameHeaderAsync(memoryStream);
         Assert.Equal(Http2FrameType.DATA, header.Type);

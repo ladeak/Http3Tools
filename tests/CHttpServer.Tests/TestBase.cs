@@ -173,7 +173,7 @@ internal class TestBase
             return _requestPipe.FlushAsync();
         }
 
-        internal async ValueTask SendHeadersAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
+        internal async ValueTask SendHeadersAsync(RequestHeaderCollection headers, bool endHeaders = true, bool endStream = false)
         {
             int totalLength = 0;
             var buffer = new byte[MaxFrameSize];
@@ -217,7 +217,7 @@ internal class TestBase
             await _frameWriter.FlushAsync();
         }
 
-        internal async ValueTask SendContinuationAsync(HeaderCollection headers, bool endHeaders = true, bool endStream = false)
+        internal async ValueTask SendContinuationAsync(RequestHeaderCollection headers, bool endHeaders = true, bool endStream = false)
         {
             int totalLength = 0;
             var buffer = new byte[MaxFrameSize];

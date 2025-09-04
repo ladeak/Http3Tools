@@ -513,7 +513,7 @@ internal sealed class HPackDecoder
 
             if (_index)
             {
-                _dynamicTable.Insert(_headerStaticIndex, H2StaticTable.Get(_headerStaticIndex - 1).Name, headerValueSpan);
+                _dynamicTable.Insert(_headerStaticIndex, H2StaticTable.Get(_headerStaticIndex).Name, headerValueSpan);
             }
         }
         else

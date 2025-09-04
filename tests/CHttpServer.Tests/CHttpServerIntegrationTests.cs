@@ -77,6 +77,7 @@ public abstract class CHttpServerIntegrationTests
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("\"some content\"", content);
+        Assert.Equal("CHttp", response.Headers.Server.ToString());
     }
 
     [Fact]

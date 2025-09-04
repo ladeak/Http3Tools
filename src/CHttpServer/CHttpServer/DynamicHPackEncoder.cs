@@ -1136,6 +1136,7 @@ internal static class H2StaticTable
 
     private static readonly HeaderField[] _staticDecoderTable =
     [
+            CreateHeaderField(0, "Invalid", ""),
             CreateHeaderField(1, ":authority", ""),
             CreateHeaderField(2, ":method", "GET"),
             CreateHeaderField(3, ":method", "POST"),

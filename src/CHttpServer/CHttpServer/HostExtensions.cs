@@ -33,6 +33,19 @@ public class CHttpServerOptions
 
     public string? CertificatePassword { get; set; }
 
+    public bool UseHttp3
+    {
+        get;
+        set
+        {
+            field = value;
+            if (value)
+                AltService = "h3=\":443\"";
+        }
+    }
+
+    internal string? AltService { get; set; }
+
     internal X509Certificate2? GetCertificate()
     {
         if (Certificate != null)

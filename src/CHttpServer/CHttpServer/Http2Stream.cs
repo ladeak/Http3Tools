@@ -21,6 +21,7 @@ internal partial class Http2Stream
     private readonly Http2Connection _connection;
     private readonly IResponseWriter _writer;
     private readonly bool _usePriority;
+    private readonly string? _altservice;
     private FeatureCollection _featureCollection;
     private FlowControlSize _serverWindowSize; // Controls Data received
     private FlowControlSize _clientWindowSize; // Controls Data sent
@@ -33,14 +34,14 @@ internal partial class Http2Stream
         _writer = connection.ResponseWriter!;
         _state = StreamState.Closed;
         RequestEndHeaders = false;
-        _requestHeaders = new HeaderCollection();
+        _requestHeaders = new RequestHeaderCollection();
         _requestBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared));
         _requestBodyPipeReader = new(_requestBodyPipe.Reader, ReleaseServerFlowControl);
         _requestBodyPipeWriter = new(_requestBodyPipe.Writer, flushStartingCallback: ConsumeServerFlowControl);
         _isPathSet = false;
         _pathLatinEncoded = [];
 
-        _responseHeaders = new HeaderCollection();
+        _responseHeaders = new ResponseHeaderCollection();
         _responseBodyPipe = new(new PipeOptions(MemoryPool<byte>.Shared, pauseWriterThreshold: 0));
         _responseBodyPipeWriter = new(_responseBodyPipe.Writer,
             flushStartingCallback: FlushResponseBodyAsync, pipeCompleted: ApplicationResponseBodyPipeCompleted);
@@ -60,6 +61,7 @@ internal partial class Http2Stream
         _featureCollection.Checkpoint();
 
         _usePriority = _connection.ServerOptions.UsePriority;
+        _altservice = _connection.ServerOptions.AltService;
         Priority = Priority9218.Default;
     }
 
@@ -255,7 +257,7 @@ internal partial class Http2Stream
 
 internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetectionFeature, IHttpRequestLifetimeFeature, IPriority9218Feature
 {
-    private HeaderCollection _requestHeaders;
+    private RequestHeaderCollection _requestHeaders;
 
     private Pipe _requestBodyPipe;
     private Http2StreamPipeReader _requestBodyPipeReader;
@@ -282,7 +284,7 @@ internal partial class Http2Stream : IHttpRequestFeature, IHttpRequestBodyDetect
 
     public CancellationToken RequestAborted { get => _cts.Token; set => throw new NotSupportedException(); }
 
-    public HeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
+    public RequestHeaderCollection RequestHeaders { get => _requestHeaders; set => throw new NotSupportedException(); }
 
     public Priority9218 Priority { get; private set; }
 
@@ -304,8 +306,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
     private ManualResetValueTaskSource<bool> _responseWriterBodyFlushCompleted;
 
     private bool _hasStarted = false;
-    private readonly HeaderCollection _responseHeaders;
-    private HeaderCollection? _responseTrailers;
+    private readonly ResponseHeaderCollection _responseHeaders;
+    private RequestHeaderCollection? _responseTrailers;
     private long _responseBodyBufferLength;
 
     public int StatusCode { get; set; }
@@ -339,7 +341,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
         set => throw new NotSupportedException();
     }
 
-    public HeaderCollection ResponseHeaders => _responseHeaders;
+    public ResponseHeaderCollection ResponseHeaders => _responseHeaders;
 
     public void DisableBuffering()
     {
@@ -389,6 +391,8 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             return;
         if (_onStartingCallback != null)
             await _onStartingCallback.Invoke(_onStartingState!);
+        if(_altservice != null)
+            _responseHeaders.AltSvc = _altservice;
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());
         _writer.ScheduleWriteHeaders(this);

@@ -136,7 +136,8 @@ public class Http2ConnectionTests
 
         // Assert response
         var (frame, headers) = await AssertResponseHeaders(pipe);
-        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
+        Assert.True(headers.TryGetValue("server", out var server) && server == "CHttp");
         Assert.True(frame.EndHeaders);
         await AssertEmptyEndStream(pipe);
 
@@ -222,7 +223,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], true);
 
         var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -255,7 +256,7 @@ public class Http2ConnectionTests
             await client.SendContinuationAsync([new($"{headerName}-{i}", headerValue)], endHeaders: i == 9, endStream: i == 9);
 
         var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -284,7 +285,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
 
         var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -313,7 +314,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
 
         var (frame, responseHeaders) = await AssertResponseHeaders(pipe);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -394,7 +395,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([], endHeaders: true, endStream: true);
 
         var (frame, responseHeaders) = await AssertResponseHeadersAndContinuations(pipe, 100_000);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         Assert.True(responseHeaders.TryGetValue(headerName, out var responseValue) && responseValue == headerValue);
         await AssertEmptyEndStream(pipe);
 
@@ -424,7 +425,7 @@ public class Http2ConnectionTests
         await client.SendHeadersAsync([new(headerName, headerValue)], endHeaders: true, endStream: true);
 
         var (frame, responseHeaders) = await AssertResponseHeadersAndContinuations(pipe, 100_014);
-        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(responseHeaders.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         Assert.True(responseHeaders.TryGetValue(headerName, out _));
         await AssertEmptyEndStream(pipe);
 
@@ -474,13 +475,13 @@ public class Http2ConnectionTests
         await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: true);
         await AssertWindowUpdateFrameAsync(pipe);
 
-        var requestHeaders = new HeaderCollection();
+        var requestHeaders = new RequestHeaderCollection();
         requestHeaders.Add("priority", "u=2, i");
         await client.SendHeadersAsync(requestHeaders);
 
         // Assert response
         var (frame, headers) = await AssertResponseHeaders(pipe);
-        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         Assert.False(headers.TryGetValue("priority", out var responsePriority)); // No change
         Assert.True(frame.EndHeaders);
         await AssertEmptyEndStream(pipe);
@@ -520,13 +521,13 @@ public class Http2ConnectionTests
         await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: true);
         await AssertWindowUpdateFrameAsync(pipe);
 
-        var requestHeaders = new HeaderCollection();
+        var requestHeaders = new RequestHeaderCollection();
         requestHeaders.Add("priority", header);
         await client.SendHeadersAsync(requestHeaders);
 
         // Assert response
         var (frame, headers) = await AssertResponseHeaders(pipe);
-        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.NoContent).ToString());
+        Assert.True(headers.TryGetValue(":status", out var status) && status == ((int)HttpStatusCode.OK).ToString());
         await AssertEmptyEndStream(pipe);
 
         // Shutdown connection
@@ -695,6 +696,31 @@ public class Http2ConnectionTests
 
         pipe.Response.Close(); // Closing the stream
         await pipe.RequestWriter.CompleteAsync(); // Closing the stream
+        await connectionProcessing;
+    }
+
+    [Fact]
+    public async Task UseHttp3_ReturnsAltSvcHeader()
+    {
+        bool withPriority = false;
+        var (pipe, connection) = CreateConnnection(new() { UseHttp3 = true });
+        var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
+        {
+            return Task.CompletedTask;
+        });
+        await AssertSettingsFrameAsync(pipe, withNoRfc7540Priorities: withPriority);
+        await AssertWindowUpdateFrameAsync(pipe);
+        await client.SendHeadersAsync([]);
+
+        // Assert response
+        var (frame, headers) = await AssertResponseHeaders(pipe);
+        Assert.True(headers.TryGetValue("alt-svc", out var altSvc) && altSvc == "h3=\":443\"");
+        Assert.True(frame.EndHeaders);
+        await AssertEmptyEndStream(pipe);
+
+        // Shutdown connection
+        await client.ShutdownConnectionAsync();
+        await AssertGoAwayAsync(pipe, 1, Http2ErrorCode.NO_ERROR);
         await connectionProcessing;
     }
 
