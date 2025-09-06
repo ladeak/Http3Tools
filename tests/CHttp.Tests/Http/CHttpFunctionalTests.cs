@@ -21,7 +21,7 @@ public class CHttpFunctionalTests
         var console = new TestConsolePerWrite(filterDate: DateReplacement);
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains($"Status: OK Version: 3.0 Encoding: utf-8{Environment.NewLine}Date:{DateReplacement}{Environment.NewLine}Server:Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
@@ -35,7 +35,7 @@ public class CHttpFunctionalTests
         var console = new TestConsolePerWrite(filterDate: DateReplacement);
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:{DateReplacement}{Environment.NewLine}Server:Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
@@ -55,7 +55,7 @@ public class CHttpFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(writer)
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2")
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
@@ -74,7 +74,7 @@ public class CHttpFunctionalTests
         var console = new TestConsoleAsOuput();
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("a;b", console.Text);
@@ -92,7 +92,7 @@ public class CHttpFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(writer)
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 -v 2")
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains($"Content-Type:application/json", console.Text);
@@ -106,7 +106,7 @@ public class CHttpFunctionalTests
         var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("100%       4 B", console.Text);
@@ -123,7 +123,7 @@ public class CHttpFunctionalTests
         var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new StreamBufferedProcessor(output), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse("--method GET --no-certificate-validation --uri https://localhost:5011").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Equal(response, Encoding.UTF8.GetString(output.ToArray()));
@@ -146,7 +146,7 @@ public class CHttpFunctionalTests
         var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new StreamBufferedProcessor(output), console);
 
-        var client = await CommandFactory.CreateRootCommand(writer).Parse($"--method GET --no-certificate-validation --uri https://localhost:5011 --header=myheader:{headerValue}").InvokeAsync(TestContext.Current.CancellationToken);
+        var client = await CommandFactory.CreateRootCommand(writer).Parse($"--method GET --no-certificate-validation --uri https://localhost:5011 --header=myheader:{headerValue}").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Equal("test", Encoding.UTF8.GetString(output.ToArray()));
@@ -170,10 +170,10 @@ public class CHttpFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json")
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
-            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json").InvokeAsync(TestContext.Current.CancellationToken);
+            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         Assert.True(cookieAttached);
         Assert.True(MemoryFileSystem.Exists(Path.Join(Environment.CurrentDirectory, "cookies.json")));
@@ -196,10 +196,10 @@ public class CHttpFunctionalTests
         var memoryFileSystem = new MemoryFileSystem();
 
         var client = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
-            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2").InvokeAsync(TestContext.Current.CancellationToken);
+            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
-            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2").InvokeAsync(TestContext.Current.CancellationToken);
+            .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         Assert.False(cookieAttached);
     }
@@ -228,7 +228,7 @@ public class CHttpFunctionalTests
         string largeValue = new string('1', 2000);
         var client = CommandFactory.CreateRootCommand(writer)
             .Parse($$"""--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --body {""test"":""{{largeValue}}""} --upload-throttle 1""")
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         // In 16 ms data is still being sent.
         await Task.Delay(TimeSpan.FromMilliseconds(16), TestContext.Current.CancellationToken);
@@ -259,7 +259,7 @@ public class CHttpFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(writer)
             .Parse("--method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --header=\"Content-Type:application/x-www-form-urlencoded\" --body \"name=Alice&title=Software%20Engineer\"")
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.True(valuesSet);
@@ -286,7 +286,7 @@ public class CHttpFunctionalTests
         var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
         var client = await CommandFactory.CreateRootCommand(writer, fileSystem: fileSystem)
             .Parse($"""--method POST --no-certificate-validation --uri https://localhost:5011/ -v 2 --body {fileName} --header="Content-Type:application/json;charset=utf-8" """)
-            .InvokeAsync(TestContext.Current.CancellationToken);
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken); ; ;
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("Status: NoContent", console.Text);

@@ -23,7 +23,7 @@ public class CHttpDiffFunctionalTests
         await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem).Parse($"diff --files session0.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("| Mean:            1.000 s    |", console.Text);
@@ -60,7 +60,7 @@ public class CHttpDiffFunctionalTests
         var fileSystem = new MemoryFileSystem();
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem).Parse($"diff")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Empty(console.Text);
@@ -83,7 +83,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session0.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("| Mean:            1.000 s             0 ns   |", console.Text);
@@ -123,7 +123,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains($"RequestCount: 1, Clients: 1", console.Text);
@@ -164,7 +164,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("*Warning: session files contain different urls: url,different_url", console.Text);
@@ -198,7 +198,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("*Warning: session files use different test parameters: PerformanceBehavior { RequestCount = 1, ClientsCount = 1, SharedSocketsHandler = False } and PerformanceBehavior { RequestCount = 2, ClientsCount = 1, SharedSocketsHandler = False }", console.Text);
@@ -235,7 +235,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse("diff --files session0.json --files session1.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains($"RequestCount: 2, Clients: 1", console.Text);
@@ -273,7 +273,7 @@ public class CHttpDiffFunctionalTests
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
             .Parse($"diff --files session0.json --files session1.json")
-            .InvokeAsync(TestContext.Current.CancellationToken)
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains("     9.900 ms ##", console.Text);
