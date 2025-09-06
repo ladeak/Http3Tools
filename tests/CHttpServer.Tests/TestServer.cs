@@ -11,7 +11,7 @@ public class TestServer : IAsyncDisposable, IDisposable
 {
     private WebApplication? _app;
 
-    public Task RunAsync(int port = 7222, bool usePriority = false)
+    public Task RunAsync(int port = 7222, bool usePriority = false, bool useHttp3 = false)
     {
         if (_app != null)
             return Task.CompletedTask;
@@ -21,6 +21,7 @@ public class TestServer : IAsyncDisposable, IDisposable
             o.Port = port;
             o.Certificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword");
             o.UsePriority = usePriority;
+            o.UseHttp3 = useHttp3;
         });
 
         // Use Kestrel:

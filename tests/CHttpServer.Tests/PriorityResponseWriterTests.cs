@@ -1,8 +1,4 @@
-﻿using System.Buffers;
-using System.Diagnostics;
-using System.IO;
-using Xunit.Sdk;
-using static CHttpServer.Tests.TestBase;
+﻿using static CHttpServer.Tests.TestBase;
 
 namespace CHttpServer.Tests;
 
@@ -571,7 +567,7 @@ public class PriorityResponseWriterTests
         await writerTask;
     }
 
-    private static Http2Stream CreateStream(CHttpConnectionContext ctx,
+    private static Http2Stream CreateStream(CHttp2ConnectionContext ctx,
         int id, Http2Connection? connection = null, Priority9218 priority = default)
     {
         connection ??= new Http2Connection(ctx);
@@ -581,10 +577,10 @@ public class PriorityResponseWriterTests
         return stream;
     }
 
-    private static (TestDuplexPipe Pipe, CHttpConnectionContext Context, PriorityResponseWriter Writer) CreateResponseWriter()
+    private static (TestDuplexPipe Pipe, CHttp2ConnectionContext Context, PriorityResponseWriter Writer) CreateResponseWriter()
     {
         var pipe = new TestDuplexPipe();
-        var context = new CHttpConnectionContext()
+        var context = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             ServerOptions = new CHttpServerOptions() { UsePriority = true },

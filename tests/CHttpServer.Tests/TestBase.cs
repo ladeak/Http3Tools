@@ -18,7 +18,7 @@ internal class TestBase
         var features = new FeatureCollection();
         features.Add<ITlsHandshakeFeature>(new TestTls());
         var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,

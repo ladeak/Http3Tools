@@ -13,7 +13,7 @@ public class Http2StreamTests
         var taskCompletionSource = new TaskCompletionSource();
         var cts = new CancellationTokenSource();
         using var memoryStream = new MemoryStream();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,

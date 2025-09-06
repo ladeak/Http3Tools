@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using System.Net.Quic;
+using System.Runtime.Versioning;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
@@ -36,8 +38,13 @@ public class CHttpServerOptions
     public bool UseHttp3
     {
         get;
+        [SupportedOSPlatform("windows")]
+        [SupportedOSPlatform("linux")]
+        [SupportedOSPlatform("macos")]
         set
         {
+            if (!QuicConnection.IsSupported || !QuicListener.IsSupported)
+                throw new PlatformNotSupportedException("HTTP/3 is not supported on this platform.");
             field = value;
             if (value)
                 AltService = "h3=\":443\"";

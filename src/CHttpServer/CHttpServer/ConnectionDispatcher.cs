@@ -11,7 +11,7 @@ internal sealed class ConnectionDispatcher<TContext> where TContext : notnull
         _application = application;
     }
 
-    public Task OnConnectionAsync(CHttpConnectionContext connectionContext)
+    public Task OnConnectionAsync(CHttp2ConnectionContext connectionContext)
     {
         var connection = new Http2Connection(connectionContext);
         return connection.ProcessRequestAsync(_application);

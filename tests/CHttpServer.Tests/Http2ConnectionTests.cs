@@ -18,7 +18,7 @@ public class Http2ConnectionTests
         var features = new FeatureCollection();
         features.Add<ITlsHandshakeFeature>(new TestTls());
         var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,
@@ -48,7 +48,7 @@ public class Http2ConnectionTests
         var features = new FeatureCollection();
         features.Add<ITlsHandshakeFeature>(new TestTls());
         var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,
@@ -76,7 +76,7 @@ public class Http2ConnectionTests
         var features = new FeatureCollection();
         features.Add<ITlsHandshakeFeature>(new TestTls());
         var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,
@@ -102,7 +102,7 @@ public class Http2ConnectionTests
         var heartbeater = new TestHeartbeat();
         features.Add<IConnectionHeartbeatFeature>(heartbeater);
         var pipe = new TestDuplexPipe();
-        var connectionContext = new CHttpConnectionContext()
+        var connectionContext = new CHttp2ConnectionContext()
         {
             ConnectionId = 1,
             Features = features,

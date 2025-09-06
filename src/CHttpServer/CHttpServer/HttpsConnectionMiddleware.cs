@@ -13,7 +13,7 @@ namespace CHttpServer;
 
 internal sealed class HttpsConnectionMiddleware
 {
-    private readonly Func<CHttpConnectionContext, Task> _next;
+    private readonly Func<CHttp2ConnectionContext, Task> _next;
     private readonly TimeSpan _handshakeTimeout;
     private readonly HttpsConnectionAdapterOptions _options;
     private readonly Func<Stream, SslStream> _sslStreamFactory;
@@ -21,7 +21,7 @@ internal sealed class HttpsConnectionMiddleware
     private readonly SslStreamCertificateContext? _serverCertificateContext;
     private readonly X509Certificate2? _serverCertificate;
 
-    public HttpsConnectionMiddleware(Func<CHttpConnectionContext, Task> next, HttpsConnectionAdapterOptions options)
+    public HttpsConnectionMiddleware(Func<CHttp2ConnectionContext, Task> next, HttpsConnectionAdapterOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -45,7 +45,7 @@ internal sealed class HttpsConnectionMiddleware
         _sslStreamFactory = s => new SslStream(s, leaveInnerStreamOpen: false, userCertificateValidationCallback: remoteCertificateValidationCallback);
     }
 
-    public async Task OnConnectionAsync(CHttpConnectionContext context)
+    public async Task OnConnectionAsync(CHttp2ConnectionContext context)
     {
         if (context.Features.Get<ITlsConnectionFeature>() != null)
         {
@@ -154,7 +154,7 @@ internal sealed class HttpsConnectionMiddleware
         return true;
     }
 
-    private Task DoOptionsBasedHandshakeAsync(CHttpConnectionContext context, SslStream sslStream, CancellationToken cancellationToken)
+    private Task DoOptionsBasedHandshakeAsync(CHttp2ConnectionContext context, SslStream sslStream, CancellationToken cancellationToken)
     {
         var sslOptions = new SslServerAuthenticationOptions
         {

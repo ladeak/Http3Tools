@@ -11,7 +11,7 @@ internal sealed class FrameWriter
     private readonly Http2Frame _frame;
     private readonly PipeWriter _destination;
 
-    public FrameWriter(CHttpConnectionContext context) : this(context.TransportPipe!.Output)
+    public FrameWriter(CHttp2ConnectionContext context) : this(context.TransportPipe!.Output)
     {
     }
 

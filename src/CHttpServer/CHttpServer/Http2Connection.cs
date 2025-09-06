@@ -28,7 +28,7 @@ internal sealed partial class Http2Connection
 
     private static ReadOnlySpan<byte> PrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
 
-    private readonly CHttpConnectionContext _context;
+    private readonly CHttp2ConnectionContext _context;
     private readonly PipeReader _inputRequestReader;
     private uint _streamIdIndex;
     private readonly HPackDecoder _hpackDecoder;
@@ -46,7 +46,7 @@ internal sealed partial class Http2Connection
     private FlowControlSize _serverWindow;
     private FlowControlSize _clientWindow;
 
-    public Http2Connection(CHttpConnectionContext connectionContext)
+    public Http2Connection(CHttp2ConnectionContext connectionContext)
     {
         _context = connectionContext;
         connectionContext.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(OnHeartbeat, this);

@@ -1,35 +1,44 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using System.Net.Quic;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer;
 
-internal class CHttpConnectionContext
+internal abstract class CHttpConnectionContext
 {
     internal required FeatureCollection Features { get; init; }
-
-    internal Stream? Transport { get; set; }
-
-    internal IDuplexPipe? TransportPipe { get; set; }
 
     internal required long ConnectionId { get; init; }
 
     internal required CHttpServerOptions ServerOptions { get; set; }
 }
 
-internal class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
+internal class CHttp2ConnectionContext : CHttpConnectionContext
+{
+    internal Stream? Transport { get; set; }
+
+    internal IDuplexPipe? TransportPipe { get; set; }
+}
+
+internal class CHttp3ConnectionContext : CHttpConnectionContext
+{
+    internal QuicConnection? Transport { get; set; }
+}
+
+internal abstract class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
 {
     private readonly CHttpConnectionContext _connectionContext;
     private readonly ConnectionsManager _connectionsManager;
-    private readonly Func<CHttpConnectionContext, Task> _connectionDelegate;
     private readonly ConcurrentBag<(Action<object> Action, object State)> _heartbeatHandlers;
     private readonly CancellationTokenSource _connectionClosingCts;
 
-    public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttpConnectionContext, Task> connectionDelegate)
+    public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager)
     {
         _connectionContext = connectionContext;
         _connectionsManager = connectionsManager;
-        _connectionDelegate = connectionDelegate;
         _heartbeatHandlers = new();
         _connectionClosingCts = new();
         _connectionContext.Features.Set<IConnectionHeartbeatFeature>(this);
@@ -56,7 +65,7 @@ internal class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnect
         _ = ExecuteAsync();
     }
 
-    public Task ExecuteAsync() => _connectionDelegate(_connectionContext);
+    public abstract Task ExecuteAsync();
 
     public void Heartbeat()
     {
@@ -75,9 +84,34 @@ internal class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnect
     }
 }
 
-internal sealed class CHttpConnection<TContext> : CHttpConnection
+internal sealed class CHttp2Connection<TContext> : CHttpConnection where TContext : notnull
 {
-    public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttpConnectionContext, Task> connectionDelegate) : base(connectionContext, connectionsManager, connectionDelegate)
+    private readonly CHttp2ConnectionContext _connectionContext;
+    private readonly Func<CHttp2ConnectionContext, Task> _connectionDelegate;
+
+    public CHttp2Connection(CHttp2ConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttp2ConnectionContext, Task> connectionDelegate) : base(connectionContext, connectionsManager)
     {
+        _connectionContext = connectionContext;
+        _connectionDelegate = connectionDelegate;
+    }
+
+    public override Task ExecuteAsync() => _connectionDelegate(_connectionContext);
+}
+
+internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContext : notnull
+{
+    private readonly CHttp3ConnectionContext _connectionContext;
+    private readonly IHttpApplication<TContext> _application;
+
+    public CHttp3Connection(CHttp3ConnectionContext connectionContext, ConnectionsManager connectionsManager, IHttpApplication<TContext> application) : base(connectionContext, connectionsManager)
+    {
+        _connectionContext = connectionContext;
+        _application = application;
+    }
+
+    public override Task ExecuteAsync()
+    {
+        var connection = new Http3Connection(_connectionContext);
+        return connection.ProcessRequestAsync(_application);
     }
 }
