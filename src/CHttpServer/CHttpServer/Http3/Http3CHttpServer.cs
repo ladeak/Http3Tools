@@ -6,7 +6,7 @@ using System.Security.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.Extensions.Options;
 
-namespace CHttpServer;
+namespace CHttpServer.Http3;
 
 public class Http3CHttpServer
 {

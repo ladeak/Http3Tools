@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Net.Quic;
+using CHttpServer.Http3;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -112,6 +113,6 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
     public override Task ExecuteAsync()
     {
         var connection = new Http3Connection(_connectionContext);
-        return connection.ProcessRequestAsync(_application);
+        return connection.ProcessConnectionAsync(_application);
     }
 }

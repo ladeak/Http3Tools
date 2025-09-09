@@ -10,7 +10,7 @@ GET https://{{host}}/ HTTP/2
 GET https://{{host}}/direct HTTP/2
 
 ###
-GET https://{{host}}/direct HTTP/2
+GET https://{{host}}/direct HTTP/3
 
 ###
 

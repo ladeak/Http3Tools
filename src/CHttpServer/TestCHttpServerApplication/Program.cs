@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 using CHttpServer;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.UseCHttpServer();
+builder.UseCHttpServer(o => o.UseHttp3 = true);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

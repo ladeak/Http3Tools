@@ -19,9 +19,5 @@
   <ItemGroup>
     <InternalsVisibleTo Include="CHttpServer.Tests" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Http3\" />
-  </ItemGroup>
   
 </Project>

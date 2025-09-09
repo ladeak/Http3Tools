@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace CHttpServer.Tests;
+namespace CHttpServer.Tests.Http3;
 
 public class Http3IntegrationTests : IClassFixture<TestServer>
 {
@@ -23,7 +23,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         return new HttpClient(handler);
     }
 
-    //[Fact]
+    [Fact(Skip = "Under development")]
     public async Task Get_NoContent()
     {
         var client = CreateClient();
