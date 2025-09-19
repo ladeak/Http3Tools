@@ -126,50 +126,6 @@ internal static class VariablePreprocessor
         return false;
     }
 
-    private static bool ParseBodySimplified(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
-    {
-        // VSCE does not require $.
-        if (jsonPath.StartsWith(".$"))
-            jsonPath = jsonPath.Slice(2);
-
-        responseCtx.Content.Seek(0, SeekOrigin.Begin);
-        var jsonDoc = JsonDocument.Parse(responseCtx.Content);
-        var currentElement = jsonDoc.RootElement;
-        while (jsonPath.Length > 0)
-        {
-            var segment = jsonPath;
-            var separatorIndex = jsonPath.Slice(1).IndexOfAny(".[");
-            if (separatorIndex == -1)
-            {
-                segment = jsonPath;
-                jsonPath = ReadOnlySpan<char>.Empty;
-            }
-            else
-            {
-                segment = jsonPath[..(separatorIndex + 1)];
-                jsonPath = jsonPath.Slice(separatorIndex + 1);
-            }
-
-            if (currentElement.ValueKind == JsonValueKind.Object && currentElement.TryGetProperty(segment[1..], out var element))
-            {
-                currentElement = element;
-            }
-            else if (currentElement.ValueKind == JsonValueKind.Array
-                && segment.Length > 2 && segment.StartsWith("[") && segment.EndsWith("]")
-                && int.TryParse(segment[1..^1].Trim(), out var arrayIndex)
-                && currentElement.GetArrayLength() > arrayIndex)
-            {
-                currentElement = currentElement.EnumerateArray().ElementAt(arrayIndex);
-            }
-            else
-            {
-                return false;
-            }
-        }
-        result = currentElement.ToString();
-        return true;
-    }
-
     private static bool ParseBody(ReadOnlySpan<char> jsonPath, VariablePostProcessingWriterStrategy responseCtx, ref string result)
     {
         // VSCE does not require $.
