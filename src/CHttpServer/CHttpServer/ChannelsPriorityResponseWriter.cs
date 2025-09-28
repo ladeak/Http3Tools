@@ -105,10 +105,10 @@ internal class ChannelsPriorityResponseWriter : IResponseWriter
         _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteData, GetPriorityLevel(source) + 20));
 
     public void ScheduleEndStream(Http2Stream source) =>
-        _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteEndStream, GetPriorityLevel(source) + 60));
+        _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteEndStream, GetPriorityLevel(source) + 20)); // Written after all DATA, can use the same priority
 
     public void ScheduleWriteTrailers(Http2Stream source) =>
-        _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteTrailers, GetPriorityLevel(source) + 40));
+        _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteTrailers, GetPriorityLevel(source) + 20)); // Written after all DATA, can use the same priority
 
     public void ScheduleWriteWindowUpdate(Http2Stream source, uint size) =>
         _channel.Writer.TryWrite(new ChannelStreamWriteRequest(source, WriteWindowUpdate, 1, size));
