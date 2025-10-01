@@ -12,6 +12,9 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Enable GitHub OIDC token issuance for NuGet Trusted Publishing
     steps:
     - uses: actions/checkout@v5
     - name: Setup .NET
@@ -24,6 +27,11 @@ jobs:
         node-version: 24.x
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+    - name: Trusted Publishing Auth
+      uses: NuGet/login@v1
+      id: trustedpublish
+      with:
+        user: ${{ secrets.NUGET_USER }}
     - name: Build CHttp
       run: |
         dotnet build src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --no-self-contained -p:Version=${VERSION}
@@ -38,12 +46,10 @@ jobs:
         dotnet pack src/CHttpServer/CHttpServer/CHttpServer.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION}
     - name: Push Nuget
       run: |
-        dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
-        dotnet nuget push src/CHttp.Api/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
-        dotnet nuget push src/CHttpExecutor/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
-        dotnet nuget push src/CHttpServer/CHttpServer/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $nuget_api_key --skip-duplicate
-      env:
-        nuget_api_key: ${{ secrets.NUGET_API_KEY }}
+        dotnet nuget push src/CHttp/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.trustedpublish.outputs.NUGET_API_KEY }}" --skip-duplicate
+        dotnet nuget push src/CHttp.Api/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.trustedpublish.outputs.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push src/CHttpExecutor/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.trustedpublish.outputs.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push src/CHttpServer/CHttpServer/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.trustedpublish.outputs.NUGET_API_KEY }} --skip-duplicate
     - name: Publish for GitHub
       run: |
         # CHttp
