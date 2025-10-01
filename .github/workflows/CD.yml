@@ -13,6 +13,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
+      contents: write
       id-token: write # Enable GitHub OIDC token issuance for NuGet Trusted Publishing
     steps:
     - uses: actions/checkout@v5
@@ -96,7 +97,6 @@ jobs:
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64-aot
             src/VSCodeExt/chttp-vsce.vsix
             src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
             src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
