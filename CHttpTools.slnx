@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/Server/">
     <Project Path="src/CHttpServer/CHttpServer/CHttpServer.csproj" />
-    <Project Path="src/CHttpServer/TestCHttpServerApplication/TestCHttpServerApplication.csproj" />
+    <Project Path="src/CHttpServer/TestCHttpServerApplication/TestCHttpServerApplication.csproj" DefaultStartup="true" />
     <Project Path="tests/CHttpServer.Tests/CHttpServer.Tests.csproj" />
   </Folder>
   <Project Path="src/CHttp.Api/CHttp.Api.csproj" />
