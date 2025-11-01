@@ -1,10 +1,17 @@
 ﻿using System.Diagnostics;
+using System.Formats.Asn1;
+using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
+using System.Threading.Tasks;
+using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer.Http3;
 
+/// <summary>
+/// Handles control stream.
+/// </summary>
 [SupportedOSPlatform("windows")]
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
@@ -13,6 +20,12 @@ internal sealed partial class Http3Connection
     private readonly CHttp3ConnectionContext _context;
     private readonly CancellationTokenSource _cts;
     private long _maxProcessedStreamId = 0;
+
+    private PipeReader? _controlStreamReader;
+    private PipeWriter? _controlStreamWriter;
+    private QuicStream? _controlStream;
+
+    private QPackDecoder _qPackDecoder = new();
 
     public Http3Connection(CHttp3ConnectionContext connectionContext)
     {
@@ -23,11 +36,14 @@ internal sealed partial class Http3Connection
     internal async Task ProcessConnectionAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
     {
         Debug.Assert(_context.Transport != null);
-
+        var closingError = ErrorCodes.H3NoError;
         try
         {
-            var quickStream = await _context.Transport.AcceptInboundStreamAsync(_cts.Token);
-            HandleStream(quickStream, application);
+            while (!_cts.IsCancellationRequested)
+            {
+                var quickStream = await _context.Transport.AcceptInboundStreamAsync(_cts.Token);
+                await HandleStreamAsync(quickStream, application);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -37,7 +53,7 @@ internal sealed partial class Http3Connection
         {
             // Write GOAWAY frame
             Debug.WriteLine(ex.ErrorCode);
-            await _context.Transport.CloseAsync(ex.ErrorCode);
+            closingError = ex.ErrorCode;
         }
         catch (Exception ex)
         {
@@ -45,30 +61,98 @@ internal sealed partial class Http3Connection
         }
         finally
         {
-            // TODO error code
-            await _context.Transport.CloseAsync(0);
+            await _context.Transport.CloseAsync(closingError);
         }
     }
 
-    private void HandleStream<TContext>(QuicStream quickStream, IHttpApplication<TContext> application) where TContext : notnull
+    private async Task HandleStreamAsync<TContext>(QuicStream quicStream, IHttpApplication<TContext> application) where TContext : notnull
     {
-        if (quickStream.Type == QuicStreamType.Bidirectional)
-            throw new Http3ConnectionException(ErrorCodes.H3StreamCreationError);
-        _maxProcessedStreamId = Math.Max(quickStream.Id, _maxProcessedStreamId);
+        _maxProcessedStreamId = Math.Max(quicStream.Id, _maxProcessedStreamId);
+        if (quicStream.Type == QuicStreamType.Bidirectional)
+        {
+            // Create Http3Stream DATA stream
+            var http3Stream = new Http3Stream((int)quicStream.Id, quicStream);
+        }
+        else
+        {
+            var reader = PipeReader.Create(quicStream);
+            ReadResult initialRead;
+            initialRead = await reader.ReadAtLeastAsync(8);
+            if (initialRead.IsCanceled
+                || initialRead.IsCompleted
+                || !VariableLenghtIntegerDecoder.TryRead(initialRead.Buffer.FirstSpan, out ulong streamType, out int bytesRead))
+                throw new Http3ConnectionException(ErrorCodes.H3StreamCreationError);
+            reader.AdvanceTo(initialRead.Buffer.GetPosition(bytesRead));
 
+            // Control stream
+            if (streamType == 0)
+            {
+                _controlStream = quicStream;
+                _controlStreamReader = reader;
+                _controlStreamWriter = PipeWriter.Create(quicStream);
+            }
+
+            // QPack Encoding stream
+            else if (streamType == 2)
+            {
+                _qPackDecoder.SetEncodingStream(quicStream, reader);
+            }
+
+            // QPack Decoding stream
+            else if (streamType == 3)
+            {
+                _qPackDecoder.SetDecodingStream(quicStream, _cts.Token);
+            }
+            else
+            {
+                quicStream.Abort(QuicAbortDirection.Both, ErrorCodes.H3StreamCreationError);
+            }
+        }
     }
 }
 
-internal class Http3ConnectionException : Exception
+[SupportedOSPlatform("windows")]
+[SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
+internal sealed class Http3Stream
 {
-    public Http3ConnectionException(int errorCode) : base()
-    {
-        ErrorCode = errorCode;
-    }
-    public int ErrorCode { get; }
-}
+    private int _id;
+    private QuicStream _quicStream;
+    private PipeReader _dataReader;
+    private PipeWriter _dataWriter;
 
-internal class ErrorCodes
-{
-    internal const int H3StreamCreationError = 0x0103;
+    public Http3Stream(
+        int id,
+        QuicStream quicStream)
+    {
+        _id = id;
+        _quicStream = quicStream;
+        _dataReader = PipeReader.Create(quicStream);
+        _dataWriter = PipeWriter.Create(quicStream);
+    }
+
+    public async Task ProcessStreamAsync(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var readResult = await _dataReader.ReadAsync(token);
+                if (readResult.IsCanceled || readResult.IsCompleted)
+                    break;
+                _dataReader.AdvanceTo(readResult.Buffer.End);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore
+        }
+        finally
+        {
+            _quicStream.Abort(QuicAbortDirection.Both, ErrorCodes.H3NoError);
+            await _dataReader.CompleteAsync();
+            await _dataWriter.CompleteAsync();
+            _quicStream.Dispose();
+        }
+    }
 }

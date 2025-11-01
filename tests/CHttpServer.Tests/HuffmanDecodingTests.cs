@@ -80,7 +80,7 @@ public class HuffmanDecodingTests
             // Worst case decoding is an output byte per 5 input bits, so make the decoded buffer 2 times as big
             byte[] decoded = new byte[encoded.Length * 2];
 
-            Assert.Throws<HPackDecodingException>(() => Huffman.Decode(encoded, ref decoded));
+            Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(encoded, ref decoded));
         }
     }
 
@@ -262,7 +262,7 @@ public class HuffmanDecodingTests
     public void ThrowsOnPaddingLongerThanSevenBits(byte[] encoded)
     {
         byte[] dst = new byte[encoded.Length * 2];
-        Exception exception = Assert.Throws<HPackDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
     }
 
     public static readonly TheoryData<byte[]> _eosData = new TheoryData<byte[]>
@@ -278,7 +278,7 @@ public class HuffmanDecodingTests
     public void ThrowsOnEOS(byte[] encoded)
     {
         byte[] dst = new byte[encoded.Length * 2];
-        Exception exception = Assert.Throws<HPackDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
     }
 
     [Fact]
@@ -322,7 +322,7 @@ public class HuffmanDecodingTests
     public void ThrowsOnIncompleteSymbol(byte[] encoded)
     {
         byte[] dst = new byte[encoded.Length * 2];
-        Exception exception = Assert.Throws<HPackDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
     }
 
     [Fact]
