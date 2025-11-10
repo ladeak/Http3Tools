@@ -1,10 +1,8 @@
-﻿using System.Diagnostics;
-using System.Formats.Asn1;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
-using System.Threading.Tasks;
-using CHttpServer.System.Net.Http.HPack;
 using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer.Http3;
@@ -72,6 +70,7 @@ internal sealed partial class Http3Connection
         {
             // Create Http3Stream DATA stream
             var http3Stream = new Http3Stream((int)quicStream.Id, quicStream);
+            await http3Stream.ProcessStreamAsync(_cts.Token);
         }
         else
         {
@@ -114,12 +113,13 @@ internal sealed partial class Http3Connection
 [SupportedOSPlatform("windows")]
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
-internal sealed class Http3Stream
+internal sealed partial class Http3Stream
 {
     private int _id;
     private QuicStream _quicStream;
     private PipeReader _dataReader;
     private PipeWriter _dataWriter;
+    private QPackDecoder _qpackDecoder;
 
     public Http3Stream(
         int id,
@@ -129,6 +129,7 @@ internal sealed class Http3Stream
         _quicStream = quicStream;
         _dataReader = PipeReader.Create(quicStream);
         _dataWriter = PipeWriter.Create(quicStream);
+        _qpackDecoder = new QPackDecoder();
     }
 
     public async Task ProcessStreamAsync(CancellationToken token)
@@ -140,12 +141,41 @@ internal sealed class Http3Stream
                 var readResult = await _dataReader.ReadAsync(token);
                 if (readResult.IsCanceled || readResult.IsCompleted)
                     break;
-                _dataReader.AdvanceTo(readResult.Buffer.End);
+
+                var buffer = readResult.Buffer;
+
+                // FrameType is a single byte.
+                if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong frameType, out int bytesRead))
+                    throw new Http3ConnectionException(ErrorCodes.H3FrameError);
+
+                buffer = buffer.Slice(bytesRead);
+                if (!VariableLenghtIntegerDecoder.TryRead(buffer, out ulong payloadLength, out bytesRead))
+                {
+                    // Not enough data to read payload length.
+                    _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
+                    continue;
+                }
+                buffer = buffer.Slice(bytesRead);
+                long processed = 1 + bytesRead;
+                switch (frameType)
+                {
+                    case 0x0: // DATA
+                        break;
+                    case 0x1: // HEADERS
+                        processed += ProcessHeaderFrame(buffer);
+                        break;
+                }
+
+                _dataReader.AdvanceTo(readResult.Buffer.GetPosition(processed), readResult.Buffer.End);
             }
         }
         catch (OperationCanceledException)
         {
             // Ignore
+        }
+        catch(Exception ex)
+        {
+            Debug.WriteLine(ex);
         }
         finally
         {
@@ -154,5 +184,11 @@ internal sealed class Http3Stream
             await _dataWriter.CompleteAsync();
             _quicStream.Dispose();
         }
+    }
+
+    private long ProcessHeaderFrame(ReadOnlySequence<byte> buffer)
+    {
+        _qpackDecoder.DecodeHeader(buffer, this, out long consumed);
+        return consumed;
     }
 }

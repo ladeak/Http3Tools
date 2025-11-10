@@ -5,6 +5,7 @@ using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
 using System.Text;
+using CHttpServer.System.Net.Http.HPack;
 
 namespace CHttpServer.Http3;
 
@@ -13,9 +14,30 @@ namespace CHttpServer.Http3;
 [SupportedOSPlatform("macos")]
 internal sealed class QPackDecoder
 {
+    private enum DecoderState
+    {
+        ReadRequiredInsertionCount,
+        ReadBase,
+        FieldLineFirstByte,
+        NameReferenceWithLength,
+        NameReferenceValue,
+        LiteralNameWithLength,
+        LiteralFieldValueWithLength,
+        LiteralFieldValue,
+    }
+
+    private const string UnsupportedDynamicTable = "Dynamic table size is 0.";
+
     private QuicStream? _qpackEncodingStream;
     private QuicStream? _qpackDecodingStream;
     private Task? _reading;
+    private DecoderState _status = DecoderState.ReadRequiredInsertionCount;
+
+    private bool _huffmanEncoding;
+    private int _fieldNameIndex;
+    private int _fieldNameLength;
+    private ReadOnlySequence<byte> _fieldName;
+    private int _fieldValueLength;
 
     public void SetEncodingStream(QuicStream stream, PipeReader reader)
     {
@@ -49,6 +71,11 @@ internal sealed class QPackDecoder
 
     public async Task Reset()
     {
+        _status = DecoderState.ReadRequiredInsertionCount;
+    }
+
+    public async Task Close()
+    {
         _qpackEncodingStream?.Abort(QuicAbortDirection.Read, ErrorCodes.H3StreamCreationError);
         _qpackEncodingStream = null;
         _qpackDecodingStream?.Abort(QuicAbortDirection.Write, ErrorCodes.H3StreamCreationError);
@@ -56,10 +83,314 @@ internal sealed class QPackDecoder
         await (_reading ?? Task.CompletedTask);
     }
 
-    public string? DecodeHeader(ReadOnlyMemory<byte> line)
+    public bool DecodeHeader(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out long consumed)
     {
-        // TODO
-        throw new NotImplementedException();
+        consumed = 0;
+        int currentConsumedBytes = 0;
+        bool stepCompleted = true;
+        while (stepCompleted && source.Length > 0)
+        {
+            switch (_status)
+            {
+                case DecoderState.ReadRequiredInsertionCount:
+                    stepCompleted = DecodeRequiredInsertionCount(source, handler, out currentConsumedBytes);
+                    break;
+                case DecoderState.ReadBase:
+                    stepCompleted = DecodeBase(source, handler, out currentConsumedBytes);
+                    break;
+                case DecoderState.FieldLineFirstByte:
+                    stepCompleted = DecodeFieldLineFirstByte(source, handler, out currentConsumedBytes);
+                    break;
+                case DecoderState.NameReferenceWithLength:
+                    stepCompleted = DecodeLiteralNamReferenceFieldValueLength(source, handler, source.FirstSpan[0], out currentConsumedBytes);
+                    break;
+                case DecoderState.NameReferenceValue:
+                    stepCompleted = DecodeLiteralNameReferenceFieldValue(source, handler, out currentConsumedBytes);
+                    break;
+                case DecoderState.LiteralNameWithLength:
+                    stepCompleted = DecodeLiteralFieldName(source, handler, out currentConsumedBytes);
+                    break;
+                case DecoderState.LiteralFieldValueWithLength:
+                    stepCompleted = DecodeLiteralFieldValueLength(source, handler, source.FirstSpan[0], out currentConsumedBytes);
+                    break;
+                case DecoderState.LiteralFieldValue:
+                    //todo
+                    stepCompleted = DecodeLiteralFieldValue(source, handler, out currentConsumedBytes);
+                    break;
+            }
+            consumed += currentConsumedBytes;
+            source = source.Slice(currentConsumedBytes);
+        }
+        return stepCompleted;
+    }
+
+    private bool DecodeFieldLineFirstByte(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        var firstByte = source.FirstSpan[0];
+        if ((firstByte & 0b1000_0000) == 0b1000_0000)
+        {
+            return DecodeIndexedFieldLine(source, handler, firstByte, out consumed);
+        }
+        else if ((firstByte & 0b1100_0000) == 0b0100_0000)
+        {
+            return DecodeLiteralFieldLineWithNameReference(source, handler, firstByte, out consumed);
+        }
+        else if ((firstByte & 0b1110_0000) == 0b0010_0000)
+        {
+            return DecodeLiteralFieldLineWithLiteralName(source, handler, firstByte, out consumed);
+        }
+        else if ((firstByte & 0b1111_0000) == 0b0001_0000 || (firstByte & 0b1111_0000) == 0b0000_0000)
+        {
+            throw new HeaderDecodingException(UnsupportedDynamicTable);
+        }
+        consumed = 0;
+        return false;
+    }
+
+    //   0   1   2   3   4   5   6   7
+    // +---+---+---+---+---+---+---+---+
+    // | 1 | T |      Index (6+)       |
+    // +---+---+-----------------------+
+    private static bool DecodeIndexedFieldLine(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
+    {
+        if ((firstByte & 0b0100_0000) == 0b0000_0000)
+            throw new HeaderDecodingException(UnsupportedDynamicTable);
+        var decoder = new QPackIntegerDecoder();
+        consumed = 1;
+        int index = 0;
+        if (!decoder.BeginTryDecode((byte)(firstByte & 0b0011_1111), 6, out index))
+        {
+            if (!decoder.TryDecodeInteger(source, ref consumed, out index))
+            {
+                // Need more data
+                consumed = 0;
+                return false;
+            }
+        }
+
+        var staticHeader = _staticDecoderTable[index];
+        handler.OnHeader(staticHeader);
+        return true;
+    }
+
+    //   0   1   2   3   4   5   6   7
+    // +---+---+---+---+---+---+---+---+
+    // | 0 | 1 | N | T |Name Index (4+)|
+    // +---+---+---+---+---------------+
+    // | H |     Value Length (7+)     |
+    // +---+---------------------------+
+    // |  Value String (Length bytes)  |
+    // +-------------------------------+
+    private bool DecodeLiteralFieldLineWithNameReference(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
+    {
+        if ((firstByte & 0b0001_0000) == 0b0000_0000)
+            throw new HeaderDecodingException(UnsupportedDynamicTable);
+        var decoder = new QPackIntegerDecoder();
+        consumed = 1;
+        int index = 0;
+        if (!decoder.BeginTryDecode((byte)(firstByte & 0b0000_1111), 4, out index))
+        {
+            if (!decoder.TryDecodeInteger(source, ref consumed, out index))
+            {
+                // Need more data
+                consumed = 0;
+                return false;
+            }
+        }
+        _fieldNameIndex = index;
+        _status = DecoderState.NameReferenceWithLength;
+
+        source = source.Slice(consumed);
+        if (source.IsEmpty)
+            return false;
+        var result = DecodeLiteralNamReferenceFieldValueLength(source, handler, source.FirstSpan[0], out int consumedLiteral);
+        consumed += consumedLiteral;
+        return result;
+    }
+
+    private bool DecodeLiteralNamReferenceFieldValueLength(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
+    {
+        _huffmanEncoding = (firstByte & 0b1000_0000) == 0b1000_0000;
+        var decoder = new QPackIntegerDecoder();
+        consumed = 1;
+        if (!decoder.BeginTryDecode((byte)(firstByte & 0b0111_1111), 7, out var literalLength))
+        {
+            if (!decoder.TryDecodeInteger(source, ref consumed, out literalLength))
+            {
+                // Need more data
+                consumed = 0;
+                return false;
+            }
+        }
+        _fieldValueLength = literalLength;
+        _status = DecoderState.NameReferenceValue;
+        source = source.Slice(consumed);
+        var result = DecodeLiteralNameReferenceFieldValue(source, handler, out int consumedLiteral);
+        consumed += consumedLiteral;
+        return result;
+    }
+
+    private bool DecodeLiteralNameReferenceFieldValue(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        consumed = 0;
+        if (source.Length < _fieldValueLength)
+            return false;
+        source = source.Slice(0, _fieldValueLength);
+        if (_huffmanEncoding)
+        {
+            var value = new byte[_fieldValueLength * 2];
+            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
+            var buffer = rentedArray.AsSpan(0, _fieldValueLength);
+            source.CopyTo(rentedArray);
+            int decodedLength = Huffman.Decode(rentedArray, ref value);
+            handler.OnHeader(_staticDecoderTable[_fieldNameIndex].Name, new ReadOnlySequence<byte>(value, 0, decodedLength));
+        }
+        else
+        {
+            handler.OnHeader(_staticDecoderTable[_fieldNameIndex].Name, source);
+        }
+        consumed = _fieldValueLength;
+        _fieldValueLength = 0;
+        _huffmanEncoding = false;
+        _status = DecoderState.FieldLineFirstByte;
+        return true;
+    }
+
+    //   0   1   2   3   4   5   6   7
+    // +---+---+---+---+---+---+---+---+
+    // | 0 | 0 | 1 | N | H |NameLen(3+)|
+    // +---+---+---+---+---+-----------+
+    // |  Name String (Length bytes)   |
+    // +---+---------------------------+
+    // | H |     Value Length (7+)     |
+    // +---+---------------------------+
+    // |  Value String (Length bytes)  |
+    // +-------------------------------+
+    private bool DecodeLiteralFieldLineWithLiteralName(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
+    {
+        _huffmanEncoding = (firstByte & 0b0000_1000) == 0b0000_1000;
+        var decoder = new QPackIntegerDecoder();
+        consumed = 1;
+        if (!decoder.BeginTryDecode((byte)(firstByte & 0b0000_0111), 3, out var nameLength))
+        {
+            if (!decoder.TryDecodeInteger(source, ref consumed, out nameLength))
+            {
+                // Need more data
+                consumed = 0;
+                return false;
+            }
+        }
+        _fieldNameLength = nameLength;
+        _status = DecoderState.LiteralNameWithLength;
+        source = source.Slice(consumed);
+        var result = DecodeLiteralFieldName(source, handler, out int consumedLiteral);
+        consumed += consumedLiteral;
+        return result;
+    }
+
+    private bool DecodeLiteralFieldName(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        consumed = 0;
+        if (source.Length < _fieldNameLength)
+            return false;
+        source = source.Slice(0, _fieldNameLength);
+        if (_huffmanEncoding)
+        {
+            var value = new byte[_fieldNameLength * 2];
+            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldNameLength);
+            var buffer = rentedArray.AsSpan(0, _fieldNameLength);
+            source.CopyTo(rentedArray);
+            int decodedLength = Huffman.Decode(rentedArray, ref value);
+            _fieldName = new(value, 0, decodedLength);
+        }
+        else
+        {
+            _fieldName = source.Slice(0, _fieldNameLength);
+        }
+        consumed = _fieldNameLength;
+        _status = DecoderState.LiteralFieldValueWithLength;
+        source = source.Slice(consumed);
+        if (source.IsEmpty)
+            return false;
+        var result = DecodeLiteralFieldValueLength(source, handler, source.FirstSpan[0], out int consumedLiteral);
+        consumed += consumedLiteral;
+        return result;
+    }
+
+    private bool DecodeLiteralFieldValueLength(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
+    {
+        _huffmanEncoding = (firstByte & 0b1000_1000) == 0b1000_0000;
+        var decoder = new QPackIntegerDecoder();
+        consumed = 1;
+        if (!decoder.BeginTryDecode((byte)(firstByte & 0b0111_1111), 7, out var length))
+        {
+            if (!decoder.TryDecodeInteger(source, ref consumed, out length))
+            {
+                // Need more data
+                consumed = 0;
+                return false;
+            }
+        }
+        _fieldValueLength = length;
+        _status = DecoderState.LiteralFieldValue;
+        source = source.Slice(consumed);
+        var result = DecodeLiteralFieldValue(source, handler, out int consumedLiteral);
+        consumed += consumedLiteral;
+        return result;
+    }
+
+    private bool DecodeLiteralFieldValue(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        consumed = 0;
+        if (source.Length < _fieldValueLength)
+            return false;
+        source = source.Slice(0, _fieldValueLength);
+        ReadOnlySequence<byte> fieldValue;
+        if (_huffmanEncoding)
+        {
+            var value = new byte[_fieldValueLength * 2];
+            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
+            var buffer = rentedArray.AsSpan(0, _fieldValueLength);
+            source.CopyTo(rentedArray);
+            int decodedLength = Huffman.Decode(rentedArray, ref value);
+            fieldValue = new(value, 0, decodedLength);
+        }
+        else
+        {
+            fieldValue = source.Slice(0, _fieldValueLength);
+        }
+        consumed = _fieldValueLength;
+        handler.OnHeader(_fieldName, fieldValue);
+        _status = DecoderState.FieldLineFirstByte;
+        _fieldName = ReadOnlySequence<byte>.Empty;
+        _fieldNameIndex = 0;
+        _huffmanEncoding = false;
+        _fieldValueLength = 0;
+        _fieldNameLength = 0;
+        return true;
+    }
+
+
+    private bool DecodeBase(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        var data = source.FirstSpan[0];
+        var decoder = new QPackIntegerDecoder();
+        if (!decoder.BeginTryDecode(data, 8, out var delta) || delta != 0)
+            throw new HeaderDecodingException(UnsupportedDynamicTable);
+        consumed = 1;
+        _status = DecoderState.FieldLineFirstByte;
+        return true;
+    }
+
+    private bool DecodeRequiredInsertionCount(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
+    {
+        var data = source.FirstSpan[0];
+        var decoder = new QPackIntegerDecoder();
+        if (!decoder.BeginTryDecode(data, 8, out var ric) || ric != 0)
+            throw new HeaderDecodingException(UnsupportedDynamicTable);
+        consumed = 1;
+        _status = DecoderState.ReadBase;
+        return true;
     }
 
     private static readonly HeaderField[] _staticDecoderTable =
@@ -165,13 +496,24 @@ internal sealed class QPackDecoder
         CreateHeaderField(98, "x-frame-options", "sameorigin")
     ];
 
-    private static readonly FrozenDictionary<string, int> _staticEncoderTable = new Dictionary<string, int>(
-        _staticDecoderTable
-        .Select(x => new KeyValuePair<string, int>(Encoding.ASCII.GetString(x.Name), x.StaticTableIndex)))
-        .ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+    private static readonly FrozenDictionary<string, HeaderField[]> _staticEncoderTable = BuildEndoderTable(_staticDecoderTable);
 
-    private static HeaderField CreateHeaderField(int index, string name, string value)
+    private static HeaderField CreateHeaderField(int index, string name, string value) =>
+        new HeaderField(index, Encoding.ASCII.GetBytes(name), Encoding.ASCII.GetBytes(value));
+
+    private static FrozenDictionary<string, HeaderField[]> BuildEndoderTable(HeaderField[] source)
     {
-        return new HeaderField(index, Encoding.ASCII.GetBytes(name), Encoding.ASCII.GetBytes(value));
+        var dict = new Dictionary<string, List<HeaderField>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in source)
+        {
+            var name = Encoding.ASCII.GetString(header.Name);
+            if (!dict.TryGetValue(name, out var current))
+            {
+                current = [];
+                dict[name] = current;
+            }
+            current.Add(header);
+        }
+        return dict.ToFrozenDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
     }
 }

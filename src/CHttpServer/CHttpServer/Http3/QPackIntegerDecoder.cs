@@ -1,11 +1,12 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace CHttpServer.Http3;
 
 internal struct QPackIntegerDecoder
 {
-    private ulong _i;
+    private long _i;
     private byte _m;
 
     /// <summary>
@@ -49,13 +50,7 @@ internal struct QPackIntegerDecoder
             throw new HeaderDecodingException("Bad Integer");
         }
 
-        _i += (ulong)((b & 0x7f) << _m);
-
-        if (_i < 0)
-        {
-            throw new HeaderDecodingException("Bad Integer");
-        }
-
+        _i += ((long)(b & 0x7f) << _m);
         _m += 7;
 
         if ((b & 128) == 0)
@@ -76,7 +71,7 @@ internal struct QPackIntegerDecoder
     /// <summary>
     /// Decodes subsequent bytes of an integer.
     /// </summary>
-    public bool TryDecode62Bits(byte b, out ulong result)
+    public bool TryDecode62Bits(byte b, out long result)
     {
         // decode I from the next N bits
         // if I < 2^N - 1, return I
@@ -95,13 +90,7 @@ internal struct QPackIntegerDecoder
             throw new HeaderDecodingException("Bad Integer");
         }
 
-        _i += (ulong)((b & 0x7f) << _m);
-
-        if (_i < 0)
-        {
-            throw new HeaderDecodingException("Bad Integer");
-        }
-
+        _i += ((long)(b & 0x7f) << _m);
         _m += 7;
 
         if ((b & 128) == 0)
@@ -125,6 +114,52 @@ internal struct QPackIntegerDecoder
         for (; currentIndex < data.Length; currentIndex++)
         {
             if (TryDecode(data[currentIndex], out result))
+            {
+                currentIndex++;
+                return true;
+            }
+        }
+
+        result = default;
+        return false;
+    }
+
+    public bool TryDecodeInteger(ReadOnlySequence<byte> data, ref int currentIndex, out int result)
+    {
+        // Fast path, process the first span.
+        var buffer = data.FirstSpan;
+        for (; currentIndex < buffer.Length; currentIndex++)
+        {
+            if (TryDecode(buffer[currentIndex], out result))
+            {
+                currentIndex++;
+                return true;
+            }
+        }
+
+        // Slow path, the first span is fully consumed.
+        // Foreach iterates over the remaining segments.
+        foreach (var segment in data.Slice(currentIndex))
+        {
+            var span = segment.Span;
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (TryDecode(span[i], out result))
+                {
+                    currentIndex++;
+                    return true;
+                }
+            }
+        }
+        result = default;
+        return false;
+    }
+
+    public bool TryDecode62Bits(ReadOnlySpan<byte> data, ref int currentIndex, out long result)
+    {
+        for (; currentIndex < data.Length; currentIndex++)
+        {
+            if (TryDecode62Bits(data[currentIndex], out result))
             {
                 currentIndex++;
                 return true;
