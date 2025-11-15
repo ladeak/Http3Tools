@@ -23,7 +23,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         return new HttpClient(handler);
     }
 
-    [Fact(Skip = "Work in Progress")]
+    [Fact]
     public async Task Get_NoContent()
     {
         var client = CreateClient();

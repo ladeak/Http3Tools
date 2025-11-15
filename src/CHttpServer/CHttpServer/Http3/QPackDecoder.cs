@@ -293,13 +293,12 @@ internal sealed class QPackDecoder
         consumed = 0;
         if (source.Length < _fieldNameLength)
             return false;
-        source = source.Slice(0, _fieldNameLength);
         if (_huffmanEncoding)
         {
             var value = new byte[_fieldNameLength * 2];
             var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldNameLength);
             var buffer = rentedArray.AsSpan(0, _fieldNameLength);
-            source.CopyTo(rentedArray);
+            source.Slice(0, _fieldNameLength).CopyTo(rentedArray);
             int decodedLength = Huffman.Decode(rentedArray, ref value);
             _fieldName = new(value, 0, decodedLength);
         }
@@ -344,14 +343,13 @@ internal sealed class QPackDecoder
         consumed = 0;
         if (source.Length < _fieldValueLength)
             return false;
-        source = source.Slice(0, _fieldValueLength);
         ReadOnlySequence<byte> fieldValue;
         if (_huffmanEncoding)
         {
             var value = new byte[_fieldValueLength * 2];
             var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
             var buffer = rentedArray.AsSpan(0, _fieldValueLength);
-            source.CopyTo(rentedArray);
+            source.Slice(0, _fieldValueLength).CopyTo(rentedArray);
             int decodedLength = Huffman.Decode(rentedArray, ref value);
             fieldValue = new(value, 0, decodedLength);
         }
