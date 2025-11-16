@@ -19,7 +19,7 @@ public class IntegerDecoderBenchmarks
         QPackIntegerDecoder decoder = new();
         decoder.BeginTryDecode(_input0[0], 7, out _);
         var index = 1;
-        decoder.TryDecodeInteger(new ReadOnlySequence<byte>(_input0), ref index, out int result);
+        decoder.TryDecodeInteger(_input0, ref index, out int result);
         return result;
     }
 
