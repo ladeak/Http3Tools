@@ -1,24 +1,40 @@
-﻿using System.Numerics;
+﻿using System.Buffers;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
+using CHttpServer.Http3;
 
-//var b = new StdDevBenchmark();
-//b.Setup();
-//var vectorizedResult = b.Vectorized();
-//var linqResult = b.Linq();
-//Console.WriteLine(linqResult);
-//Console.WriteLine(vectorizedResult);
-//Console.WriteLine(linqResult - vectorizedResult < double.Epsilon);
+BenchmarkRunner.Run<IntegerDecoderBenchmarks>();
 
-var b = new WriteUInt32();
-b.Reverse();
-Console.WriteLine(WriteUInt32.ReadUInt24BigEndian(b._buffer));
-b.Shift();
-Console.WriteLine(WriteUInt32.ReadUInt24BigEndian(b._buffer));
+[SimpleJob, DisassemblyDiagnoser]
+public class IntegerDecoderBenchmarks
+{
+    public static byte[] _input0 = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-BenchmarkRunner.Run<WriteUInt32>();
+    [Benchmark]
+    public int DecodeInteger0()
+    {
+        QPackIntegerDecoder decoder = new();
+        decoder.BeginTryDecode(_input0[0], 7, out _);
+        var index = 1;
+        decoder.TryDecodeInteger(new ReadOnlySequence<byte>(_input0), ref index, out int result);
+        return result;
+    }
+
+    [Benchmark]
+    public int DecodeIntegerSimd0()
+    {
+        QPackIntegerDecoder decoder = new();
+        decoder.BeginTryDecode(_input0[0], 7, out _);
+        var index = 1;
+        decoder.TryDecodeIntegerSimd(_input0, ref index, out int result);
+        return result;
+    }
+}
+
+
 
 public class StdDevBenchmark
 {

@@ -7,7 +7,7 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <PackageId>LaDeak.CHttpServer</PackageId>
     <Authors>LaDeak</Authors>
-    <Description>A simple HTTP/2 server.</Description>
+    <Description>A simple HTTP/2 and HTTP/3 server.</Description>
     <DebugType>full</DebugType>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CHttpServer.Tests" />
+    <InternalsVisibleTo Include="CHttp.Benchmarks" />
   </ItemGroup>
   
 </Project>
