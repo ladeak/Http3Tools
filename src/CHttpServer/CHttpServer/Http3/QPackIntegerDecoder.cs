@@ -43,7 +43,7 @@ internal struct QPackIntegerDecoder
     {
         for (; currentIndex < data.Length; currentIndex++)
         {
-            if (TryDecode(data[currentIndex], out result))
+            if (TryDecodeInteger(data[currentIndex], out result))
             {
                 currentIndex++;
                 return true;
@@ -67,7 +67,7 @@ internal struct QPackIntegerDecoder
         var buffer = data.FirstSpan;
         for (; currentIndex < buffer.Length; currentIndex++)
         {
-            if (TryDecode(buffer[currentIndex], out result))
+            if (TryDecodeInteger(buffer[currentIndex], out result))
             {
                 currentIndex++;
                 return true;
@@ -81,7 +81,7 @@ internal struct QPackIntegerDecoder
             var span = segment.Span;
             for (int i = 0; i < span.Length; i++)
             {
-                if (TryDecode(span[i], out result))
+                if (TryDecodeInteger(span[i], out result))
                 {
                     currentIndex++;
                     return true;
@@ -145,7 +145,7 @@ internal struct QPackIntegerDecoder
         return false;
     }
 
-    private bool TryDecode(byte b, out int result)
+    private bool TryDecodeInteger(byte b, out int result)
     {
         // decode I from the next N bits
         // if I < 2^N - 1, return I
@@ -228,25 +228,25 @@ internal struct QPackIntegerDecoder
         vInput = Avx2.And(vInput, Mask);
         var vInputUShort = Vector256.WidenLower(vInput); // 32 -> 16
         var vCalcUInt = Vector256.WidenLower(vInputUShort); // 16 -> 8
-        vCalcUInt *= Multiplier;
-
-        _i += vCalcUInt[0];
-        _i += byteCount switch
-        {
-            0 => 0u,
-            1 => vCalcUInt[1],
-            2 => vCalcUInt[1] + vCalcUInt[2],
-            3 => vCalcUInt[1] + vCalcUInt[2] + vCalcUInt[3],
-            4 => vCalcUInt[1] + vCalcUInt[2] + vCalcUInt[3] + vCalcUInt[4],
-            _ => throw new HeaderDecodingException(BadInteger)
-        };
-        if (vCalcUInt[(int)byteCount] == 0)
-            throw new HeaderDecodingException(BadInteger);
+        int bCount = (int)byteCount;
+        if (byteCount > 5 || vCalcUInt[bCount] == 0)
+            ThrowDecodingException();
+        vCalcUInt *= Filters[bCount];
+        _i += Vector256.Sum(vCalcUInt);
         result = checked((int)_i);
-        currentIndex += (int)byteCount + 1;
+        currentIndex += bCount + 1;
         return byteCount <= 4;
     }
 
+    private void ThrowDecodingException() => throw new HeaderDecodingException(BadInteger);
+
     private static Vector256<byte> Mask = Vector256.Create((byte)0x7F);
-    private static Vector256<uint> Multiplier = Vector256.Create([1u, 128u, 16384u, 2097152u, 268435456u, 0u, 0u, 0u]);
+    private static Vector256<uint>[] Filters =
+    [
+        Vector256.Create([1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u]),
+        Vector256.Create([1u, 128u, 0u, 0u, 0u, 0u, 0u, 0u]),
+        Vector256.Create([1u, 128u, 16384u, 0u, 0u, 0u, 0u, 0u]),
+        Vector256.Create([1u, 128u, 16384u, 2097152u, 0u, 0u, 0u, 0u]),
+        Vector256.Create([1u, 128u, 16384u, 2097152u, 268435456u, 0u, 0u, 0u]),
+    ];
 }

@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
@@ -11,15 +10,15 @@ BenchmarkRunner.Run<IntegerDecoderBenchmarks>();
 [SimpleJob, DisassemblyDiagnoser]
 public class IntegerDecoderBenchmarks
 {
-    public static byte[] _input0 = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    public static byte[] _input = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     [Benchmark]
     public int DecodeInteger()
     {
         QPackIntegerDecoder decoder = new();
-        decoder.BeginTryDecode(_input0[0], 7, out _);
+        decoder.BeginTryDecode(_input[0], 7, out _);
         var index = 1;
-        decoder.TryDecodeInteger(_input0, ref index, out int result);
+        decoder.TryDecodeInteger(_input, ref index, out int result);
         return result;
     }
 
@@ -27,9 +26,9 @@ public class IntegerDecoderBenchmarks
     public int DecodeIntegerSimd()
     {
         QPackIntegerDecoder decoder = new();
-        decoder.BeginTryDecode(_input0[0], 7, out _);
+        decoder.BeginTryDecode(_input[0], 7, out _);
         var index = 1;
-        decoder.TryDecodeIntegerSimd(_input0, ref index, out int result);
+        decoder.TryDecodeIntegerSimd(_input, ref index, out int result);
         return result;
     }
 }
