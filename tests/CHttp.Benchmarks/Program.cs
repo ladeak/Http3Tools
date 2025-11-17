@@ -14,7 +14,7 @@ public class IntegerDecoderBenchmarks
     public static byte[] _input0 = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     [Benchmark]
-    public int DecodeInteger0()
+    public int DecodeInteger()
     {
         QPackIntegerDecoder decoder = new();
         decoder.BeginTryDecode(_input0[0], 7, out _);
@@ -24,7 +24,7 @@ public class IntegerDecoderBenchmarks
     }
 
     [Benchmark]
-    public int DecodeIntegerSimd0()
+    public int DecodeIntegerSimd()
     {
         QPackIntegerDecoder decoder = new();
         decoder.BeginTryDecode(_input0[0], 7, out _);

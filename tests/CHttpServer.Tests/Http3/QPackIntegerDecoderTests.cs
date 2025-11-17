@@ -15,6 +15,17 @@ public class QPackIntegerDecoderTests
     }
 
     [Fact]
+    public void Decode2()
+    {
+        byte[] b = [0b00000001, 0b00000001];
+        QPackIntegerDecoder decoder = new();
+        decoder.BeginTryDecode(b[0], 1, out _);
+        var index = 1;
+        decoder.TryDecodeInteger(b, ref index, out int result);
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
     public void Decode1337()
     {
         byte[] b = [0b00011111, 0b10011010, 0b00001010];
@@ -59,12 +70,12 @@ public class QPackIntegerDecoderTests
     [Fact]
     public void DecodeIntMax()
     {
-        byte[] b = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011];
+        byte[] b = [0b0111_1111, 0b10000000, 0b11111111, 0b11111111, 0b11111111, 0b00000111];
         QPackIntegerDecoder decoder = new();
         decoder.BeginTryDecode(b[0], 7, out _);
         var index = 1;
         decoder.TryDecodeInteger(b, ref index, out int result);
-        Assert.Equal(1073741950, result);
+        Assert.Equal(2147483647, result);
     }
 
     [Fact]
@@ -152,6 +163,17 @@ public class QPackIntegerDecoderTests
     }
 
     [Fact]
+    public void Decode2_Simd()
+    {
+        byte[] b = [0b00000001, 0b00000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        QPackIntegerDecoder decoder = new();
+        decoder.BeginTryDecode(b[0], 1, out _);
+        var index = 1;
+        decoder.TryDecodeIntegerSimd(b, ref index, out int result);
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
     public void Decode1337_Simd()
     {
         byte[] b = [0b00011111, 0b10011010, 0b00001010, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -176,12 +198,12 @@ public class QPackIntegerDecoderTests
     [Fact]
     public void DecodeIntMax_Simd()
     {
-        byte[] b = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        byte[] b = [0b0111_1111, 0b10000000, 0b11111111, 0b11111111, 0b11111111, 0b00000111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         QPackIntegerDecoder decoder = new();
         decoder.BeginTryDecode(b[0], 7, out _);
         var index = 1;
         decoder.TryDecodeIntegerSimd(b, ref index, out int result);
-        Assert.Equal(1073741950, result);
+        Assert.Equal(2147483647, result);
     }
 
     [Fact]

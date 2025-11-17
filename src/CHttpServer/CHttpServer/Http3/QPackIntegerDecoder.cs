@@ -104,16 +104,7 @@ internal struct QPackIntegerDecoder
         if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex)
             return TryDecodeSimd(buffer, ref currentIndex, out result);
 
-        for (; currentIndex < buffer.Length; currentIndex++)
-        {
-            if (TryDecode(buffer[currentIndex], out result))
-            {
-                currentIndex++;
-                return true;
-            }
-        }
-        result = default;
-        return false;
+        return TryDecodeInteger(buffer, ref currentIndex, out result);
     }
 
     /// <summary>
@@ -129,31 +120,7 @@ internal struct QPackIntegerDecoder
         var buffer = data.FirstSpan;
         if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex)
             return TryDecodeSimd(buffer, ref currentIndex, out result);
-        for (; currentIndex < buffer.Length; currentIndex++)
-        {
-            if (TryDecode(buffer[currentIndex], out result))
-            {
-                currentIndex++;
-                return true;
-            }
-        }
-
-        // Slow path, the first span is fully consumed.
-        // Foreach iterates over the remaining segments.
-        foreach (var segment in data.Slice(currentIndex))
-        {
-            var span = segment.Span;
-            for (int i = 0; i < span.Length; i++)
-            {
-                if (TryDecode(span[i], out result))
-                {
-                    currentIndex++;
-                    return true;
-                }
-            }
-        }
-        result = default;
-        return false;
+        return TryDecodeInteger(buffer, ref currentIndex, out result);
     }
 
     /// <summary>
@@ -263,13 +230,14 @@ internal struct QPackIntegerDecoder
         var vCalcUInt = Vector256.WidenLower(vInputUShort); // 16 -> 8
         vCalcUInt *= Multiplier;
 
-        _i += vCalcUInt[0] + vCalcUInt[1];
+        _i += vCalcUInt[0];
         _i += byteCount switch
         {
-            1 => 0u,
-            2 => vCalcUInt[2],
-            3 => vCalcUInt[2] + vCalcUInt[3],
-            4 => vCalcUInt[2] + vCalcUInt[3] + vCalcUInt[4],
+            0 => 0u,
+            1 => vCalcUInt[1],
+            2 => vCalcUInt[1] + vCalcUInt[2],
+            3 => vCalcUInt[1] + vCalcUInt[2] + vCalcUInt[3],
+            4 => vCalcUInt[1] + vCalcUInt[2] + vCalcUInt[3] + vCalcUInt[4],
             _ => throw new HeaderDecodingException(BadInteger)
         };
         if (vCalcUInt[(int)byteCount] == 0)
