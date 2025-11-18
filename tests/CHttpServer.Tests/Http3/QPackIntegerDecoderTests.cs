@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using CHttpServer.Http3;
+﻿using CHttpServer.Http3;
 
 namespace CHttpServer.Tests.Http3;
 
