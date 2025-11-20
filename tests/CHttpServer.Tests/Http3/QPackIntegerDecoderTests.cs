@@ -216,6 +216,18 @@ public class QPackIntegerDecoderTests
         Assert.Equal(268435455, result);
     }
 
+
+    [Fact]
+    public void DecodeWithMoreBytes2_Simd()
+    {
+        byte[] b = [0b01111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        QPackIntegerDecoder decoder = new();
+        decoder.BeginTryDecode(b[0], 7, out _);
+        var index = 1;
+        decoder.TryDecodeIntegerSimd(b, ref index, out int result);
+        Assert.Equal(1073741950, result);
+    }
+
     [Fact]
     public void DecodeLimits_Zeros_Simd()
     {

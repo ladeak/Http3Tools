@@ -7,52 +7,33 @@ using CHttpServer.Http3;
 
 BenchmarkRunner.Run<IntegerDecoderBenchmarks>();
 
-[SimpleJob, DisassemblyDiagnoser]
+[SimpleJob]
 public class IntegerDecoderComparisonBenchmarks
 {
     /// <summary>
-    /// 2147483647, 167321, 1433, 31
+    /// 2147483647, 167321, 1433, 31, 1073741950
     /// </summary>
-    public static byte[][] _inputPrefixedSource = [
+    public static byte[][] InputPrefixedSource { get; } = [
         [0b01111111, 0b10000000, 0b11111111, 0b11111111, 0b11111111, 0b00000111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0b01111111, 0b10011010, 0b10011010, 0b00001010, 0,          0         , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0b01111111, 0b10011010, 0b00001010, 0         , 0,          0         , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0b00011111, 0         , 0         , 0         , 0,          0         , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0b01111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ];
 
-    public static byte[][] _inputVariableSource = [
+    public static byte[][] InputVariableSource { get; } = [
         [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01111111, 0b11111111, 0b11111111, 0b11111111],
         [0b10000000, 0b00000010, 0b10001101, 0b10011001],
         [0b01000101, 0b10011001],
         [0b00011111],
+        [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01000000, 0b00000000, 0b00000000, 0b01111110]
     ];
 
-    [Params(0, 1, 2, 3)]
-    public int InputIndex
-    {
-        get => field;
-        set
-        {
-            field = value;
-            _inputPrefixed = _inputPrefixedSource[value];
-            _inputVariable = _inputVariableSource[value];
-        }
-    }
+    [ParamsSource(nameof(InputPrefixedSource))]
+    public static byte[] _inputPrefixed;
 
-    public byte[] _inputPrefixed;
-
+    [ParamsSource(nameof(InputVariableSource))]
     public byte[] _inputVariable;
-
-    [Benchmark]
-    public int DecodeInteger()
-    {
-        QPackIntegerDecoder decoder = new();
-        if (decoder.BeginTryDecode(_inputPrefixed[0], 7, out int result))
-            return result;
-        var index = 1;
-        decoder.TryDecodeInteger(_inputPrefixed, ref index, out result);
-        return result;
-    }
 
     [Benchmark]
     public int DecodeIntegerSimd()
@@ -66,6 +47,17 @@ public class IntegerDecoderComparisonBenchmarks
     }
 
     [Benchmark]
+    public int DecodeInteger()
+    {
+        QPackIntegerDecoder decoder = new();
+        if (decoder.BeginTryDecode(_inputPrefixed[0], 7, out int result))
+            return result;
+        var index = 1;
+        decoder.TryDecodeInteger(_inputPrefixed, ref index, out result);
+        return result;
+    }
+
+    [Benchmark]
     public int DecodeIntegerVariable()
     {
         VariableLenghtIntegerDecoder.TryRead(_inputVariable, out ulong result, out _);
@@ -73,18 +65,19 @@ public class IntegerDecoderComparisonBenchmarks
     }
 }
 
-[SimpleJob, DisassemblyDiagnoser]
+[SimpleJob]
 public class IntegerDecoderBenchmarks
 {
-    public static byte[] _input = [0b0111_1111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    public static byte[] _input = [0b01111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     [Benchmark]
     public int DecodeInteger()
     {
         QPackIntegerDecoder decoder = new();
-        decoder.BeginTryDecode(_input[0], 7, out _);
+        if (decoder.BeginTryDecode(_input[0], 7, out int result))
+            return result;
         var index = 1;
-        decoder.TryDecodeInteger(_input, ref index, out int result);
+        decoder.TryDecodeInteger(_input, ref index, out result);
         return result;
     }
 
@@ -92,9 +85,10 @@ public class IntegerDecoderBenchmarks
     public int DecodeIntegerSimd()
     {
         QPackIntegerDecoder decoder = new();
-        decoder.BeginTryDecode(_input[0], 7, out _);
+        if (decoder.BeginTryDecode(_input[0], 7, out int result))
+            return result;
         var index = 1;
-        decoder.TryDecodeIntegerSimd(_input, ref index, out int result);
+        decoder.TryDecodeIntegerSimd(_input, ref index, out result);
         return result;
     }
 }

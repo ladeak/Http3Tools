@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
@@ -99,6 +100,7 @@ internal struct QPackIntegerDecoder
     /// <param name="currentIndex">The already parsed section.</param>
     /// <param name="result">The result number.</param>
     /// <returns>Returns true when a number is successfully decoded, returns false if the input data is incomplete.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryDecodeIntegerSimd(ReadOnlySpan<byte> buffer, ref int currentIndex, out int result)
     {
         if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex)
@@ -118,7 +120,7 @@ internal struct QPackIntegerDecoder
     {
         // Fast path, process the first span.
         var buffer = data.FirstSpan;
-        if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex && buffer[currentIndex + 1] >= 128) // The last condition makes sure that at least there are 3 total bytes.
+        if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex)
             return TryDecodeSimd(buffer, ref currentIndex, out result);
         return TryDecodeInteger(buffer, ref currentIndex, out result);
     }
@@ -219,6 +221,7 @@ internal struct QPackIntegerDecoder
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryDecodeSimd(ReadOnlySpan<byte> buffer, ref int currentIndex, out int result)
     {
         Debug.Assert(buffer.Length >= 32 + currentIndex);
