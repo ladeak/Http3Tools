@@ -118,7 +118,7 @@ internal struct QPackIntegerDecoder
     {
         // Fast path, process the first span.
         var buffer = data.FirstSpan;
-        if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex && buffer[currentIndex+1] >= 128) // The last condition makes sure that at least there are 3 total bytes.
+        if (Avx2.IsSupported && buffer.Length >= 32 + currentIndex && buffer[currentIndex + 1] >= 128) // The last condition makes sure that at least there are 3 total bytes.
             return TryDecodeSimd(buffer, ref currentIndex, out result);
         return TryDecodeInteger(buffer, ref currentIndex, out result);
     }
@@ -225,12 +225,13 @@ internal struct QPackIntegerDecoder
         var vInput = Vector256.LoadUnsafe(in buffer[currentIndex]);
         var initialBits = Avx2.MoveMask(vInput);
         var byteCount = 32 - Lzcnt.LeadingZeroCount((uint)initialBits);
-        vInput = Avx2.And(vInput, Mask);
+        int bCount = (int)byteCount;
+        if (byteCount > 5 || vInput[bCount] == 0)
+            ThrowDecodingException();
+
+        vInput = Avx2.And(vInput, MaskMulti[bCount]);
         var vInputUShort = Vector256.WidenLower(vInput); // 32 -> 16
         var vCalcUInt = Vector256.WidenLower(vInputUShort); // 16 -> 8
-        int bCount = (int)byteCount;
-        if (byteCount > 5 || vCalcUInt[bCount] == 0)
-            ThrowDecodingException();
         vCalcUInt = Avx2.ShiftLeftLogicalVariable(vCalcUInt, Multiplier); // Multiply by 2^M
         _i += Vector256.Sum(vCalcUInt);
         result = checked((int)_i);
@@ -241,10 +242,32 @@ internal struct QPackIntegerDecoder
     private void ThrowDecodingException() => throw new HeaderDecodingException(BadInteger);
 
     // Filters the most significant bit for the first 5 bytes, the rest is ignored.
-    private static Vector256<byte> Mask = Vector256.Create([(byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0, (byte)0, (byte)0,
+    private static Vector256<byte>[] MaskMulti = [
+        Vector256.Create([(byte)0x7F, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
         (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
         (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
-        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]);
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]),
+
+        Vector256.Create([(byte)0x7F, (byte)0x7F, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]),
+
+        Vector256.Create([(byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]),
+
+        Vector256.Create([(byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]),
+
+        Vector256.Create([(byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0x7F, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]),
+    ];
 
     private static Vector256<uint> Multiplier = Vector256.Create([0u, 7u, 14u, 21u, 28u, 0u, 0u, 0u]);
 }
