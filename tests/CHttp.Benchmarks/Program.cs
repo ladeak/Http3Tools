@@ -5,10 +5,10 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using CHttpServer.Http3;
 
-BenchmarkRunner.Run<IntegerDecoderBenchmarks>();
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
 
 [SimpleJob]
-public class IntegerDecoderComparisonBenchmarks
+public class PrefixedIntegerDecoderBenchmarks
 {
     /// <summary>
     /// 2147483647, 167321, 1433, 31, 1073741950
@@ -21,19 +21,8 @@ public class IntegerDecoderComparisonBenchmarks
         [0b01111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ];
 
-    public static byte[][] InputVariableSource { get; } = [
-        [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01111111, 0b11111111, 0b11111111, 0b11111111],
-        [0b10000000, 0b00000010, 0b10001101, 0b10011001],
-        [0b01000101, 0b10011001],
-        [0b00011111],
-        [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01000000, 0b00000000, 0b00000000, 0b01111110]
-    ];
-
     [ParamsSource(nameof(InputPrefixedSource))]
-    public static byte[] _inputPrefixed;
-
-    [ParamsSource(nameof(InputVariableSource))]
-    public byte[] _inputVariable;
+    public static byte[] _inputPrefixed = [];
 
     [Benchmark]
     public int DecodeIntegerSimd()
@@ -56,6 +45,24 @@ public class IntegerDecoderComparisonBenchmarks
         decoder.TryDecodeInteger(_inputPrefixed, ref index, out result);
         return result;
     }
+}
+
+[SimpleJob]
+public class VariableLengthIntegerDecoderBenchmarks
+{
+    /// <summary>
+    /// 2147483647, 167321, 1433, 31, 1073741950
+    /// </summary>
+    public static byte[][] InputVariableSource { get; } = [
+        [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01111111, 0b11111111, 0b11111111, 0b11111111],
+        [0b10000000, 0b00000010, 0b10001101, 0b10011001],
+        [0b01000101, 0b10011001],
+        [0b00011111],
+        [0b11000000, 0b00000000, 0b00000000, 0b00000000, 0b01000000, 0b00000000, 0b00000000, 0b01111110]
+    ];
+
+    [ParamsSource(nameof(InputVariableSource))]
+    public byte[] _inputVariable = [];
 
     [Benchmark]
     public int DecodeIntegerVariable()
