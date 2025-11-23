@@ -227,7 +227,7 @@ internal struct QPackIntegerDecoder
         Debug.Assert(buffer.Length >= 32 + currentIndex);
         var vInput = Vector256.LoadUnsafe(in buffer[currentIndex]);
         var initialBits = Avx2.MoveMask(vInput);
-        var byteCount = 32 - Lzcnt.LeadingZeroCount((uint)initialBits);
+        var byteCount = BitOperations.TrailingZeroCount(~initialBits);
         int bCount = (int)byteCount;
         if (byteCount > 5 || vInput[bCount] == 0)
             ThrowDecodingException();
