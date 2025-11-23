@@ -72,34 +72,6 @@ public class VariableLengthIntegerDecoderBenchmarks
     }
 }
 
-[SimpleJob]
-public class IntegerDecoderBenchmarks
-{
-    public static byte[] _input = [0b01111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000011, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-    [Benchmark]
-    public int DecodeInteger()
-    {
-        QPackIntegerDecoder decoder = new();
-        if (decoder.BeginTryDecode(_input[0], 7, out int result))
-            return result;
-        var index = 1;
-        decoder.TryDecodeInteger(_input, ref index, out result);
-        return result;
-    }
-
-    [Benchmark]
-    public int DecodeIntegerSimd()
-    {
-        QPackIntegerDecoder decoder = new();
-        if (decoder.BeginTryDecode(_input[0], 7, out int result))
-            return result;
-        var index = 1;
-        decoder.TryDecodeIntegerSimd(_input, ref index, out result);
-        return result;
-    }
-}
-
 public class StdDevBenchmark
 {
     public List<int> _numbers = new();
