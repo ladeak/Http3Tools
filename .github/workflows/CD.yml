@@ -16,7 +16,7 @@ jobs:
       contents: write
       id-token: write # Enable GitHub OIDC token issuance for NuGet Trusted Publishing
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
@@ -104,7 +104,7 @@ jobs:
   cross-compile-windows-aot:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
