@@ -243,11 +243,11 @@ internal sealed class QPackDecoder
             var buffer = rentedArray.AsSpan(0, _fieldValueLength);
             source.CopyTo(rentedArray);
             int decodedLength = Huffman.Decode(rentedArray, ref value);
-            handler.OnHeader(_staticDecoderTable[_fieldNameIndex].Name, new ReadOnlySequence<byte>(value, 0, decodedLength));
+            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], new ReadOnlySequence<byte>(value, 0, decodedLength));
         }
         else
         {
-            handler.OnHeader(_staticDecoderTable[_fieldNameIndex].Name, source);
+            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], source);
         }
         consumed = _fieldValueLength;
         _fieldValueLength = 0;
@@ -391,7 +391,7 @@ internal sealed class QPackDecoder
         return true;
     }
 
-    private static readonly HeaderField[] _staticDecoderTable =
+    private static readonly KnownHeaderField[] _staticDecoderTable =
     [
         CreateHeaderField(0, ":authority", ""),
         CreateHeaderField(1, ":path", "/"),
@@ -494,21 +494,20 @@ internal sealed class QPackDecoder
         CreateHeaderField(98, "x-frame-options", "sameorigin")
     ];
 
-    private static readonly FrozenDictionary<string, HeaderField[]> _staticEncoderTable = BuildEndoderTable(_staticDecoderTable);
+    private static readonly FrozenDictionary<string, KnownHeaderField[]> _staticEncoderTable = BuildEndoderTable(_staticDecoderTable);
 
-    private static HeaderField CreateHeaderField(int index, string name, string value) =>
-        new HeaderField(index, Encoding.ASCII.GetBytes(name), Encoding.ASCII.GetBytes(value));
+    private static KnownHeaderField CreateHeaderField(int index, string name, string value) =>
+        new(index, name, Encoding.ASCII.GetBytes(name), value, Encoding.ASCII.GetBytes(value));
 
-    private static FrozenDictionary<string, HeaderField[]> BuildEndoderTable(HeaderField[] source)
+    private static FrozenDictionary<string, KnownHeaderField[]> BuildEndoderTable(KnownHeaderField[] source)
     {
-        var dict = new Dictionary<string, List<HeaderField>>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, List<KnownHeaderField>>(StringComparer.OrdinalIgnoreCase);
         foreach (var header in source)
         {
-            var name = Encoding.ASCII.GetString(header.Name);
-            if (!dict.TryGetValue(name, out var current))
+            if (!dict.TryGetValue(header.Name, out var current))
             {
                 current = [];
-                dict[name] = current;
+                dict[header.Name] = current;
             }
             current.Add(header);
         }

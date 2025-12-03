@@ -134,7 +134,7 @@ public class QPackDecoderTests
         // Required Insert Count = 0, Base = 0
         // test: ok, longerheader: longervalue
         //                         length t     e     s     t    length   o     k  length         l     o     n     g     e     r     h     e     a     d     e     r  length   l     o     n     g     e     r     v     a     l     u     e
-        byte[] data = [0x00, 0x00, 0x24, 0x74, 0x65, 0x73, 0x74, 0x02, 0x6f, 0x6b, 0x27, 0x05, 0x6c, 0x6f, 0x6e, 0x67, 0x65, 0x72, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x0b, 0x6c, 0x6f, 0x6e, 0x67, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x75, 0x65 ];
+        byte[] data = [0x00, 0x00, 0x24, 0x74, 0x65, 0x73, 0x74, 0x02, 0x6f, 0x6b, 0x27, 0x05, 0x6c, 0x6f, 0x6e, 0x67, 0x65, 0x72, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x0b, 0x6c, 0x6f, 0x6e, 0x67, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x75, 0x65];
         QPackDecoder decoder = new();
         TestQPackHeaderHandler testHandler = new();
         decoder.DecodeHeader(new ReadOnlySequence<byte>(data), testHandler, out long consumed);
@@ -165,7 +165,7 @@ public class QPackDecoderTests
 
     [Fact]
     public void Decode_LiteralFieldLineLiteralName_PartialData()
-    { 
+    {
         // Required Insert Count = 0, Base = 0
         // test: ok, longerheader: longervalue
         //                         length t     e     s     t    length   o     k  length         l     o     n     g     e     r     h     e     a     d     e     r  length   l     o     n     g     e     r     v     a     l     u     e
@@ -278,17 +278,17 @@ public class QPackDecoderTests
     {
         internal Dictionary<string, string> Headers { get; } = new();
 
-        public void OnHeader(byte[] name, ReadOnlySequence<byte> value)
+        public void OnHeader(in KnownHeaderField name, in ReadOnlySequence<byte> value)
         {
-            Headers.Add(Encoding.Latin1.GetString(name), Encoding.Latin1.GetString(value.ToArray()));
+            Headers.Add(name.Name, Encoding.Latin1.GetString(value.ToArray()));
         }
 
-        public void OnHeader(HeaderField staticHeader)
+        public void OnHeader(in KnownHeaderField staticHeader)
         {
-            Headers.Add(Encoding.Latin1.GetString(staticHeader.Name), Encoding.Latin1.GetString(staticHeader.Value));
+            Headers.Add(staticHeader.Name, staticHeader.Value);
         }
 
-        public void OnHeader(ReadOnlySequence<byte> fieldName, ReadOnlySequence<byte> fieldValue)
+        public void OnHeader(in ReadOnlySequence<byte> fieldName, in ReadOnlySequence<byte> fieldValue)
         {
             Headers.Add(Encoding.Latin1.GetString(fieldName.ToArray()), Encoding.Latin1.GetString(fieldValue.ToArray()));
         }
