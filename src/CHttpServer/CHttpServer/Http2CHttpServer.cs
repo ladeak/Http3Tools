@@ -62,7 +62,7 @@ public class Http2CHttpServer
             var connectionId = _connectionManager.GetNewConnectionId();
             var connectionContext = new CHttp2ConnectionContext()
             {
-                Features = _features.Copy(),
+                Features = _features.ToContextAware<TContext>(),
                 Transport = networkStream,
                 ConnectionId = connectionId,
                 ServerOptions = _options,

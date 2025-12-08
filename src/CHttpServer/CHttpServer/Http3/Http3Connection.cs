@@ -63,15 +63,18 @@ internal sealed partial class Http3Connection
         }
     }
 
-    private async Task HandleStreamAsync<TContext>(QuicStream quicStream, IHttpApplication<TContext> application) where TContext : notnull
+    private async Task HandleStreamAsync<TContext>(
+        QuicStream quicStream,
+        IHttpApplication<TContext> application) where TContext : notnull
     {
         _maxProcessedStreamId = Math.Max(quicStream.Id, _maxProcessedStreamId);
         if (quicStream.Type == QuicStreamType.Bidirectional)
         {
             // Create Http3Stream DATA stream
-            var http3Stream = new Http3Stream((int)quicStream.Id, quicStream);
+            var http3Stream = new Http3Stream(_context.Features.Copy());
+            http3Stream.Initialize((int)quicStream.Id, quicStream);
             ThreadPool.UnsafeQueueUserWorkItem(
-                state => state.Stream.ProcessStreamAsync(state.App, state.Cancellation),
+                state => state.Stream.ProcessStream(state.App, state.Cancellation),
                 (App: application, Stream: http3Stream, Cancellation: _cts.Token),
                 preferLocal: false);
         }

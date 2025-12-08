@@ -192,9 +192,6 @@ internal partial class Http2Stream
     {
         try
         {
-            if (_featureCollection is not FeatureCollectionContext<TContext>)
-                _featureCollection = _featureCollection.ToContextAware<TContext>();
-
             _requestHeaders.SetReadOnly();
             var context = application.CreateContext(_featureCollection);
             await application.ProcessRequestAsync(context);

@@ -19,7 +19,7 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     public string Method { get; set; }
     public string Path { get => _isPathSet ? field : string.Empty; set => field = value; }
     public string QueryString { get; set; }
-    public Stream Body { get; set => throw new PlatformNotSupportedException(); }
+    public Stream Body { get => Stream.Null; set => throw new PlatformNotSupportedException(); }
     public IHeaderDictionary Headers { get => _requestHeaders; set => throw new PlatformNotSupportedException(); }
 #pragma warning restore CS9266 // Property accessor should use 'field' because the other accessor is using it.
 

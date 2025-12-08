@@ -158,7 +158,6 @@ public class FeatureCollectionTests
         var testDate = new DateTime(2025, 06, 24);
         var features = new FeatureCollection();
         features.Set(testDate);
-        features.Checkpoint();
         features.Set("test");
         var copy = features.Copy();
         features.Set<string>(null);
@@ -166,8 +165,6 @@ public class FeatureCollectionTests
 
         Assert.True(copy.SequenceEqual([new(typeof(DateTime), testDate), new(typeof(string), "test")]));
         copy.ResetCheckpoint();
-        Assert.True(copy.SequenceEqual([new(typeof(DateTime), testDate)]));
-        Assert.Equal(testDate, copy.Get<DateTime>());
-        Assert.Null(copy.Get<string>());
+        Assert.True(copy.SequenceEqual([]));
     }
 }

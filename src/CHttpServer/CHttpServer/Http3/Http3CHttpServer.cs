@@ -75,7 +75,7 @@ public class Http3CHttpServer
             var connectionId = _connectionManager.GetNewConnectionId();
             var connectionContext = new CHttp3ConnectionContext()
             {
-                Features = _features.Copy(),
+                Features = _features.ToContextAware<TContext>(),
                 Transport = connection,
                 ConnectionId = connectionId,
                 ServerOptions = _options,
