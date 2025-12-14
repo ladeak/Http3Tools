@@ -57,10 +57,9 @@ internal sealed partial class Http3Stream
         Scheme = string.Empty;
         Method = string.Empty;
         QueryString = string.Empty;
-        _isPathSet = false;
+        _isPathSet = false; // The actual Path is not reset.
         _applicationProcessing = Task.CompletedTask;
         _features.ResetCheckpoint();
-        // Path not reset
     }
 
     public async void ProcessStream<TContext>(IHttpApplication<TContext> application, CancellationToken token)
@@ -98,6 +97,12 @@ internal sealed partial class Http3Stream
                         processed += ProcessDataFrame(buffer);
                         break;
                     case 0x1: // HEADERS
+                        if (payloadLength < (ulong)buffer.Length)
+                        {
+                            // Not enough data to read payload length.
+                            _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
+                            continue;
+                        }
                         processed += ProcessHeaderFrame(buffer);
                         var context = application.CreateContext(_features);
                         if (_features is IHostContextContainer<TContext> contextAwareFeatureCollection)

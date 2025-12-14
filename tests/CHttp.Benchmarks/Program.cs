@@ -7,6 +7,19 @@ using CHttpServer.Http3;
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
 
+[DisassemblyDiagnoser]
+public class Divison31
+{
+    [Params(62, 100, 124)]
+    public int Input { get; set; }
+
+    [Benchmark]
+    public bool MultiplyBitShift() => (Input / 31) * 31 == Input;
+
+    [Benchmark]
+    public bool DivRem() => Input % 31 == 0;
+}
+
 [SimpleJob]
 public class PrefixedIntegerDecoderBenchmarks
 {

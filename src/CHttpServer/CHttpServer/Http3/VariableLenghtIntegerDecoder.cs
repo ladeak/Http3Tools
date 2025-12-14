@@ -83,4 +83,56 @@ public class VariableLenghtIntegerDecoder
         source.Slice(0, bytesRead).CopyTo(destination);
         return destination;
     }
+
+    /// <summary>
+    /// Writes a variable length positive integer (or zero) to the destination.
+    /// Returns <see langword="false" /> if destination is too small.
+    /// Returns <see langword="true" /> if the number is written successfully.
+    /// </summary>
+    /// <param name="destination">Writable memory region.</param>
+    /// <param name="value">Postitive integer or zero.</param>
+    /// <param name="bytesWritten">Number of bytes written to the <paramref name="destination"/>.</param>
+    /// <returns></returns>
+    public static bool TryWrite(Span<byte> destination, ulong value, out int bytesWritten)
+    {
+        if (value <= 63ul)
+        {
+            if (destination.Length > 0)
+            {
+                destination[0] = (byte)value;
+                bytesWritten = 1;
+                return true;
+            }
+        }
+        else if (value <= 16383ul)
+        {
+            if (destination.Length > 1)
+            {
+                BinaryPrimitives.WriteUInt16BigEndian(destination, (ushort)(value | 0x4000));
+                bytesWritten = 2;
+                return true;
+            }
+        }
+        else if (value <= 1073741823ul)
+        {
+            if (destination.Length > 3)
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)(value | 0x80000000));
+                bytesWritten = 4;
+                return true;
+            }
+        }
+        else if (value <= 4611686018427387903ul)
+        {
+            if (destination.Length > 7)
+            {
+                BinaryPrimitives.WriteUInt64BigEndian(destination, (value | 0xC000_0000_0000_0000));
+                bytesWritten = 8;
+                return true;
+            }
+        }
+        bytesWritten = 0;
+        return false;
+
+    }
 }

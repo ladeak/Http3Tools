@@ -23,18 +23,38 @@ public class CHttpServerOptions
 
     public uint ServerStreamFlowControlSize { get; set; } = InitialStreamFlowControlSize;
 
+    /// <summary>
+    /// Maximum request header length in bytes for HTTP/2.
+    /// In HTTP/3 this value is advertised to clients via SETTINGS_MAX_FIELD_SECTION_SIZE.
+    /// For HTTP/3 requests exceeding this limit, the server will close the connection.
+    /// </summary>
     public int MaxRequestHeaderLength { get; set; } = 65_535;
 
+    /// <summary>
+    /// HTTP/2 priority support.
+    /// </summary>
     public bool UsePriority { get; set; }
 
     public int ConcurrentStreams { get; set; } = 20;
 
+    /// <summary>
+    /// HTTP/2 and HTTP/3 TLS certificate.
+    /// </summary>
     public X509Certificate2? Certificate { get; set; }
 
+    /// <summary>
+    /// HTTP/2 and HTTP/3 TLS certificate path.
+    /// </summary>
     public string? CertificatePath { get; set; }
 
+    /// <summary>
+    /// HTTP/2 and HTTP/3 TLS certificate password.
+    /// </summary>
     public string? CertificatePassword { get; set; }
 
+    /// <summary>
+    /// Set <see langword="true" /> to enable HTTP/3 support.
+    /// </summary>
     public bool UseHttp3
     {
         get;
