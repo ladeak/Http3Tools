@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 
 namespace CHttpServer.Http3;
@@ -37,19 +38,24 @@ internal sealed partial class Http3Connection
         _cts = new();
     }
 
-    internal async Task ProcessConnectionAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
+    internal async Task ProcessConnectionAsync<TContext>(
+        IHttpApplication<TContext> application,
+        CancellationToken token) where TContext : notnull
     {
-        // Initiate control stream.
-        // Push is unsupported, hence GOAWAY and SETTINGS frames are sent here.
-        Debug.Assert(_context.Transport != null);
-        _serverControlStream = await _context.Transport.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, _cts.Token);
-        _serverControlStreamWriter = PipeWriter.Create(_serverControlStream);
-        InitiateServerControlStream();
-        await _serverControlStreamWriter.FlushAsync();
+        token.Register(_cts.Cancel); // These two tokens have the same lifetime as the connection.
 
-        _closingErrorCode = ErrorCodes.H3NoError;
+        Debug.Assert(_context.Transport != null);
         try
         {
+            // Initiate control stream.
+            // Push is unsupported, hence GOAWAY and SETTINGS frames are sent here.
+            _serverControlStream = await _context.Transport.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, _cts.Token);
+            _serverControlStreamWriter = PipeWriter.Create(_serverControlStream);
+            InitiateServerControlStream();
+            await _serverControlStreamWriter.FlushAsync();
+
+            _closingErrorCode = ErrorCodes.H3NoError;
+
             while (!_cts.IsCancellationRequested)
             {
                 var quickStream = await _context.Transport.AcceptInboundStreamAsync(_cts.Token);
@@ -64,20 +70,31 @@ internal sealed partial class Http3Connection
         {
             // Write GOAWAY frame
             Debug.WriteLine(ex.ErrorCode);
-            await TryWriteGoAwayAsync();
             _closingErrorCode = ex.ErrorCode;
+            await TryWriteGoAwayAsync();
+        }
+        catch (QuicException quicException)
+        {
+            if (quicException.QuicError == QuicError.ConnectionTimeout)
+            {
+                // Shutdown processing tasks before closing connection.
+                _cts.Cancel();
+            }
+            Debug.WriteLine(quicException.ToString());
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.ToString());
+            await TryWriteGoAwayAsync();
         }
         finally
         {
             var controlStreamProcessing = _controlStreamProcessing;
             if (controlStreamProcessing != null)
                 await controlStreamProcessing;
-
+            _serverControlStream?.Close();
             await _context.Transport.CloseAsync(_closingErrorCode);
+            _context.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
         }
     }
 
@@ -147,14 +164,14 @@ internal sealed partial class Http3Connection
         Debug.Assert(_serverControlStreamWriter != null);
         var settings = new Http3Settings()
         {
-            ServerMaxFieldSectionSize = checked((ulong)_context.ServerOptions.MaxRequestHeaderLength)
+            ServerMaxFieldSectionSize = checked((ulong?)_context.ServerOptions.Http3MaxRequestHeaderLength)
         };
+        Http3FrameWriter.WriteControlStreamHeader(_serverControlStreamWriter);
         Http3FrameWriter.WriteSettings(_serverControlStreamWriter, settings);
     }
 
     private void Abort(int errorCode)
     {
-        // TODO
         _closingErrorCode = errorCode;
         _cts.Cancel();
         // close connection and send error
@@ -194,7 +211,7 @@ internal sealed partial class Http3Connection
                         Abort(ErrorCodes.H3FrameUnexpected);
                         break;
                     }
-                    if (payloadLength < (ulong)buffer.Length)
+                    if (payloadLength + (ulong)bytesRead > (ulong)buffer.Length)
                     {
                         // Not enough data.
                         _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);

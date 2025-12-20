@@ -4,6 +4,13 @@ namespace CHttpServer.Http3;
 
 internal static class Http3FrameWriter
 {
+    public static void WriteControlStreamHeader(PipeWriter destination)
+    {
+        var buffer = destination.GetSpan(1);
+        buffer[0] = 0;
+        destination.Advance(1);
+    }
+
     /// <summary>
     /// Setting {
     ///   Identifier (i),

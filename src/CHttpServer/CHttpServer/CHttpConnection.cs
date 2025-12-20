@@ -3,7 +3,6 @@ using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
 using CHttpServer.Http3;
-using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 
@@ -18,30 +17,31 @@ internal abstract class CHttpConnectionContext
     internal required CHttpServerOptions ServerOptions { get; set; }
 }
 
-internal class CHttp2ConnectionContext : CHttpConnectionContext
+internal sealed class CHttp2ConnectionContext : CHttpConnectionContext
 {
     internal Stream? Transport { get; set; }
 
     internal IDuplexPipe? TransportPipe { get; set; }
 }
 
-internal class CHttp3ConnectionContext : CHttpConnectionContext
+internal sealed class CHttp3ConnectionContext : CHttpConnectionContext
 {
     internal QuicConnection? Transport { get; set; }
 }
 
-internal abstract class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
+internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
 {
     private readonly CHttpConnectionContext _connectionContext;
     private readonly ConnectionsManager _connectionsManager;
-    private readonly ConcurrentBag<(Action<object> Action, object State)> _heartbeatHandlers;
-    private readonly CancellationTokenSource _connectionClosingCts;
+    protected readonly CancellationTokenSource _connectionClosingCts;
+
+    private (Action<object> Action, object State)? _heartbeatHandler;
+    private Task? _execution;
 
     public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager)
     {
         _connectionContext = connectionContext;
         _connectionsManager = connectionsManager;
-        _heartbeatHandlers = new();
         _connectionClosingCts = new();
         _connectionContext.Features.Set<IConnectionHeartbeatFeature>(this);
         _connectionContext.Features.Set<IConnectionLifetimeNotificationFeature>(this);
@@ -52,37 +52,31 @@ internal abstract class CHttpConnection : IAsyncDisposable, IThreadPoolWorkItem,
     public Task AbortAsync()
     {
         _connectionClosingCts.Cancel();
-        return Task.CompletedTask;
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        _connectionClosingCts.Dispose();
         _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-        return ValueTask.CompletedTask;
+        return _execution ?? Task.CompletedTask;
     }
 
-    public void Execute()
-    {
-        _ = ExecuteAsync();
-    }
+    public void Execute() => _execution = ExecuteAsync();
 
     public abstract Task ExecuteAsync();
 
     public void Heartbeat()
     {
-        foreach (var handler in _heartbeatHandlers)
-            handler.Action(handler.State);
+        var handler = _heartbeatHandler;
+        if (!handler.HasValue)
+            return;
+        handler.Value.Action(handler.Value.State);
     }
 
     public void OnHeartbeat(Action<object> action, object state)
     {
-        _heartbeatHandlers.Add((action, state));
+        _heartbeatHandler = (action, state);
     }
 
     public void RequestClose()
     {
         _connectionClosingCts.Cancel();
+        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
     }
 }
 
@@ -117,6 +111,6 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
     public override Task ExecuteAsync()
     {
         var connection = new Http3Connection(_connectionContext);
-        return connection.ProcessConnectionAsync(_application);
+        return connection.ProcessConnectionAsync(_application, _connectionClosingCts.Token);
     }
 }

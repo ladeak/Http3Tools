@@ -53,7 +53,7 @@ internal sealed partial class Http2Connection
         var concurrentStreamsCount = connectionContext.ServerOptions.ConcurrentStreams;
         _streams = new ConcurrentDictionary<uint, Http2Stream>(concurrentStreamsCount, concurrentStreamsCount);
         _h2Settings = new();
-        _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.MaxRequestHeaderLength);
+        _hpackDecoder = new(maxDynamicTableSize: 0, maxHeadersLength: connectionContext.ServerOptions.Http2MaxRequestHeaderLength);
         _buffer = ArrayPool<byte>.Shared.Rent(checked((int)_h2Settings.ReceiveMaxFrameSize) + MaxFrameHeaderLength);
         _inputRequestReader = connectionContext.TransportPipe!.Input;
         _aborted = new();
@@ -149,6 +149,7 @@ internal sealed partial class Http2Connection
         _inputRequestReader.Complete();
         _context.Transport!.Close();
         ArrayPool<byte>.Shared.Return(_buffer);
+        _context.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
     }
 
     private ValueTask ProcessFrame<TContext>(ReadOnlySequence<byte> dataRead,

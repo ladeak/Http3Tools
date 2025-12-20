@@ -270,7 +270,7 @@ public class Http2ConnectionTests
     {
         var headerName = "x-test-header";
         var headerValue = new string('a', 100_000);
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_001 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 100_001 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
@@ -299,7 +299,7 @@ public class Http2ConnectionTests
     {
         var headerName = $"x-test-header-{new string('a', 100_000)}";
         var headerValue = "true";
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_100 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 100_100 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
@@ -328,7 +328,7 @@ public class Http2ConnectionTests
     {
         var headerName = "x-test-header";
         var headerValue = new string('a', 100_000);
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 90_000 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 90_000 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
@@ -354,7 +354,7 @@ public class Http2ConnectionTests
     {
         var headerName = $"x-test-header-{new string('a', 100_000)}";
         var headerValue = "true";
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 90_000 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 90_000 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
@@ -380,7 +380,7 @@ public class Http2ConnectionTests
     {
         var headerName = "x-test-header";
         var headerValue = new string('a', 100_000);
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_001 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 100_001 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>
@@ -410,7 +410,7 @@ public class Http2ConnectionTests
     {
         var headerName = $"x-test-header-{new string('a', 100_000)}";
         var headerValue = "true";
-        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { MaxRequestHeaderLength = 100_100 });
+        var (pipe, connection) = CreateConnnection(new CHttpServerOptions() { Http2MaxRequestHeaderLength = 100_100 });
 
         // Initiate connection
         var (client, connectionProcessing) = CreateApp(pipe, connection, (HttpContext ctx) =>

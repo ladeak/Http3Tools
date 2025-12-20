@@ -56,14 +56,13 @@ public class CHttpServerImpl : IServer
             }
         }
         var endpoint = new IPEndPoint(ip, uri?.Port ?? _options.Port ?? 5001);
-        cancellationToken.Register(() => _cancellationTokenSource.Cancel());
         if (addresses != null && !addresses.IsReadOnly && addresses.Count == 0)
             addresses.Add($"https://{endpoint.Address}:{endpoint.Port}");
 
-        var h2Listener = _http2Server.StartAsync(endpoint, application, _cancellationTokenSource.Token);
+        var h2Listener = _http2Server.StartAsync(endpoint, application, cancellationToken);
         var h3Listener = Task.CompletedTask;
         if (_http3Server != null && QuicListener.IsSupported)
-            h3Listener = _http3Server.StartAsync(endpoint, application, _cancellationTokenSource.Token);
+            h3Listener = _http3Server.StartAsync(endpoint, application, cancellationToken);
 
         return Task.WhenAll(h2Listener, h3Listener);
     }

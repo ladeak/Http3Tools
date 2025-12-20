@@ -25,10 +25,8 @@ public class CHttpServerOptions
 
     /// <summary>
     /// Maximum request header length in bytes for HTTP/2.
-    /// In HTTP/3 this value is advertised to clients via SETTINGS_MAX_FIELD_SECTION_SIZE.
-    /// For HTTP/3 requests exceeding this limit, the server will close the connection.
     /// </summary>
-    public int MaxRequestHeaderLength { get; set; } = 65_535;
+    public int Http2MaxRequestHeaderLength { get; set; } = 65_535;
 
     /// <summary>
     /// HTTP/2 priority support.
@@ -70,6 +68,12 @@ public class CHttpServerOptions
                 AltService = "h3=\":443\"";
         }
     }
+
+    /// <summary>
+    /// In HTTP/3 this value is advertised to clients via SETTINGS_MAX_FIELD_SECTION_SIZE.
+    /// For HTTP/3 requests exceeding this limit, the server will close the connection.
+    /// </summary>
+    public long? Http3MaxRequestHeaderLength { get; set; }
 
     internal string? AltService { get; set; }
 
