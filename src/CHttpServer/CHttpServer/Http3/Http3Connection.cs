@@ -61,6 +61,7 @@ internal sealed partial class Http3Connection
                 var quickStream = await _context.Transport.AcceptInboundStreamAsync(_cts.Token);
                 await HandleStreamAsync(quickStream, application);
             }
+            await TryWriteGoAwayAsync();
         }
         catch (OperationCanceledException)
         {
@@ -75,7 +76,7 @@ internal sealed partial class Http3Connection
         }
         catch (QuicException quicException)
         {
-            if (quicException.QuicError == QuicError.ConnectionTimeout)
+            if (quicException.QuicError == QuicError.ConnectionTimeout || quicException.QuicError == QuicError.ConnectionIdle)
             {
                 // Shutdown processing tasks before closing connection.
                 _cts.Cancel();
@@ -126,7 +127,7 @@ internal sealed partial class Http3Connection
         {
             var reader = PipeReader.Create(quicStream);
             ReadResult initialRead;
-            initialRead = await reader.ReadAtLeastAsync(8);
+            initialRead = await reader.ReadAtLeastAsync(1);
             if (initialRead.IsCanceled
                 || initialRead.IsCompleted
                 || !VariableLenghtIntegerDecoder.TryRead(initialRead.Buffer.FirstSpan, out ulong streamType, out int bytesRead))
@@ -180,69 +181,81 @@ internal sealed partial class Http3Connection
     private async Task ProcessControlStreamAsync()
     {
         Debug.Assert(_clientControlStreamReader != null);
-        while (!_cts.IsCancellationRequested)
+        try
         {
-            var readResult = await _clientControlStreamReader.ReadAsync(_cts.Token);
-            if (readResult.IsCompleted || readResult.IsCanceled)
-                break;
-
-            var buffer = readResult.Buffer;
-
-            if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong frameType, out int bytesRead))
-                Abort(ErrorCodes.H3FrameError);
-
-            buffer = buffer.Slice(bytesRead);
-            if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong payloadLength, out bytesRead))
+            while (!_cts.IsCancellationRequested)
             {
-                // Not enough data.
-                _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);
-                continue;
-            }
-
-            long processed = 1 + bytesRead; // 1 for the frame type. Should be always one byte by spec.
-            switch (frameType)
-            {
-                case 0x03: // CANCEL_PUSH
-                    Abort(ErrorCodes.H3IdError);
+                var readResult = await _clientControlStreamReader.ReadAsync(_cts.Token);
+                if (readResult.IsCompleted || readResult.IsCanceled)
                     break;
-                case 0x4: // SETTINGS
-                    if (_settingsFrameReceived)
-                    {
-                        Abort(ErrorCodes.H3FrameUnexpected);
+
+                var buffer = readResult.Buffer;
+
+                if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong frameType, out int bytesRead))
+                    Abort(ErrorCodes.H3FrameError);
+
+                if (!VariableLenghtIntegerDecoder.TryRead(buffer.Slice(bytesRead), out ulong payloadLength, out bytesRead))
+                {
+                    // Not enough data.
+                    _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);
+                    continue;
+                }
+
+                long processed = 1 + bytesRead; // 1 for the frame type. Should be always one byte by spec.
+                switch (frameType)
+                {
+                    case 0x03: // CANCEL_PUSH
+                        Abort(ErrorCodes.H3IdError);
                         break;
-                    }
-                    if (payloadLength + (ulong)bytesRead > (ulong)buffer.Length)
-                    {
-                        // Not enough data.
-                        _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);
-                        continue;
-                    }
-                    if (ProcessSettingsFrame(buffer.Slice(bytesRead), out bytesRead))
-                    {
-                        _settingsFrameReceived = true;
-                        processed += bytesRead;
-                    }
-                    else
-                        Abort(ErrorCodes.H3SettingsError);
-                    break;
-                case 0x7: // GO_AWAY
-                    Abort(ErrorCodes.H3NoError);
-                    break;
-                case 0xd: // MAX_PUSH_ID
-                    processed += checked((long)payloadLength);
-                    break;
-                default:
-                    // Reserved frame types
-                    if ((frameType - 32) % 31 == 0)
-                    {
+                    case 0x4: // SETTINGS
+                        if (_settingsFrameReceived)
+                        {
+                            Abort(ErrorCodes.H3FrameUnexpected);
+                            break;
+                        }
+                        if (checked((long)payloadLength) + processed > buffer.Length)
+                        {
+                            // Not enough data.
+                            _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);
+                            continue;
+                        }
+                        if (ProcessSettingsFrame(buffer.Slice(processed, checked((int)payloadLength)), out bytesRead))
+                        {
+                            _settingsFrameReceived = true;
+                            processed += bytesRead;
+                        }
+                        else
+                            Abort(ErrorCodes.H3SettingsError);
+                        break;
+                    case 0x7: // GO_AWAY
+                        Abort(ErrorCodes.H3NoError);
+                        break;
+                    case 0xd: // MAX_PUSH_ID
                         processed += checked((long)payloadLength);
                         break;
-                    }
-                    Abort(ErrorCodes.H3FrameUnexpected);
-                    break;
-            }
+                    default:
+                        // Reserved frame types
+                        if ((frameType - 32) % 31 == 0)
+                        {
+                            processed += checked((long)payloadLength);
+                            break;
+                        }
+                        Abort(ErrorCodes.H3FrameUnexpected);
+                        break;
+                }
 
-            _clientControlStreamReader.AdvanceTo(readResult.Buffer.GetPosition(processed), readResult.Buffer.End);
+                _clientControlStreamReader.AdvanceTo(readResult.Buffer.GetPosition(processed));
+            }
+        }
+        catch (QuicException quicException)
+        {
+            if (quicException.QuicError == QuicError.ConnectionAborted || quicException.QuicError == QuicError.StreamAborted)
+                _cts.Cancel();
+            Debug.WriteLine(quicException.ToString());
+        }
+        finally
+        {
+            Abort(ErrorCodes.H3ClosedCriticalStream);
         }
     }
 
