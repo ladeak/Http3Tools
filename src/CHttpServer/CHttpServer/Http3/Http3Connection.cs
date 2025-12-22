@@ -30,6 +30,7 @@ internal sealed partial class Http3Connection
 
     private QPackDecoder _qPackDecoder = new();
     private int _closingErrorCode;
+    private volatile bool _isAborted;
 
     public Http3Connection(CHttp3ConnectionContext connectionContext)
     {
@@ -173,6 +174,9 @@ internal sealed partial class Http3Connection
 
     private void Abort(int errorCode)
     {
+        if (_isAborted)
+            return;
+        _isAborted = true;
         _closingErrorCode = errorCode;
         _cts.Cancel();
         // close connection and send error
