@@ -43,7 +43,7 @@ internal sealed partial class Http3Connection
         IHttpApplication<TContext> application,
         CancellationToken token) where TContext : notnull
     {
-        token.Register(_cts.Cancel); // These two tokens have the same lifetime as the connection.
+        var serverShutdownRegistration = token.Register(_cts.Cancel); // These two tokens have the same lifetime as the connection.
 
         Debug.Assert(_context.Transport != null);
         try
@@ -91,6 +91,7 @@ internal sealed partial class Http3Connection
         }
         finally
         {
+            serverShutdownRegistration.Dispose();
             var controlStreamProcessing = _controlStreamProcessing;
             if (controlStreamProcessing != null)
                 await controlStreamProcessing;
@@ -102,10 +103,17 @@ internal sealed partial class Http3Connection
 
     private async Task TryWriteGoAwayAsync()
     {
-        if (_serverControlStreamWriter != null)
+        try
         {
-            Http3FrameWriter.WriteGoAway(_serverControlStreamWriter, _maxProcessedStreamId);
-            await _serverControlStreamWriter.FlushAsync();
+            if (_serverControlStreamWriter != null)
+            {
+                Http3FrameWriter.WriteGoAway(_serverControlStreamWriter, _maxProcessedStreamId);
+                await _serverControlStreamWriter.FlushAsync();
+            }
+        }
+        catch (QuicException ex) when (ex.QuicError == QuicError.ConnectionAborted || ex.QuicError == QuicError.StreamAborted)
+        {
+            // Connection already aborted by the client.
         }
     }
 
@@ -179,7 +187,6 @@ internal sealed partial class Http3Connection
         _isAborted = true;
         _closingErrorCode = errorCode;
         _cts.Cancel();
-        // close connection and send error
     }
 
     private async Task ProcessControlStreamAsync()
