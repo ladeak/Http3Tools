@@ -415,7 +415,7 @@ internal sealed partial class Http2Connection
         }
     }
 
-    public ReadOnlySpan<byte> ToSpan(in ReadOnlySequence<byte> buffer)
+    private ReadOnlySpan<byte> ToSpan(in ReadOnlySequence<byte> buffer)
     {
         if (buffer.IsSingleSegment)
             return buffer.FirstSpan;
