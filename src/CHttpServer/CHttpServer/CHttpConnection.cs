@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Net.Quic;
 using System.Runtime.Versioning;
 using CHttpServer.Http3;
@@ -15,6 +14,8 @@ internal abstract class CHttpConnectionContext
     internal required long ConnectionId { get; init; }
 
     internal required CHttpServerOptions ServerOptions { get; set; }
+
+    internal required CancellationTokenSource ConnectionCancellation { get; init; }
 }
 
 internal sealed class CHttp2ConnectionContext : CHttpConnectionContext
@@ -26,41 +27,62 @@ internal sealed class CHttp2ConnectionContext : CHttpConnectionContext
 
 internal sealed class CHttp3ConnectionContext : CHttpConnectionContext
 {
-    internal QuicConnection? Transport { get; set; }
+    internal required QuicConnection Transport { get; init; }
 }
 
-internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionHeartbeatFeature, IConnectionLifetimeNotificationFeature
+internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifetimeNotificationFeature
 {
     private readonly CHttpConnectionContext _connectionContext;
     private readonly ConnectionsManager _connectionsManager;
-    protected readonly CancellationTokenSource _connectionClosingCts;
-
-    private (Action<object> Action, object State)? _heartbeatHandler;
     private Task? _execution;
 
     public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager)
     {
         _connectionContext = connectionContext;
         _connectionsManager = connectionsManager;
-        _connectionClosingCts = new();
-        _connectionContext.Features.Set<IConnectionHeartbeatFeature>(this);
         _connectionContext.Features.Set<IConnectionLifetimeNotificationFeature>(this);
     }
 
-    public CancellationToken ConnectionClosedRequested { get => _connectionClosingCts.Token; set => throw new NotSupportedException(); }
+    public CancellationToken ConnectionClosedRequested { get => _connectionContext.ConnectionCancellation.Token; set => throw new NotSupportedException(); }
 
-    public Task AbortAsync()
+    public async Task AbortAsync()
     {
-        _connectionClosingCts.Cancel();
+        _connectionContext.ConnectionCancellation.Cancel(); // Awaits the execution to complete if there is one.
+        var execution = _execution ?? Task.CompletedTask;
         _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-        return _execution ?? Task.CompletedTask;
+        await execution.AllowCancellation();
     }
 
     public void Execute() => _execution = ExecuteAsync();
 
     public abstract Task ExecuteAsync();
 
-    public void Heartbeat()
+    public void RequestClose()
+    {
+        _connectionContext.ConnectionCancellation.Cancel();
+        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
+    }
+
+    public virtual void Heartbeat()
+    {
+    }
+}
+
+internal sealed class CHttp2Connection<TContext> : CHttpConnection, IConnectionHeartbeatFeature
+    where TContext : notnull
+{
+    private readonly CHttp2ConnectionContext _connectionContext;
+    private readonly Func<CHttp2ConnectionContext, Task> _connectionDelegate;
+    private (Action<object> Action, object State)? _heartbeatHandler;
+
+    public CHttp2Connection(CHttp2ConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttp2ConnectionContext, Task> connectionDelegate) : base(connectionContext, connectionsManager)
+    {
+        _connectionContext = connectionContext;
+        _connectionDelegate = connectionDelegate;
+        _connectionContext.Features.Set<IConnectionHeartbeatFeature>(this);
+    }
+
+    public override void Heartbeat()
     {
         var handler = _heartbeatHandler;
         if (!handler.HasValue)
@@ -71,24 +93,6 @@ internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionHeartb
     public void OnHeartbeat(Action<object> action, object state)
     {
         _heartbeatHandler = (action, state);
-    }
-
-    public void RequestClose()
-    {
-        _connectionClosingCts.Cancel();
-        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-    }
-}
-
-internal sealed class CHttp2Connection<TContext> : CHttpConnection where TContext : notnull
-{
-    private readonly CHttp2ConnectionContext _connectionContext;
-    private readonly Func<CHttp2ConnectionContext, Task> _connectionDelegate;
-
-    public CHttp2Connection(CHttp2ConnectionContext connectionContext, ConnectionsManager connectionsManager, Func<CHttp2ConnectionContext, Task> connectionDelegate) : base(connectionContext, connectionsManager)
-    {
-        _connectionContext = connectionContext;
-        _connectionDelegate = connectionDelegate;
     }
 
     public override Task ExecuteAsync() => _connectionDelegate(_connectionContext);
@@ -111,6 +115,6 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
     public override Task ExecuteAsync()
     {
         var connection = new Http3Connection(_connectionContext);
-        return connection.ProcessConnectionAsync(_application, _connectionClosingCts.Token);
+        return connection.ProcessConnectionAsync(_application);
     }
 }

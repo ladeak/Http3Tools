@@ -1,5 +1,4 @@
 ﻿using CHttpServer.System.Net.Http.HPack;
-using Microsoft.AspNetCore.Http;
 using static CHttpServer.Tests.TestBase;
 
 namespace CHttpServer.Tests;
@@ -18,7 +17,8 @@ public class Http2StreamTests
             ConnectionId = 1,
             Features = features,
             ServerOptions = new CHttpServerOptions(),
-            TransportPipe = new DuplexPipeStreamAdapter<MemoryStream>(memoryStream, new(), new())
+            TransportPipe = new DuplexPipeStreamAdapter<MemoryStream>(memoryStream, new(), new()),
+            ConnectionCancellation = new(),
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
         var stream = new Http2Stream(connection, features);

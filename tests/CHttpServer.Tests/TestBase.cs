@@ -24,7 +24,8 @@ internal class TestBase
             Features = features,
             ServerOptions = serverOptions ?? new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
+            TransportPipe = pipe,
+            ConnectionCancellation = new()
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
         return (pipe, connection);

@@ -586,6 +586,7 @@ public class PriorityResponseWriterTests
             ServerOptions = new CHttpServerOptions() { UsePriority = true },
             Features = new FeatureCollection(),
             TransportPipe = pipe,
+            ConnectionCancellation = new(),
         };
         var writer = new PriorityResponseWriter(new FrameWriter(context), 20_000);
         return (pipe, context, writer);

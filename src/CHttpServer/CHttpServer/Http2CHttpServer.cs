@@ -10,17 +10,17 @@ public class Http2CHttpServer
     private readonly CHttpServerOptions _options;
     private readonly FeatureCollection _features;
     private readonly ConnectionsManager _connectionManager;
-    private readonly CancellationToken _cancellationToken;
+    private readonly CancellationTokenSource _serverShutdownToken;
     private Socket? _listenSocket;
+    private Task? _acceptingConnections;
 
     public Http2CHttpServer(
         IOptions<CHttpServerOptions> options,
-        FeatureCollection features,
-        CancellationToken token)
+        FeatureCollection features)
     {
         _options = options.Value;
         _features = features;
-        _cancellationToken = token;
+        _serverShutdownToken = new();
         _connectionManager = new ConnectionsManager();
     }
 
@@ -43,8 +43,15 @@ public class Http2CHttpServer
         });
         Func<CHttp2ConnectionContext, Task> connectionDelegate = httpsMiddleware.OnConnectionAsync;
 
-        _ = StartAcceptAsync<TContext>(connectionDelegate);
+        _acceptingConnections = StartAcceptAsync<TContext>(connectionDelegate);
         return Task.CompletedTask;
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _serverShutdownToken.Cancel();
+        if (_acceptingConnections != null)
+            await _acceptingConnections.AllowCancellation();
     }
 
     private async Task StartAcceptAsync<TContext>(Func<CHttp2ConnectionContext, Task> connectionDelegate) where TContext : notnull
@@ -52,7 +59,7 @@ public class Http2CHttpServer
         ArgumentNullException.ThrowIfNull(_listenSocket);
         while (true)
         {
-            var connection = await _listenSocket.AcceptAsync(_cancellationToken);
+            var connection = await _listenSocket.AcceptAsync(_serverShutdownToken.Token);
             if (connection == null)
             {
                 break;
@@ -66,6 +73,7 @@ public class Http2CHttpServer
                 Transport = networkStream,
                 ConnectionId = connectionId,
                 ServerOptions = _options,
+                ConnectionCancellation = new()
             };
             var chttpConnection = new CHttp2Connection<TContext>(connectionContext, _connectionManager, connectionDelegate);
             _connectionManager.AddConnection(connectionId, chttpConnection);

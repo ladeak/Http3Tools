@@ -24,7 +24,8 @@ public class Http2ConnectionTests
             Features = features,
             ServerOptions = new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
+            TransportPipe = pipe,
+            ConnectionCancellation = new()
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
 
@@ -54,7 +55,8 @@ public class Http2ConnectionTests
             Features = features,
             ServerOptions = new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
+            TransportPipe = pipe,
+            ConnectionCancellation = new()
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
 
@@ -82,7 +84,8 @@ public class Http2ConnectionTests
             Features = features,
             ServerOptions = new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
+            TransportPipe = pipe,
+            ConnectionCancellation = new()
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
 
@@ -108,7 +111,8 @@ public class Http2ConnectionTests
             Features = features,
             ServerOptions = new CHttpServerOptions(),
             Transport = pipe.Input.AsStream(),
-            TransportPipe = pipe
+            TransportPipe = pipe,
+            ConnectionCancellation = new()
         };
         var connection = new Http2Connection(connectionContext) { ResponseWriter = new Http2ResponseWriter(new FrameWriter(connectionContext), 1000) };
 

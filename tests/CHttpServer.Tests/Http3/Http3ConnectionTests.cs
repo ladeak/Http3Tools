@@ -15,7 +15,7 @@ public class Http3ConnectionTests
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), TestContext.Current.CancellationToken)
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
@@ -31,11 +31,11 @@ public class Http3ConnectionTests
     }
 
     [Fact]
-    public async Task ClientAbortsConnection() 
+    public async Task ClientAbortsConnection()
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), TestContext.Current.CancellationToken)
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
@@ -55,7 +55,7 @@ public class Http3ConnectionTests
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), TestContext.Current.CancellationToken)
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(async () =>
         {
@@ -80,8 +80,8 @@ public class Http3ConnectionTests
         CancellationTokenSource cts = new();
         TestContext.Current.CancellationToken.Register(() => cts.Cancel());
         await using var fixture = await SetupConnectionAsync(cts.Token);
-        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), cts.Token)
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection, connectionCancellation: cts);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(cts.Token), cts.Token);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, cts.Token);
@@ -99,7 +99,7 @@ public class Http3ConnectionTests
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), TestContext.Current.CancellationToken)
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
@@ -140,7 +140,7 @@ public class Http3ConnectionTests
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
-        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), TestContext.Current.CancellationToken)
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
@@ -174,10 +174,10 @@ public class Http3ConnectionTests
             cts.Cancel();
             await AssertGoAwayAsync(inboundStream, 0);
         }, cts.Token);
-        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection, new() { Http3MaxRequestHeaderLength = maxRequestHeaderLength });
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection, new() { Http3MaxRequestHeaderLength = maxRequestHeaderLength }, connectionCancellation: cts);
 
         // Token cancelled when settings frame is read
-        await sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), cts.Token)
+        await sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         await readServerControlStream;
     }
@@ -195,22 +195,23 @@ public class Http3ConnectionTests
             cts.Cancel();
             await AssertGoAwayAsync(inboundStream, 0);
         }, cts.Token);
-        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection, connectionCancellation: cts);
 
         // Token cancelled when settings frame is read
-        await sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask), cts.Token)
+        await sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         await readServerControlStream;
     }
 
-    private static Http3Connection CreateHttp3Connection(QuicConnection serverConnection, CHttpServerOptions? options = null)
+    private static Http3Connection CreateHttp3Connection(QuicConnection serverConnection, CHttpServerOptions? options = null, CancellationTokenSource? connectionCancellation = null)
     {
         var connectionContext = new CHttp3ConnectionContext()
         {
             ServerOptions = options ?? new(),
             Features = new FeatureCollection(),
             ConnectionId = 1,
-            Transport = serverConnection
+            Transport = serverConnection,
+            ConnectionCancellation = connectionCancellation ?? new()
         };
         var sut = new Http3Connection(connectionContext);
         return sut;

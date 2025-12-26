@@ -36,15 +36,12 @@ internal sealed partial class Http3Connection
     {
         _context = connectionContext;
         _context.Features.Add<IHttp3ConnectionSettings>(this);
-        _cts = new();
+        _cts = connectionContext.ConnectionCancellation;
     }
 
     internal async Task ProcessConnectionAsync<TContext>(
-        IHttpApplication<TContext> application,
-        CancellationToken token) where TContext : notnull
+        IHttpApplication<TContext> application) where TContext : notnull
     {
-        var serverShutdownRegistration = token.Register(_cts.Cancel); // These two tokens have the same lifetime as the connection.
-
         Debug.Assert(_context.Transport != null);
         try
         {
@@ -64,37 +61,37 @@ internal sealed partial class Http3Connection
             }
             await TryWriteGoAwayAsync();
         }
-        catch (OperationCanceledException)
-        {
-            await TryWriteGoAwayAsync();
-        }
         catch (Http3ConnectionException ex)
         {
             // Write GOAWAY frame
             Debug.WriteLine(ex.ErrorCode);
             _closingErrorCode = ex.ErrorCode;
-            await TryWriteGoAwayAsync();
         }
         catch (QuicException quicException)
         {
             if (quicException.QuicError == QuicError.ConnectionTimeout || quicException.QuicError == QuicError.ConnectionIdle)
             {
-                // Shutdown processing tasks before closing connection.
-                _cts.Cancel();
+                // QUIC connection teardown.
             }
             Debug.WriteLine(quicException.ToString());
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.ToString());
-            await TryWriteGoAwayAsync();
         }
         finally
         {
-            serverShutdownRegistration.Dispose();
+            // Shutdown processing tasks before closing connection.
+            _isAborted = true;
+            _cts.Cancel();
+
+            // GOAWAY
+            await TryWriteGoAwayAsync();
+            _cts.Dispose();
+
             var controlStreamProcessing = _controlStreamProcessing;
             if (controlStreamProcessing != null)
-                await controlStreamProcessing;
+                await controlStreamProcessing.AllowCancellation();
             _serverControlStream?.Close();
             await _context.Transport.CloseAsync(_closingErrorCode);
             _context.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
@@ -260,8 +257,6 @@ internal sealed partial class Http3Connection
         }
         catch (QuicException quicException)
         {
-            if (quicException.QuicError == QuicError.ConnectionAborted || quicException.QuicError == QuicError.StreamAborted)
-                _cts.Cancel();
             Debug.WriteLine(quicException.ToString());
         }
         finally

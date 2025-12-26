@@ -12,7 +12,6 @@ namespace CHttpServer;
 public class CHttpServerImpl : IServer
 {
     private readonly CHttpServerOptions _options;
-    private CancellationTokenSource _cancellationTokenSource;
     private readonly FeatureCollection _features;
     private readonly Http2CHttpServer _http2Server;
     private readonly Http3CHttpServer? _http3Server;
@@ -20,14 +19,13 @@ public class CHttpServerImpl : IServer
     public CHttpServerImpl(IOptions<CHttpServerOptions> options)
     {
         _options = options.Value;
-        _cancellationTokenSource = new CancellationTokenSource();
         _features = new FeatureCollection();
         var serverAddresses = new ServerAddressesFeature();
         Features.Set<IServerAddressesFeature>(serverAddresses);
         Features.Set<IMemoryPoolFeature>(new CHttpMemoryPool());
-        _http2Server = new Http2CHttpServer(options, _features, _cancellationTokenSource.Token);
+        _http2Server = new Http2CHttpServer(options, _features);
         if (_options.UseHttp3)
-            _http3Server = new Http3CHttpServer(options, _features, _cancellationTokenSource.Token);
+            _http3Server = new Http3CHttpServer(options, _features);
     }
 
     public IFeatureCollection Features => _features;
@@ -69,7 +67,9 @@ public class CHttpServerImpl : IServer
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _cancellationTokenSource.Cancel();
-        return Task.CompletedTask;
+        var h2Stopping = _http2Server.StopAsync(cancellationToken);
+        if (_http3Server != null && QuicListener.IsSupported)
+            return Task.WhenAll(h2Stopping, _http3Server.StopAsync(cancellationToken));
+        return h2Stopping;
     }
 }
