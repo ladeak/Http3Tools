@@ -10,6 +10,7 @@ namespace CHttpServer.Tests;
 public class TestServer : IAsyncDisposable, IDisposable
 {
     private WebApplication? _app;
+    private bool _isDisposed;
 
     public Task RunAsync(int port = 7222, bool usePriority = false, bool useHttp3 = false)
     {
@@ -129,8 +130,9 @@ public class TestServer : IAsyncDisposable, IDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_app == null)
+        if (_app == null || _isDisposed)
             return;
+        _isDisposed = true;
         await _app.StopAsync();
         await _app.WaitForShutdownAsync();
     }
