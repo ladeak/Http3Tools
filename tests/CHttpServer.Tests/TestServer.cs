@@ -134,7 +134,6 @@ public class TestServer : IAsyncDisposable, IDisposable
             return;
         _isDisposed = true;
         await _app.StopAsync();
-        await _app.WaitForShutdownAsync();
     }
 
     public void Dispose()
