@@ -17,7 +17,7 @@ namespace CHttpServer.Http3;
 internal sealed partial class Http3Connection
 {
     private readonly CHttp3ConnectionContext _context;
-    private readonly CancellationTokenSource _cts;
+    private readonly CancellationTokenSource _abruptCts;
     private long _maxProcessedStreamId = 0;
 
     private PipeReader? _clientControlStreamReader;
@@ -36,7 +36,11 @@ internal sealed partial class Http3Connection
     {
         _context = connectionContext;
         _context.Features.Add<IHttp3ConnectionSettings>(this);
-        _cts = connectionContext.ConnectionCancellation;
+
+        _abruptCts = new CancellationTokenSource(); // Abrupt cancellation
+
+        // Abrupt cancellation triggers graceful cancellation token to become cancelled.
+        _abruptCts.Token.Register(() => connectionContext.ConnectionCancellation.Cancel());
     }
 
     internal async Task ProcessConnectionAsync<TContext>(
@@ -45,21 +49,21 @@ internal sealed partial class Http3Connection
         Debug.Assert(_context.Transport != null);
         try
         {
-            // Initiate control stream.
-            // Push is unsupported, hence GOAWAY and SETTINGS frames are sent here.
-            _serverControlStream = await _context.Transport.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, _cts.Token);
+            // Initiate control stream. Push is unsupported, hence SETTINGS and GOAWAY frames are sent only on the control stream.
+            _serverControlStream = await _context.Transport.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, _abruptCts.Token);
             _serverControlStreamWriter = PipeWriter.Create(_serverControlStream);
             InitiateServerControlStream();
             await _serverControlStreamWriter.FlushAsync();
 
             _closingErrorCode = ErrorCodes.H3NoError;
 
-            while (!_cts.IsCancellationRequested)
+            // Graceful cancellation accepts no more inbound streams.
+            var gracefulShutdown = _context.ConnectionCancellation.Token;
+            while (!gracefulShutdown.IsCancellationRequested)
             {
-                var quickStream = await _context.Transport.AcceptInboundStreamAsync(_cts.Token);
+                var quickStream = await _context.Transport.AcceptInboundStreamAsync(gracefulShutdown);
                 await HandleStreamAsync(quickStream, application);
             }
-            await TryWriteGoAwayAsync();
         }
         catch (Http3ConnectionException ex)
         {
@@ -81,13 +85,15 @@ internal sealed partial class Http3Connection
         }
         finally
         {
+            // Await streams before closing control stream
+
             // Shutdown processing tasks before closing connection.
             _isAborted = true;
-            _cts.Cancel();
+            _abruptCts.Cancel();
 
             // GOAWAY
             await TryWriteGoAwayAsync();
-            _cts.Dispose();
+            _abruptCts.Dispose();
 
             var controlStreamProcessing = _controlStreamProcessing;
             if (controlStreamProcessing != null)
@@ -126,7 +132,7 @@ internal sealed partial class Http3Connection
             http3Stream.Initialize((int)quicStream.Id, quicStream);
             ThreadPool.UnsafeQueueUserWorkItem(
                 state => state.Stream.ProcessStream(state.App, state.Cancellation),
-                (App: application, Stream: http3Stream, Cancellation: _cts.Token),
+                (App: application, Stream: http3Stream, Cancellation: _abruptCts.Token),
                 preferLocal: false);
         }
         else
@@ -157,7 +163,7 @@ internal sealed partial class Http3Connection
             // QPack Decoding stream
             else if (streamType == 3)
             {
-                _qPackDecoder.SetDecodingStream(quicStream, _cts.Token);
+                _qPackDecoder.SetDecodingStream(quicStream, _abruptCts.Token);
             }
             else
             {
@@ -183,7 +189,7 @@ internal sealed partial class Http3Connection
             return;
         _isAborted = true;
         _closingErrorCode = errorCode;
-        _cts.Cancel();
+        _abruptCts.Cancel();
     }
 
     private async Task ProcessControlStreamAsync()
@@ -191,9 +197,9 @@ internal sealed partial class Http3Connection
         Debug.Assert(_clientControlStreamReader != null);
         try
         {
-            while (!_cts.IsCancellationRequested)
+            while (!_abruptCts.IsCancellationRequested)
             {
-                var readResult = await _clientControlStreamReader.ReadAsync(_cts.Token);
+                var readResult = await _clientControlStreamReader.ReadAsync(_abruptCts.Token);
                 if (readResult.IsCompleted || readResult.IsCanceled)
                     break;
 

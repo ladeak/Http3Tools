@@ -45,7 +45,7 @@ internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifeti
 
     public CancellationToken ConnectionClosedRequested { get => _connectionContext.ConnectionCancellation.Token; set => throw new NotSupportedException(); }
 
-    public async Task AbortAsync()
+    public async Task StopAsync()
     {
         _connectionContext.ConnectionCancellation.Cancel(); // Awaits the execution to complete if there is one.
         var execution = _execution ?? Task.CompletedTask;
