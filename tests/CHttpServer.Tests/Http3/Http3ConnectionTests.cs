@@ -20,20 +20,16 @@ public class Http3ConnectionTests
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
         var clientDataStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
         // FrameType: 1-Headers, Length: 2
-        data = [1, 2, 0];
+        byte[] data = [1, 2, 0];
         await clientDataStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientDataStream.FlushAsync(TestContext.Current.CancellationToken);
-        
+
         // Let time for the data stream to start processing
         await Task.Delay(100, TestContext.Current.CancellationToken);
-        
+
         // Stop should trigger abortion, that will abort all streams.
         await sut.StopAsync(new CancellationToken(true));
 
@@ -53,11 +49,7 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
-
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
         await sut.StopAsync(new CancellationToken(true));
 
@@ -77,12 +69,8 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
-        
         await sut.StopAsync(TestContext.Current.CancellationToken);
 
         await processing;
@@ -101,11 +89,7 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
-
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
         clientControlStream.Abort(QuicAbortDirection.Both, 1);
 
         await readServerControlStream;
@@ -121,11 +105,7 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
-
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
         await fixture.ClientConnection.CloseAsync(ErrorCodes.H3NoError, TestContext.Current.CancellationToken);
 
         await readServerControlStream;
@@ -226,11 +206,7 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
-
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
         // Write GOAWAY FrameType: 7, Length: 1, StreamId: 0
         data = [7, 1, 0];
@@ -377,6 +353,13 @@ public class Http3ConnectionTests
         }
     }
 
+    private static async Task WriteSettings(QuicStream clientControlStream)
+    {
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
+        byte[] data = [0, 4, 2, 6, 3];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+    }
 }
 
 
