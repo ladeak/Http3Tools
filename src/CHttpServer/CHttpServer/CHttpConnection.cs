@@ -33,8 +33,8 @@ internal sealed class CHttp3ConnectionContext : CHttpConnectionContext
 internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifetimeNotificationFeature
 {
     private readonly CHttpConnectionContext _connectionContext;
-    private readonly ConnectionsManager _connectionsManager;
-    private Task? _execution;
+    protected readonly ConnectionsManager _connectionsManager;
+    protected Task? _execution;
 
     public CHttpConnection(CHttpConnectionContext connectionContext, ConnectionsManager connectionsManager)
     {
@@ -45,12 +45,12 @@ internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifeti
 
     public CancellationToken ConnectionClosedRequested { get => _connectionContext.ConnectionCancellation.Token; set => throw new NotSupportedException(); }
 
-    public async Task StopAsync()
+    public virtual async Task StopAsync(CancellationToken token)
     {
+        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
         _connectionContext.ConnectionCancellation.Cancel(); // Awaits the execution to complete if there is one.
         var execution = _execution ?? Task.CompletedTask;
-        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-        await execution.AllowCancellation();
+        await execution.WaitAsync(token).AllowCancellation();
     }
 
     public void Execute() => _execution = ExecuteAsync();
@@ -102,6 +102,7 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
 {
     private readonly CHttp3ConnectionContext _connectionContext;
     private readonly IHttpApplication<TContext> _application;
+    private Http3Connection? _connection;
 
     public CHttp3Connection(CHttp3ConnectionContext connectionContext, ConnectionsManager connectionsManager, IHttpApplication<TContext> application) : base(connectionContext, connectionsManager)
     {
@@ -114,7 +115,17 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
     [SupportedOSPlatform("macos")]
     public override Task ExecuteAsync()
     {
-        var connection = new Http3Connection(_connectionContext);
-        return connection.ProcessConnectionAsync(_application);
+        _connection = new Http3Connection(_connectionContext);
+        return _connection.ProcessConnectionAsync(_application);
+    }
+
+    public override async Task StopAsync(CancellationToken token)
+    {
+        if (_connection == null || !QuicConnection.IsSupported)
+            return;
+        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
+        await _connection.StopAsync(token);
+        var execution = _execution ?? Task.CompletedTask;
+        await execution.AllowCancellation();
     }
 }

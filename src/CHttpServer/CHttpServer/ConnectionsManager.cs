@@ -22,11 +22,11 @@ internal sealed class ConnectionsManager
             throw new ArgumentException("Unable to remove specified id.", nameof(id));
     }
 
-    public Task StopAsync()
+    public Task StopAsync(CancellationToken token)
     {
         List<Task> connectionAbortions = new List<Task>();
         foreach (var connection in _connections)
-            connectionAbortions.Add(connection.Value.StopAsync());
+            connectionAbortions.Add(connection.Value.StopAsync(token));
         return Task.WhenAll(connectionAbortions);
     }
 

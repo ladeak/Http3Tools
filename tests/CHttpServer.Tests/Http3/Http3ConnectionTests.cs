@@ -11,6 +11,88 @@ namespace CHttpServer.Tests.Http3;
 public class Http3ConnectionTests
 {
     [Fact]
+    public async Task StopAsync_WithOpenRequestStream_ForcedCancelling_ClosesConnection()
+    {
+        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+        var clientDataStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
+        byte[] data = [0, 4, 2, 6, 3];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        // FrameType: 1-Headers, Length: 2
+        data = [1, 2, 0];
+        await clientDataStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientDataStream.FlushAsync(TestContext.Current.CancellationToken);
+        
+        // Let time for the data stream to start processing
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        
+        // Stop should trigger abortion, that will abort all streams.
+        await sut.StopAsync(new CancellationToken(true));
+
+        await processing;
+        await Assert.ThrowsAsync<QuicException>(
+            async () => await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken),
+            ex => ex.QuicError == QuicError.ConnectionAborted ? null : ex.Message);
+        await readServerControlStream;
+    }
+
+    [Fact]
+    public async Task StopAsyncForcedCancelling_ClosesConnection()
+    {
+        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
+        byte[] data = [0, 4, 2, 6, 3];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        await sut.StopAsync(new CancellationToken(true));
+
+        await processing;
+        await Assert.ThrowsAsync<QuicException>(
+            async () => await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken),
+            ex => ex.QuicError == QuicError.ConnectionAborted ? null : ex.Message);
+        await readServerControlStream;
+    }
+
+    [Fact]
+    public async Task StopAsync_ClosesConnection()
+    {
+        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
+        byte[] data = [0, 4, 2, 6, 3];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+        
+        await sut.StopAsync(TestContext.Current.CancellationToken);
+
+        await processing;
+        await Assert.ThrowsAsync<QuicException>(
+            async () => await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken),
+            ex => ex.QuicError == QuicError.ConnectionAborted ? null : ex.Message);
+        await readServerControlStream;
+    }
+
+    [Fact]
     public async Task ClientControlStreamAborts()
     {
         await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);

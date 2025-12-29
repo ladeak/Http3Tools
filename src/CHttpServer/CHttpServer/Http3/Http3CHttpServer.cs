@@ -83,7 +83,7 @@ public class Http3CHttpServer
         if (_acceptingConnections != null)
             await _acceptingConnections.AllowCancellation();
 
-        await _connectionManager.StopAsync().WaitAsync(cancellationToken).AllowCancellation();
+        await _connectionManager.StopAsync(cancellationToken).AllowCancellation();
         if (_listener != null)
             await _listener.DisposeAsync();
     }

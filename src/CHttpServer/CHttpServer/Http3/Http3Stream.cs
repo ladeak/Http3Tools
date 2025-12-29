@@ -14,17 +14,18 @@ namespace CHttpServer.Http3;
 [SupportedOSPlatform("macos")]
 internal sealed partial class Http3Stream
 {
-    private int _id;
     private QuicStream? _quicStream;
     private PipeReader _dataReader;
     private PipeWriter _dataWriter;
     private QPackDecoder _qpackDecoder;
     private Task _applicationProcessing;
     private FeatureCollection _features;
+    private TaskCompletionSource _streamCompletion;
+    private Http3Connection? _connection;
 
     public Http3Stream(FeatureCollection features)
     {
-        _id = 0;
+        Id = 0;
         _quicStream = null;
         _dataReader = PipeReader.Create(new ReadOnlySequence<byte>());
         _dataWriter = PipeWriter.Create(Stream.Null);
@@ -36,10 +37,11 @@ internal sealed partial class Http3Stream
         QueryString = string.Empty;
         _isPathSet = false;
         _applicationProcessing = Task.CompletedTask;
+        _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _features = features;
         _features.Add<IHttpRequestFeature>(this);
-        //_features.Add<IHttpResponseFeature>(this);
+        _features.Add<IHttpResponseFeature>(this);
         //_features.Add<IHttpResponseBodyFeature>(this);
         //_features.Add<IHttpResponseTrailersFeature>(this);
         //_features.Add<IHttpRequestBodyDetectionFeature>(this);
@@ -48,9 +50,14 @@ internal sealed partial class Http3Stream
         _features.Checkpoint();
     }
 
-    public void Initialize(int id, QuicStream quicStream)
+    internal long Id { get; private set; }
+
+    internal Task StreamCompletion => _streamCompletion.Task;
+
+    public void Initialize(Http3Connection connection, QuicStream quicStream)
     {
-        _id = id;
+        Id = quicStream.Id;
+        _connection = connection;
         _quicStream = quicStream;
         _dataReader = PipeReader.Create(quicStream);
         _dataWriter = PipeWriter.Create(quicStream);
@@ -60,6 +67,16 @@ internal sealed partial class Http3Stream
         _isPathSet = false; // The actual Path is not reset.
         _applicationProcessing = Task.CompletedTask;
         _features.ResetCheckpoint();
+
+        StatusCode = 200;
+        ReasonPhrase = null;
+        HasStarted = false;
+        _onStartingCallback = null;
+        _onStartingCallbackState = null;
+        _onCompletedCallback = null;
+        _onCompletedCallbackState = null;
+        _streamCompletion.TrySetResult(); // Complete previous instance.
+        _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     public async void ProcessStream<TContext>(IHttpApplication<TContext> application, CancellationToken token)
@@ -97,7 +114,7 @@ internal sealed partial class Http3Stream
                         processed += ProcessDataFrame(buffer);
                         break;
                     case 0x1: // HEADERS
-                        if (payloadLength < (ulong)buffer.Length)
+                        if (payloadLength > (ulong)buffer.Length)
                         {
                             // Not enough data to read payload length.
                             _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
@@ -128,6 +145,8 @@ internal sealed partial class Http3Stream
             await _dataReader.CompleteAsync();
             await _dataWriter.CompleteAsync();
             _quicStream?.Dispose();
+            _streamCompletion.TrySetResult();
+            _connection?.StreamClosed(this);
         }
     }
 
@@ -140,5 +159,35 @@ internal sealed partial class Http3Stream
     {
         _qpackDecoder.DecodeHeader(buffer, this, out long consumed);
         return consumed;
+    }
+}
+
+
+internal partial class Http3Stream : IHttpResponseFeature
+{
+    private Func<object, Task>? _onStartingCallback;
+    private object? _onStartingCallbackState;
+
+    private Func<object, Task>? _onCompletedCallback;
+    private object? _onCompletedCallbackState;
+
+    public int StatusCode { get; set; }
+
+    public string? ReasonPhrase { get; set; }
+
+    public bool HasStarted { get; private set; }
+
+    // TODO invoke onStarting and completed
+    // TODO manage streams in collection with a Dic
+    public void OnStarting(Func<object, Task> callback, object state)
+    {
+        _onStartingCallback = callback;
+        _onStartingCallbackState = state;
+    }
+
+    public void OnCompleted(Func<object, Task> callback, object state)
+    {
+        _onCompletedCallback = callback;
+        _onCompletedCallbackState = state;
     }
 }

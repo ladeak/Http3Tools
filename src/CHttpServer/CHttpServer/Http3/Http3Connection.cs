@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Quic;
@@ -18,6 +19,7 @@ internal sealed partial class Http3Connection
 {
     private readonly CHttp3ConnectionContext _context;
     private readonly CancellationTokenSource _abruptCts;
+    private readonly ConcurrentDictionary<long, Http3Stream> _streams;
     private long _maxProcessedStreamId = 0;
 
     private PipeReader? _clientControlStreamReader;
@@ -31,6 +33,7 @@ internal sealed partial class Http3Connection
     private QPackDecoder _qPackDecoder = new();
     private int _closingErrorCode;
     private volatile bool _isAborted;
+    private TaskCompletionSource _processingCompleted;
 
     public Http3Connection(CHttp3ConnectionContext connectionContext)
     {
@@ -41,6 +44,9 @@ internal sealed partial class Http3Connection
 
         // Abrupt cancellation triggers graceful cancellation token to become cancelled.
         _abruptCts.Token.Register(() => connectionContext.ConnectionCancellation.Cancel());
+
+        _streams = new(-1, 8);
+        _processingCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     internal async Task ProcessConnectionAsync<TContext>(
@@ -64,6 +70,19 @@ internal sealed partial class Http3Connection
                 var quickStream = await _context.Transport.AcceptInboundStreamAsync(gracefulShutdown);
                 await HandleStreamAsync(quickStream, application);
             }
+
+            // Await streams if it is a graceful shutdown.
+            List<Task> stoppingStreams = new(_streams.Count);
+            foreach (var stream in _streams)
+                stoppingStreams.Add(stream.Value.StreamCompletion);
+            await Task.WhenAll(stoppingStreams);
+        }
+        catch (OperationCanceledException)
+        {
+            List<Task> stoppingStreams = new(_streams.Count);
+            foreach (var stream in _streams)
+                stoppingStreams.Add(stream.Value.StreamCompletion);
+            await Task.WhenAll(stoppingStreams);
         }
         catch (Http3ConnectionException ex)
         {
@@ -85,8 +104,6 @@ internal sealed partial class Http3Connection
         }
         finally
         {
-            // Await streams before closing control stream
-
             // Shutdown processing tasks before closing connection.
             _isAborted = true;
             _abruptCts.Cancel();
@@ -101,7 +118,21 @@ internal sealed partial class Http3Connection
             _serverControlStream?.Close();
             await _context.Transport.CloseAsync(_closingErrorCode);
             _context.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
+            _processingCompleted.TrySetResult();
         }
+    }
+
+    /// <summary>Graceful shutdown (until token gets cancelled).</summary>
+    internal async Task StopAsync(CancellationToken token)
+    {
+        using var _ = token.Register(() => _abruptCts.Cancel()); // Registers for immediate abort.
+        _context.ConnectionCancellation.Cancel(); // Graceful shutdown
+        await _processingCompleted.Task;
+    }
+
+    internal void StreamClosed(Http3Stream stream)
+    {
+        _streams.TryRemove(stream.Id, out _);
     }
 
     private async Task TryWriteGoAwayAsync()
@@ -127,9 +158,11 @@ internal sealed partial class Http3Connection
         _maxProcessedStreamId = Math.Max(quicStream.Id, _maxProcessedStreamId);
         if (quicStream.Type == QuicStreamType.Bidirectional)
         {
-            // Create Http3Stream DATA stream
+            // Create Http3Stream DATA stream 
+            // TODO pool streams
             var http3Stream = new Http3Stream(_context.Features.Copy());
-            http3Stream.Initialize((int)quicStream.Id, quicStream);
+            _streams.TryAdd(quicStream.Id, http3Stream);
+            http3Stream.Initialize(this, quicStream);
             ThreadPool.UnsafeQueueUserWorkItem(
                 state => state.Stream.ProcessStream(state.App, state.Cancellation),
                 (App: application, Stream: http3Stream, Cancellation: _abruptCts.Token),
