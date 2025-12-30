@@ -206,7 +206,11 @@ public class Http3ConnectionTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var readServerControlStream = Task.Run(() => fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
-        await WriteSettings(clientControlStream);
+
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
+        byte[] data = [0, 4, 2, 6, 3];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
 
         // Write GOAWAY FrameType: 7, Length: 1, StreamId: 0
         data = [7, 1, 0];
@@ -355,8 +359,8 @@ public class Http3ConnectionTests
 
     private static async Task WriteSettings(QuicStream clientControlStream)
     {
-        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 6-SETTINGS_MAX_FIELD_SECTION_SIZE, Value: 3
-        byte[] data = [0, 4, 2, 6, 3];
+        // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 33-Reserved, Value: 0
+        byte[] data = [0, 4, 2, 33, 0];
         await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
     }
