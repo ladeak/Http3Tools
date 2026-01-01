@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Buffers.Binary;
+using System.Numerics;
 
 namespace CHttpServer.Http3;
 
@@ -134,5 +135,21 @@ public class VariableLenghtIntegerDecoder
         bytesWritten = 0;
         return false;
 
+    }
+
+
+    /// <summary>
+    /// Writes a variable length positive integer (or zero) to the destination.
+    /// Returns <see langword="false" /> if destination is too small.
+    /// Returns <see langword="true" /> if the number is written successfully.
+    /// </summary>
+    /// <param name="destination">Writable memory region.</param>
+    /// <param name="value">Postitive integer or zero.</param>
+    /// <param name="bytesWritten">Number of bytes written to the <paramref name="destination"/>.</param>
+    /// <returns></returns>
+    public static bool TryWrite<T>(Span<byte> destination, T value, out int bytesWritten)
+        where T : IBinaryInteger<T>
+    {
+        return TryWrite(destination, ulong.CreateChecked(value), out bytesWritten);
     }
 }

@@ -83,4 +83,84 @@ public class VariableLengthIntegerDecoderTests
             Assert.Equal(bytesWritten, bytesRead);
         }
     }
+
+    [Theory]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWrite_Generic_Short(string expectedValue, short input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[0..bytesWritten]);
+    }
+
+
+    [Theory]
+    [InlineData("9d7f3e7d", 494878333, 4)]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWrite_Generic_Int(string expectedValue, int input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[0..bytesWritten]);
+    }
+
+
+    [Theory]
+    [InlineData("c2197c5eff14e88c", 151288809941952652, 8)]
+    [InlineData("9d7f3e7d", 494878333, 4)]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWrite_Generic_Long(string expectedValue, long input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[0..bytesWritten]);
+    }
+
+    [Theory]
+    [InlineData(151288809941952652L, 8)]
+    [InlineData(494878333L, 4)]
+    [InlineData(15293L, 2)]
+    [InlineData(37L, 1)]
+    [InlineData(63L, 1)]
+    [InlineData(0L, 1)]
+    public void TryWrite_Generic_DestinationTooSmall(long input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[expectedBytesWritten - 1];
+        Assert.False(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
+    }
+
+    [Fact]
+    public void TryWrite_Generic_Read()
+    {
+        Span<byte> destination = stackalloc byte[16];
+        for (long i = 0; i < int.MaxValue + 63L; i += 62)
+        {
+            Assert.True(VariableLenghtIntegerDecoder.TryWrite(destination, i, out var bytesWritten));
+            Assert.True(VariableLenghtIntegerDecoder.TryRead(destination, out var value, out var bytesRead));
+            Assert.Equal(i, checked((long)value));
+            Assert.Equal(bytesWritten, bytesRead);
+        }
+    }
+
+    [Fact]
+    public void TryWrite_Generic_NegativeValue_Throws()
+    {
+        Assert.Throws<OverflowException>(() => VariableLenghtIntegerDecoder.TryWrite(new byte[16], -1, out var bytesWritten));
+        Assert.Throws<OverflowException>(() => VariableLenghtIntegerDecoder.TryWrite(new byte[16], (short)-1, out var bytesWritten));
+        Assert.Throws<OverflowException>(() => VariableLenghtIntegerDecoder.TryWrite(new byte[16], (long)-1, out var bytesWritten));
+        Assert.Throws<OverflowException>(() => VariableLenghtIntegerDecoder.TryWrite(new byte[16], (sbyte)-1, out var bytesWritten));
+    }
+
 }
