@@ -114,7 +114,6 @@ internal sealed class QPackDecoder
                     stepCompleted = DecodeLiteralFieldValueLength(source, handler, source.FirstSpan[0], out currentConsumedBytes);
                     break;
                 case DecoderState.LiteralFieldValue:
-                    //todo
                     stepCompleted = DecodeLiteralFieldValue(source, handler, out currentConsumedBytes);
                     break;
             }
@@ -238,12 +237,20 @@ internal sealed class QPackDecoder
         source = source.Slice(0, _fieldValueLength);
         if (_huffmanEncoding)
         {
-            var value = new byte[_fieldValueLength * 2];
-            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
-            var buffer = rentedArray.AsSpan(0, _fieldValueLength);
-            source.CopyTo(rentedArray);
-            int decodedLength = Huffman.Decode(rentedArray, ref value);
-            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], new ReadOnlySequence<byte>(value, 0, decodedLength));
+            IMemoryOwner<byte> decodedValue = MemoryPool<byte>.Shared.Rent(_fieldValueLength * 2);
+            int decodedLength;
+            if (source.IsSingleSegment)
+                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+            else
+            {
+                var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
+                var buffer = input.AsSpan(0, _fieldValueLength);
+                source.CopyTo(buffer);
+                decodedLength = Huffman.Decode(buffer, ref decodedValue);
+                ArrayPool<byte>.Shared.Return(input);
+            }
+            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], new ReadOnlySequence<byte>(decodedValue.Memory[0..decodedLength]));
+            decodedValue.Dispose();
         }
         else
         {
@@ -295,12 +302,19 @@ internal sealed class QPackDecoder
             return false;
         if (_huffmanEncoding)
         {
-            var value = new byte[_fieldNameLength * 2];
-            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldNameLength);
-            var buffer = rentedArray.AsSpan(0, _fieldNameLength);
-            source.Slice(0, _fieldNameLength).CopyTo(rentedArray);
-            int decodedLength = Huffman.Decode(rentedArray, ref value);
-            _fieldName = new(value, 0, decodedLength);
+            var decodedValue = new byte[_fieldNameLength * 2];
+            int decodedLength;
+            if (source.IsSingleSegment)
+                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+            else
+            {
+                var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
+                var buffer = input.AsSpan(0, _fieldValueLength);
+                source.CopyTo(buffer);
+                decodedLength = Huffman.Decode(buffer, ref decodedValue);
+                ArrayPool<byte>.Shared.Return(input);
+            }
+            _fieldName = new(decodedValue, 0, decodedLength);
         }
         else
         {
@@ -343,22 +357,28 @@ internal sealed class QPackDecoder
         consumed = 0;
         if (source.Length < _fieldValueLength)
             return false;
-        ReadOnlySequence<byte> fieldValue;
         if (_huffmanEncoding)
         {
-            var value = new byte[_fieldValueLength * 2];
-            var rentedArray = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
-            var buffer = rentedArray.AsSpan(0, _fieldValueLength);
-            source.Slice(0, _fieldValueLength).CopyTo(rentedArray);
-            int decodedLength = Huffman.Decode(rentedArray, ref value);
-            fieldValue = new(value, 0, decodedLength);
+            IMemoryOwner<byte> decodedValue = MemoryPool<byte>.Shared.Rent(_fieldValueLength * 2);
+            int decodedLength;
+            if (source.IsSingleSegment)
+                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+            else
+            {
+                var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
+                var buffer = input.AsSpan(0, _fieldValueLength);
+                source.CopyTo(buffer);
+                decodedLength = Huffman.Decode(buffer, ref decodedValue);
+                ArrayPool<byte>.Shared.Return(input);
+            }
+            handler.OnHeader(_fieldName, new ReadOnlySequence<byte>(decodedValue.Memory[0..decodedLength]));
+            decodedValue.Dispose();
         }
         else
         {
-            fieldValue = source.Slice(0, _fieldValueLength);
+            handler.OnHeader(_fieldName, source.Slice(0, _fieldValueLength));
         }
         consumed = _fieldValueLength;
-        handler.OnHeader(_fieldName, fieldValue);
         _status = DecoderState.FieldLineFirstByte;
         _fieldName = ReadOnlySequence<byte>.Empty;
         _fieldNameIndex = 0;
