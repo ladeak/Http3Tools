@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Buffers;
+using System.Security.Cryptography;
+using System.Text;
 using CHttpServer.System.Net.Http.HPack;
 
 namespace CHttpServer.Tests;
@@ -81,6 +83,39 @@ public class HuffmanDecodingTests
             byte[] decoded = new byte[encoded.Length * 2];
 
             Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(encoded, ref decoded));
+        }
+    }
+
+    [Fact]
+    public void HuffmanDecodingMemoryOwner_ValidEncoding_Succeeds()
+    {
+        foreach (byte[] input in TestData())
+        {
+            // Worst case encoding is 30 bits per input byte, so make the encoded buffer 4 times as big
+            byte[] encoded = new byte[input.Length * 4];
+            int encodedByteCount = Encode(input, encoded, false);
+
+            // Worst case decoding is an output byte per 5 input bits, so make the decoded buffer 2 times as big
+            var decodingDestination = MemoryPool<byte>.Shared.Rent(encoded.Length * 2);
+
+            int decodedByteCount = Huffman.Decode(new ReadOnlySpan<byte>(encoded, 0, encodedByteCount), ref decodingDestination);
+
+            Assert.Equal(input.Length, decodedByteCount);
+            Assert.Equal(input, decodingDestination.Memory.Slice(0, decodedByteCount));
+            decodingDestination.Dispose();
+        }
+    }
+
+    [Fact]
+    public void HuffmanDecodingMemoryOwner_InvalidEncoding_Throws()
+    {
+        foreach (byte[] encoded in InvalidEncodingData())
+        {
+            // Worst case decoding is an output byte per 5 input bits, so make the decoded buffer 2 times as big
+            var decodingDestination = MemoryPool<byte>.Shared.Rent(encoded.Length * 2);
+
+            Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(encoded, ref decodingDestination));
+            decodingDestination.Dispose();
         }
     }
 
@@ -182,59 +217,59 @@ public class HuffmanDecodingTests
     }
 
     public static readonly TheoryData<byte[], byte[]> _validData = new TheoryData<byte[], byte[]>
-        {
-            // Single 5-bit symbol
-            { new byte[] { 0x07 }, Encoding.ASCII.GetBytes("0") },
-            // Single 6-bit symbol
-            { new byte[] { 0x57 }, Encoding.ASCII.GetBytes("%") },
-            // Single 7-bit symbol
-            { new byte[] { 0xb9 }, Encoding.ASCII.GetBytes(":") },
-            // Single 8-bit symbol
-            { new byte[] { 0xf8 }, Encoding.ASCII.GetBytes("&") },
-            // Single 10-bit symbol
-            { new byte[] { 0xfe, 0x3f }, Encoding.ASCII.GetBytes("!") },
-            // Single 11-bit symbol
-            { new byte[] { 0xff, 0x7f }, Encoding.ASCII.GetBytes("+") },
-            // Single 12-bit symbol
-            { new byte[] { 0xff, 0xaf }, Encoding.ASCII.GetBytes("#") },
-            // Single 13-bit symbol
-            { new byte[] { 0xff, 0xcf }, Encoding.ASCII.GetBytes("$") },
-            // Single 14-bit symbol
-            { new byte[] { 0xff, 0xf3 }, Encoding.ASCII.GetBytes("^") },
-            // Single 15-bit symbol
-            { new byte[] { 0xff, 0xf9 }, Encoding.ASCII.GetBytes("<") },
-            // Single 19-bit symbol
-            { new byte[] { 0xff, 0xfe, 0x1f }, Encoding.ASCII.GetBytes("\\") },
-            // Single 20-bit symbol
-            { new byte[] { 0xff, 0xfe, 0x6f }, new byte[] { 0x80 } },
-            // Single 21-bit symbol
-            { new byte[] { 0xff, 0xfe, 0xe7 }, new byte[] { 0x99 } },
-            // Single 22-bit symbol
-            { new byte[] { 0xff, 0xff, 0x4b }, new byte[] { 0x81 } },
-            // Single 23-bit symbol
-            { new byte[] { 0xff, 0xff, 0xb1 }, new byte[] { 0x01 } },
-            // Single 24-bit symbol
-            { new byte[] { 0xff, 0xff, 0xea }, new byte[] { 0x09 } },
-            // Single 25-bit symbol
-            { new byte[] { 0xff, 0xff, 0xf6, 0x7f }, new byte[] { 0xc7 } },
-            // Single 26-bit symbol
-            { new byte[] { 0xff, 0xff, 0xf8, 0x3f }, new byte[] { 0xc0 } },
-            // Single 27-bit symbol
-            { new byte[] { 0xff, 0xff, 0xfb, 0xdf }, new byte[] { 0xcb } },
-            // Single 28-bit symbol
-            { new byte[] { 0xff, 0xff, 0xfe, 0x2f }, new byte[] { 0x02 } },
-            // Single 30-bit symbol
-            { new byte[] { 0xff, 0xff, 0xff, 0xf3 }, new byte[] { 0x0a } },
+    {
+        // Single 5-bit symbol
+        { new byte[] { 0x07 }, Encoding.ASCII.GetBytes("0") },
+        // Single 6-bit symbol
+        { new byte[] { 0x57 }, Encoding.ASCII.GetBytes("%") },
+        // Single 7-bit symbol
+        { new byte[] { 0xb9 }, Encoding.ASCII.GetBytes(":") },
+        // Single 8-bit symbol
+        { new byte[] { 0xf8 }, Encoding.ASCII.GetBytes("&") },
+        // Single 10-bit symbol
+        { new byte[] { 0xfe, 0x3f }, Encoding.ASCII.GetBytes("!") },
+        // Single 11-bit symbol
+        { new byte[] { 0xff, 0x7f }, Encoding.ASCII.GetBytes("+") },
+        // Single 12-bit symbol
+        { new byte[] { 0xff, 0xaf }, Encoding.ASCII.GetBytes("#") },
+        // Single 13-bit symbol
+        { new byte[] { 0xff, 0xcf }, Encoding.ASCII.GetBytes("$") },
+        // Single 14-bit symbol
+        { new byte[] { 0xff, 0xf3 }, Encoding.ASCII.GetBytes("^") },
+        // Single 15-bit symbol
+        { new byte[] { 0xff, 0xf9 }, Encoding.ASCII.GetBytes("<") },
+        // Single 19-bit symbol
+        { new byte[] { 0xff, 0xfe, 0x1f }, Encoding.ASCII.GetBytes("\\") },
+        // Single 20-bit symbol
+        { new byte[] { 0xff, 0xfe, 0x6f }, new byte[] { 0x80 } },
+        // Single 21-bit symbol
+        { new byte[] { 0xff, 0xfe, 0xe7 }, new byte[] { 0x99 } },
+        // Single 22-bit symbol
+        { new byte[] { 0xff, 0xff, 0x4b }, new byte[] { 0x81 } },
+        // Single 23-bit symbol
+        { new byte[] { 0xff, 0xff, 0xb1 }, new byte[] { 0x01 } },
+        // Single 24-bit symbol
+        { new byte[] { 0xff, 0xff, 0xea }, new byte[] { 0x09 } },
+        // Single 25-bit symbol
+        { new byte[] { 0xff, 0xff, 0xf6, 0x7f }, new byte[] { 0xc7 } },
+        // Single 26-bit symbol
+        { new byte[] { 0xff, 0xff, 0xf8, 0x3f }, new byte[] { 0xc0 } },
+        // Single 27-bit symbol
+        { new byte[] { 0xff, 0xff, 0xfb, 0xdf }, new byte[] { 0xcb } },
+        // Single 28-bit symbol
+        { new byte[] { 0xff, 0xff, 0xfe, 0x2f }, new byte[] { 0x02 } },
+        // Single 30-bit symbol
+        { new byte[] { 0xff, 0xff, 0xff, 0xf3 }, new byte[] { 0x0a } },
 
-            //               h      e         l          l      o         *
-            { new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111 }, Encoding.ASCII.GetBytes("hello") },
+        //               h      e         l          l      o         *
+        { new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111 }, Encoding.ASCII.GetBytes("hello") },
 
-            // Sequences that uncovered errors
-            { new byte[] { 0xb6, 0xb9, 0xac, 0x1c, 0x85, 0x58, 0xd5, 0x20, 0xa4, 0xb6, 0xc2, 0xad, 0x61, 0x7b, 0x5a, 0x54, 0x25, 0x1f }, Encoding.ASCII.GetBytes("upgrade-insecure-requests") },
-            { new byte[] { 0xfe, 0x53 }, Encoding.ASCII.GetBytes("\"t") },
-            { new byte[] { 0xff, 0xff, 0xf6, 0xff, 0xff, 0xfd, 0x68 }, new byte[] { 0xcf, 0xf0, 0x73 } },
-            { new byte[] { 0xff, 0xff, 0xf9, 0xff, 0xff, 0xfd, 0x86 }, new byte[] { 0xd5, 0xc7, 0x69 } },
-        };
+        // Sequences that uncovered errors
+        { new byte[] { 0xb6, 0xb9, 0xac, 0x1c, 0x85, 0x58, 0xd5, 0x20, 0xa4, 0xb6, 0xc2, 0xad, 0x61, 0x7b, 0x5a, 0x54, 0x25, 0x1f }, Encoding.ASCII.GetBytes("upgrade-insecure-requests") },
+        { new byte[] { 0xfe, 0x53 }, Encoding.ASCII.GetBytes("\"t") },
+        { new byte[] { 0xff, 0xff, 0xf6, 0xff, 0xff, 0xfd, 0x68 }, new byte[] { 0xcf, 0xf0, 0x73 } },
+        { new byte[] { 0xff, 0xff, 0xf9, 0xff, 0xff, 0xfd, 0x86 }, new byte[] { 0xd5, 0xc7, 0x69 } },
+    };
 
     [Theory]
     [MemberData(nameof(_validData))]
@@ -245,17 +280,27 @@ public class HuffmanDecodingTests
         Assert.Equal(expected, dst);
     }
 
+    [Theory]
+    [MemberData(nameof(_validData))]
+    public void HuffmanDecode_MemoryOwner_Array(byte[] encoded, byte[] expected)
+    {
+        var dst = MemoryPool<byte>.Shared.Rent(expected.Length);
+        Assert.Equal(expected.Length, Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        Assert.Equal(expected, dst.Memory[0..expected.Length]);
+        dst.Dispose();
+    }
+
     public static readonly TheoryData<byte[]> _longPaddingData = new TheoryData<byte[]>
-        {
-            //             h      e         l          l      o         *
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111, 0b11111111 },
+    {
+        //             h      e         l          l      o         *
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111, 0b11111111 },
 
-            // '&' (8 bits) + 8 bit padding
-            new byte[] { 0xf8, 0xff },
+        // '&' (8 bits) + 8 bit padding
+        new byte[] { 0xf8, 0xff },
 
-            // ':' (7 bits) + 9 bit padding
-            new byte[] { 0xb9, 0xff }
-        };
+        // ':' (7 bits) + 9 bit padding
+        new byte[] { 0xb9, 0xff }
+    };
 
     [Theory]
     [MemberData(nameof(_longPaddingData))]
@@ -265,13 +310,23 @@ public class HuffmanDecodingTests
         Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
     }
 
+    [Theory]
+    [MemberData(nameof(_longPaddingData))]
+    public void ThrowsOnPaddingLongerThanSevenBits_MemoryOwner(byte[] encoded)
+    {
+        var dst = MemoryPool<byte>.Shared.Rent(encoded.Length * 2);
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        dst.Dispose();
+    }
+
+
     public static readonly TheoryData<byte[]> _eosData = new TheoryData<byte[]>
-        {
-            // EOS
-            new byte[] { 0xff, 0xff, 0xff, 0xff },
-            // '&' + EOS + '0'
-            new byte[] { 0xf8, 0xff, 0xff, 0xff, 0xfc, 0x1f }
-        };
+    {
+        // EOS
+        new byte[] { 0xff, 0xff, 0xff, 0xff },
+        // '&' + EOS + '0'
+        new byte[] { 0xf8, 0xff, 0xff, 0xff, 0xfc, 0x1f }
+    };
 
     [Theory]
     [MemberData(nameof(_eosData))]
@@ -281,11 +336,20 @@ public class HuffmanDecodingTests
         Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
     }
 
+    [Theory]
+    [MemberData(nameof(_eosData))]
+    public void ThrowsOnEOS_MemoryOwner(byte[] encoded)
+    {
+        var dst = MemoryPool<byte>.Shared.Rent(encoded.Length * 2);
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        dst.Dispose();
+    }
+
     [Fact]
     public void ResizesOnDestinationBufferTooSmall()
     {
-        //                           h      e         l          l      o         *
-        byte[] encoded = new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111 };
+        //                  h      e         l          l      o         *
+        byte[] encoded = [0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111];
         byte[] originalDestination = new byte[encoded.Length];
         byte[] actualDestination = originalDestination;
         int decodedCount = Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref actualDestination);
@@ -293,29 +357,42 @@ public class HuffmanDecodingTests
         Assert.NotSame(originalDestination, actualDestination);
     }
 
-    public static readonly TheoryData<byte[]> _incompleteSymbolData = new TheoryData<byte[]>
-        {
-            //             h      e         l          l      o (incomplete)
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0 },
+    [Fact]
+    public void ResizesOnDestinationBufferTooSmall_MemoryOwner()
+    {
+        //                  h      e         l          l      o         *
+        byte[] encoded = [0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1111];
+        IMemoryOwner<byte> originalDestination = new NoMemoryOwner(new byte[encoded.Length]);
+        IMemoryOwner<byte> actualDestination = originalDestination;
+        int decodedCount = Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref actualDestination);
+        Assert.Equal(5, decodedCount);
+        Assert.NotSame(originalDestination, actualDestination);
+        actualDestination.Dispose();
+    }
 
-            // Non-zero padding will be seen as incomplete symbol
-            //             h      e         l          l      o         *
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0000 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0001 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0010 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0011 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0100 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0101 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0110 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0111 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1000 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1001 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1010 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1011 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1100 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1101 },
-            new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1110 }
-        };
+    public static readonly TheoryData<byte[]> _incompleteSymbolData = new TheoryData<byte[]>
+    {
+        //             h      e         l          l      o (incomplete)
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0 },
+
+        // Non-zero padding will be seen as incomplete symbol
+        //             h      e         l          l      o         *
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0000 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0001 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0010 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0011 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0100 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0101 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0110 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_0111 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1000 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1001 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1010 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1011 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1100 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1101 },
+        new byte[] { 0b100111_00, 0b101_10100, 0b0_101000_0, 0b0111_1110 }
+    };
 
     [Theory]
     [MemberData(nameof(_incompleteSymbolData))]
@@ -330,12 +407,12 @@ public class HuffmanDecodingTests
     {
         int expectedLength = 2;
         byte[] decodedBytes = new byte[expectedLength];
-        //                           B       LF                                             EOS
-        byte[] encoded = new byte[] { 0b1011101_1, 0b11111111, 0b11111111, 0b11111111, 0b11100_111 };
+        //               B       LF                                             EOS
+        byte[] encoded = [0b1011101_1, 0b11111111, 0b11111111, 0b11111111, 0b11100_111];
         int decodedLength = Huffman.Decode(new ReadOnlySpan<byte>(encoded, 0, encoded.Length), ref decodedBytes);
 
         Assert.Equal(expectedLength, decodedLength);
-        Assert.Equal(new byte[] { (byte)'B', (byte)'\n' }, decodedBytes);
+        Assert.Equal("B\n"u8.ToArray(), decodedBytes);
     }
 
     [Theory]
@@ -345,6 +422,29 @@ public class HuffmanDecodingTests
         (uint encoded, int bitLength) = Huffman.Encode(code);
         Assert.Equal(expectedEncoded, encoded);
         Assert.Equal(expectedBitLength, bitLength);
+    }
+
+    [Theory]
+    [MemberData(nameof(_incompleteSymbolData))]
+    public void ThrowsOnIncompleteSymbol_MemoryOwner(byte[] encoded)
+    {
+        var dst = MemoryPool<byte>.Shared.Rent(encoded.Length * 2);
+        Exception exception = Assert.Throws<HeaderDecodingException>(() => Huffman.Decode(new ReadOnlySpan<byte>(encoded), ref dst));
+        dst.Dispose();
+    }
+
+    [Fact]
+    public void DecodeCharactersThatSpans5Octets_MemoryOwner()
+    {
+        int expectedLength = 2;
+        var decodedBytes = MemoryPool<byte>.Shared.Rent(expectedLength);
+        //               B       LF                                             EOS
+        byte[] encoded = [0b1011101_1, 0b11111111, 0b11111111, 0b11111111, 0b11100_111];
+        int decodedLength = Huffman.Decode(new ReadOnlySpan<byte>(encoded, 0, encoded.Length), ref decodedBytes);
+
+        Assert.Equal(expectedLength, decodedLength);
+        Assert.Equal("B\n"u8.ToArray(), decodedBytes.Memory[..decodedLength]);
+        decodedBytes.Dispose();
     }
 
     public static TheoryData<int, uint, int> HuffmanData
@@ -612,6 +712,15 @@ public class HuffmanDecodingTests
             data.Add(256, 0b11111111_11111111_11111111_11111100, 30);
 
             return data;
+        }
+    }
+
+    private class NoMemoryOwner(byte[] memory) : IMemoryOwner<byte>
+    {
+        public Memory<byte> Memory => memory.AsMemory();
+
+        public void Dispose()
+        {
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -665,6 +666,97 @@ internal static class Huffman
             if (decodedLength == decoded.Length)
                 Array.Resize(ref decoded, decoded.Length * 2);
             decoded[decodedLength++] = leaf._symbol;
+            offset += leaf._maskLength + bucket;
+            if (leaf._maskLength == 0 || offset > 8)
+                ThrowInvalidHuffmanCode();
+        }
+        if (input == 0xFF && offset == 0)
+            ThrowInvalidHuffmanCode();
+        if ((byte)(byte.MaxValue << offset) != (byte)(input << offset))
+            ThrowInvalidHuffmanCode();
+
+        return decodedLength;
+    }
+
+    internal static int Decode(ReadOnlySpan<byte> readOnlySpan, ref IMemoryOwner<byte> destination)
+    {
+        int offset = 0;
+        ulong input = 0;
+        int decodedLength = 0;
+
+        // Read the next available bytes into ulong value.
+        Span<byte> bytes = stackalloc byte[8];
+        while (readOnlySpan.Length > 1)
+        {
+            if (readOnlySpan.Length > 8)
+                input = Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(readOnlySpan));
+            else
+            {
+                readOnlySpan.Slice(0, Math.Min(8, readOnlySpan.Length)).CopyTo(bytes);
+                input = Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(bytes));
+            }
+            input = BinaryPrimitives.ReverseEndianness(input);
+
+            var maxOffset = Math.Min(34, (readOnlySpan.Length - 1) * 8); // bits
+            var current = input << offset;
+            while (offset <= maxOffset)
+            {
+                // Each iteration the ulong is shifted so that the next encoded byte is 
+                // the left most. Then count the number of 1-s in the 'current' segment,
+                // which gives a 'bucket' in the jump table. Each bucket in the jump table
+                // contains the remainder part of the encoded value to match (and the
+                // number of bits matched. This can be 1-6 bits. There are 256 values in
+                // a bucket, so that reading a byte `bucketIndex` directly returns a value.
+                // The buckets are 'full' in the sense that each byte (after the Huffman 1-6 bits)
+                // are set with all possible values, that would normally be the next huffman
+                // code.
+                var bucket = (byte)ulong.LeadingZeroCount(current ^ ulong.MaxValue);
+                if (bucket >= readOnlySpan.Length * 8 || bucket >= _lookupSparseFull.Length)
+                    ThrowInvalidHuffmanCode();
+                current <<= bucket;
+
+                var bucketIndex = current >> 56;
+                ref var leaf = ref _lookupSparseFull[bucket][bucketIndex];
+                if (decodedLength == destination.Memory.Length)
+                {
+                    var expandedBuffer = MemoryPool<byte>.Shared.Rent(destination.Memory.Length * 2);
+                    destination.Memory.CopyTo(expandedBuffer.Memory);
+                    destination.Dispose();
+                    destination = expandedBuffer;
+                }
+                destination.Memory.Span[decodedLength++] = leaf._symbol;
+                offset += leaf._maskLength + bucket;
+                current = current << leaf._maskLength;
+                if (leaf._maskLength == 0 || offset > readOnlySpan.Length * 8)
+                    ThrowInvalidHuffmanCode();
+            }
+            var processedBytes = offset >> 3;
+            readOnlySpan = readOnlySpan.Slice(processedBytes); // TODO: slow
+            offset -= processedBytes * 8;
+        }
+
+        if (readOnlySpan.Length == 0)
+            return decodedLength;
+
+        // Last iteration
+        input = readOnlySpan[0];
+        while (offset < 4)
+        {
+            byte current = (byte)(input << offset);
+            var bucket = byte.LeadingZeroCount((byte)(current ^ byte.MaxValue));
+            current <<= bucket;
+            if (bucket >= 8 - offset)
+                break;
+
+            ref var leaf = ref _lookupSparseFull[bucket][current];
+            if (decodedLength == destination.Memory.Length)
+            {
+                var expandedBuffer = MemoryPool<byte>.Shared.Rent(destination.Memory.Length * 2);
+                destination.Memory.CopyTo(expandedBuffer.Memory);
+                destination.Dispose();
+                destination = expandedBuffer;
+            }
+            destination.Memory.Span[decodedLength++] = leaf._symbol;
             offset += leaf._maskLength + bucket;
             if (leaf._maskLength == 0 || offset > 8)
                 ThrowInvalidHuffmanCode();
