@@ -1,8 +1,4 @@
-﻿using System.Net;
-using System.Net.Quic;
-using System.Net.Security;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Net.Quic;
 using CHttpServer.Http3;
 
 namespace CHttpServer.Tests.Http3;
@@ -10,10 +6,12 @@ namespace CHttpServer.Tests.Http3;
 [CollectionDefinition(DisableParallelization = true)]
 public class Http3ConnectionTests
 {
+    private const int Port = 6000;
+
     [Fact]
     public async Task StopAsync_WithOpenRequestStream_ForcedCancelling_ClosesConnection()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -43,7 +41,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task StopAsyncForcedCancelling_ClosesConnection()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -63,7 +61,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task StopAsync_ClosesConnection()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -83,7 +81,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task ClientControlStreamAborts()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -99,7 +97,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task ClientAbortsConnection()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -115,7 +113,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task InvalidFrameTypeOnControlStream_Aborts()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -141,7 +139,7 @@ public class Http3ConnectionTests
     {
         CancellationTokenSource cts = new();
         TestContext.Current.CancellationToken.Register(() => cts.Cancel());
-        await using var fixture = await SetupConnectionAsync(cts.Token);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, cts.Token);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection, connectionCancellation: cts);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -159,7 +157,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task ClientSendsMaxHeaderSize_PartialDataSegments_FeatureParses()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -200,7 +198,7 @@ public class Http3ConnectionTests
     [Fact]
     public async Task ClientSendsMaxHeaderSize_FeatureParses()
     {
-        await using var fixture = await SetupConnectionAsync(TestContext.Current.CancellationToken);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
         var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -228,7 +226,7 @@ public class Http3ConnectionTests
         const int maxRequestHeaderLength = 32656;
         var cts = new CancellationTokenSource();
         TestContext.Current.CancellationToken.Register(() => cts.Cancel());
-        await using var fixture = await SetupConnectionAsync(cts.Token);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, cts.Token);
         var readServerControlStream = Task.Run(async () =>
         {
             var inboundStream = await fixture.ClientConnection.AcceptInboundStreamAsync(cts.Token);
@@ -249,7 +247,7 @@ public class Http3ConnectionTests
     {
         var cts = new CancellationTokenSource();
         TestContext.Current.CancellationToken.Register(() => cts.Cancel());
-        await using var fixture = await SetupConnectionAsync(cts.Token);
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, cts.Token);
         var readServerControlStream = Task.Run(async () =>
         {
             var inboundStream = await fixture.ClientConnection.AcceptInboundStreamAsync(cts.Token);
@@ -279,50 +277,6 @@ public class Http3ConnectionTests
         return sut;
     }
 
-    private static async Task<ClientServerConnection> SetupConnectionAsync(CancellationToken token)
-    {
-        (ValueTask<QuicConnection> quicServerConnecting, QuicListener listener) = await CreateServerAsync(token);
-        var quicClientConnection = await ConnectClientAsync(token);
-        var quicServerConnection = await quicServerConnecting;
-        return new ClientServerConnection(quicClientConnection, quicServerConnection, listener);
-    }
-
-    private static async Task<QuicConnection> ConnectClientAsync(CancellationToken token)
-    {
-        return await QuicConnection.ConnectAsync(new QuicClientConnectionOptions()
-        {
-            RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, 6000),
-            DefaultCloseErrorCode = 0x0100,
-            DefaultStreamErrorCode = 0x010C,
-            MaxInboundUnidirectionalStreams = 1,
-            ClientAuthenticationOptions = new SslClientAuthenticationOptions() { RemoteCertificateValidationCallback = (_, _, _, _) => true, ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())] }
-        }, token);
-    }
-
-    private static async Task<(ValueTask<QuicConnection>, QuicListener)> CreateServerAsync(CancellationToken token)
-    {
-        var serverConnectionOptions = new QuicServerConnectionOptions
-        {
-            DefaultStreamErrorCode = 0x010C,
-            DefaultCloseErrorCode = 0x0100,
-            ServerAuthenticationOptions = new SslServerAuthenticationOptions
-            {
-                ServerCertificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"),
-                ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())],
-                EnabledSslProtocols = SslProtocols.Tls13
-            }
-        };
-        var listener = await QuicListener.ListenAsync(new QuicListenerOptions
-        {
-            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 6000),
-            ListenBacklog = 1,
-            ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())],
-            ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(serverConnectionOptions)
-        }, token);
-        var quicServerConnecting = listener.AcceptConnectionAsync(token);
-        return (quicServerConnecting, listener);
-    }
-
     private static async Task AssertGoAwayAsync(Stream stream, int expectedStreamId)
     {
         var buffer = new byte[3];
@@ -347,16 +301,6 @@ public class Http3ConnectionTests
         encodedValue.SequenceEqual(buffer[4..]);
     }
 
-    private record class ClientServerConnection(QuicConnection ClientConnection, QuicConnection ServerConnection, QuicListener Listener) : IAsyncDisposable
-    {
-        public async ValueTask DisposeAsync()
-        {
-            await ClientConnection.DisposeAsync();
-            await ServerConnection.DisposeAsync();
-            await Listener.DisposeAsync();
-        }
-    }
-
     private static async Task WriteSettings(QuicStream clientControlStream)
     {
         // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 33-Reserved, Value: 0
@@ -365,5 +309,4 @@ public class Http3ConnectionTests
         await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
     }
 }
-
 

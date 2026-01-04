@@ -16,13 +16,12 @@ public class Http3RequestHeaderCollection : IHeaderDictionary, IEnumerator<KeyVa
 
     private Dictionary<string, StringValues> _headers { get; set; } = new();
     private bool _readonly;
-    private long? _contentLength;
 
     public Http3RequestHeaderCollection()
     {
     }
 
-    public long? ContentLength { get => _contentLength; set => _contentLength = value; }
+    public long? ContentLength { get; set; }
 
     public ICollection<string> Keys => [.. this.Select(x => x.Key)];
 
@@ -108,45 +107,6 @@ public class Http3RequestHeaderCollection : IHeaderDictionary, IEnumerator<KeyVa
     }
 
     public void Add(KeyValuePair<string, StringValues> item) => Add(item.Key, item.Value);
-
-    //public void Add(string key, byte[] value) => Add(key, value.AsSpan());
-
-    //public void Add(string key, ReadOnlySpan<byte> rawValue)
-    //{
-    //    ValidateReadOnly();
-    //    if (!TrySetKnownHeader(key, rawValue))
-    //    {
-    //        var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-    //        if (!_headers.TryAdd(key, value))
-    //            return;
-    //    }
-    //    Count++;
-    //}
-
-    //public void Add(string key, in ReadOnlySequence<byte> rawValue)
-    //{
-    //    ValidateReadOnly();
-    //    if (!TrySetKnownHeader(key, rawValue))
-    //    {
-    //        var value = new StringValues(Encoding.Latin1.GetString(rawValue));
-    //        if (!_headers.TryAdd(key, value))
-    //            return;
-    //    }
-    //    Count++;
-    //}
-
-    //public (string, StringValues) Add(ReadOnlySpan<byte> rawKey, ReadOnlySpan<byte> rawValue)
-    //{
-    //    ValidateReadOnly();
-    //    if (!TrySetKnownHeader(rawKey, rawValue, out var key))
-    //    {
-    //        key = Encoding.Latin1.GetString(rawKey);
-    //        value = new StringValues(Encoding.Latin1.GetString(rawValue));
-    //        _headers.TryAdd(key, value);
-    //    }
-    //    Count++;
-    //    return (key, value);
-    //}
 
     private bool TrySetKnownHeader(ReadOnlySpan<byte> rawKey, ReadOnlySpan<byte> rawValue, [NotNullWhen(true)] out string? key)
     {
@@ -280,15 +240,15 @@ public class Http3RequestHeaderCollection : IHeaderDictionary, IEnumerator<KeyVa
 
     public void Reset()
     {
-        throw new NotSupportedException();
+        throw new NotSupportedException("This method resets the iterator, which is not supported. User ResetHeaderCollection() method instead.");
     }
 
     public void ResetHeaderCollection()
     {
         _readonly = false;
         _headers.Clear();
+        ContentLength = null;
         Count = 0;
-        _contentLength = null;
         _iteratorState = 0;
         _enumerator = default;
         _isHostValueSet = false;

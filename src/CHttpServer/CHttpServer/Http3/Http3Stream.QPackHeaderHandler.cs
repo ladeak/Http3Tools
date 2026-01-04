@@ -27,7 +27,6 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
 
     public void OnHeader(in KnownHeaderField staticHeader, in ReadOnlySequence<byte> value)
     {
-        var decodedValue = Encoding.Latin1.GetString(value);
         switch (staticHeader.StaticTableIndex)
         {
             case 1:
@@ -103,6 +102,3 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
         _requestHeaders.Add(decodedHeaderName, decodedValue);
     }
 }
-
-//IHttpRequestFeature, IHttpRequestBodyDetectionFeature, IHttpRequestLifetimeFeature
-//IHttpResponseFeature, IHttpResponseBodyFeature, IHttpResponseTrailersFeature
