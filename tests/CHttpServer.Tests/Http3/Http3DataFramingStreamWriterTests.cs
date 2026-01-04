@@ -346,7 +346,7 @@ public class Http3DataFramingStreamWriterTests
     public async Task WriteAsync_Into_ClosedStream()
     {
         // Setup a stream.
-        var fixture = await QuicConnectionFixture.SetupConnectionAsync(6001, TestContext.Current.CancellationToken);
+        var fixture = await QuicConnectionFixture.SetupConnectionAsync(6002, TestContext.Current.CancellationToken);
         var serverStreamAccepting = fixture.ServerConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken);
         var clientStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
         clientStream.Write(new byte[1]);
