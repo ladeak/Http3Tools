@@ -23,7 +23,7 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     public IHeaderDictionary Headers { get => _requestHeaders; set => throw new PlatformNotSupportedException(); }
 #pragma warning restore CS9266 // Property accessor should use 'field' because the other accessor is using it.
 
-    private Http3RequestHeaderCollection _requestHeaders = new();
+    private readonly Http3RequestHeaderCollection _requestHeaders;
 
     public void OnHeader(in KnownHeaderField staticHeader, in ReadOnlySequence<byte> value)
     {

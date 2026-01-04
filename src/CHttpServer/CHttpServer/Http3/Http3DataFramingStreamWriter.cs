@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace CHttpServer.Http3;
 
-internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byte>? memoryPool = null) : PipeWriter
+internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byte>? memoryPool = null, Func<CancellationToken, Task>? onResponseStartingCallback = null) : PipeWriter
 {
     private readonly struct Segment()
     {
@@ -24,6 +24,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
     private bool _isCompleted = false;
     private long _unflushedBytes;
     private TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private Func<CancellationToken, Task>? _onResponseStartingCallback = onResponseStartingCallback;
 
     public override long UnflushedBytes => _unflushedBytes;
 
@@ -42,7 +43,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
         }
     }
 
-    public void Reset(Stream responseStream)
+    public void Reset(Stream responseStream, Func<CancellationToken, Task>? onResponseStartingCallback = null)
     {
         _responseStream = responseStream;
         ClearSegments(CollectionsMarshal.AsSpan(_segments));
@@ -52,6 +53,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
         }
         _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _isCompleted = false;
+        _onResponseStartingCallback = onResponseStartingCallback;
     }
 
     public override void Advance(int bytes)
@@ -82,6 +84,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
             _tcs.TrySetResult();
             _cts?.Dispose();
+            _onResponseStartingCallback = null;
         }
     }
 
@@ -99,6 +102,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
             _tcs.TrySetResult();
             _cts?.Dispose();
+            _onResponseStartingCallback = null;
         }
     }
 
@@ -135,6 +139,11 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
         var frameHeaderLength = PrepareDataFrameHeader(source.Length);
         try
         {
+            if (_onResponseStartingCallback != null)
+            {
+                await _onResponseStartingCallback.Invoke(cancellationToken);
+                _onResponseStartingCallback = null;
+            }
             await _responseStream.WriteAsync(_buffer.AsMemory(0, frameHeaderLength), cancellationToken);
             await _responseStream.WriteAsync(source, cancellationToken);
             await _responseStream.FlushAsync(cancellationToken);
@@ -149,6 +158,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
                 _cts = null;
             }
             _tcs.SetException(ex);
+            _onResponseStartingCallback = null;
             throw;
         }
     }
@@ -170,6 +180,11 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
             }
             using var _ = cancellationToken.Register(static (object? state) => { ((Http3DataFramingStreamWriter)state!).InternalCancellation.Cancel(); }, this);
 
+            if (_onResponseStartingCallback != null)
+            {
+                await _onResponseStartingCallback.Invoke(localToken);
+                _onResponseStartingCallback = null;
+            }
             var dataFrameHeaderLength = PrepareDataFrameHeader(_unflushedBytes);
             await _responseStream.WriteAsync(_buffer.AsMemory(0, dataFrameHeaderLength), localToken);
 
@@ -198,6 +213,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
                 _cts = null;
             }
             _tcs.SetCanceled();
+            _onResponseStartingCallback = null;
             if (!cancellationToken.IsCancellationRequested)
                 return new FlushResult(isCanceled: true, isCompleted: false);
             throw;
@@ -210,6 +226,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
             {
                 _cts = null;
             }
+            _onResponseStartingCallback = null;
             _tcs.SetException(ex);
             throw;
         }
@@ -219,6 +236,12 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
     {
         if (_unflushedBytes == 0)
             return;
+
+        if (_onResponseStartingCallback != null)
+        {
+            _onResponseStartingCallback.Invoke(CancellationToken.None).GetAwaiter().GetResult();
+            _onResponseStartingCallback = null;
+        }
         var dataFrameHeaderLength = PrepareDataFrameHeader(_unflushedBytes);
         _responseStream.Write(_buffer.AsSpan(0, dataFrameHeaderLength));
         var source = CollectionsMarshal.AsSpan(_segments);

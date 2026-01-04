@@ -452,6 +452,70 @@ public class Http3DataFramingStreamWriterTests
         Assert.Equal(0, arrayPool.OutstandingBytes);
     }
 
+    [Fact]
+    public async Task OnResponseStartingCallback_FlushAsync()
+    {
+        int invocationCount = 0;
+        Task Callback(CancellationToken token)
+        {
+            invocationCount++;
+            return Task.CompletedTask;
+        }
+
+        var stream = new MemoryStream();
+        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+
+        sut.GetMemory(1);
+        sut.Advance(1);
+        Assert.Equal(0, invocationCount);
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, invocationCount);
+
+        sut.GetMemory(1);
+        sut.Advance(1);
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, invocationCount);
+    }
+
+    [Fact]
+    public async Task OnResponseStartingCallback_WriteAsync()
+    {
+        int invocationCount = 0;
+        Task Callback(CancellationToken token)
+        {
+            invocationCount++;
+            return Task.CompletedTask;
+        }
+
+        var stream = new MemoryStream();
+        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+
+        Assert.Equal(0, invocationCount);
+        await sut.WriteAsync(new byte[1], TestContext.Current.CancellationToken);
+        Assert.Equal(1, invocationCount);
+        await sut.WriteAsync(new byte[1], TestContext.Current.CancellationToken);
+        Assert.Equal(1, invocationCount);
+    }
+
+    [Fact]
+    public async Task OnResponseStartingCallback_Complete()
+    {
+        int invocationCount = 0;
+        Task Callback(CancellationToken token)
+        {
+            invocationCount++;
+            return Task.CompletedTask;
+        }
+
+        var stream = new MemoryStream();
+        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+        sut.GetMemory(1);
+        sut.Advance(1);
+        Assert.Equal(0, invocationCount);
+        sut.Complete();
+        Assert.Equal(1, invocationCount);
+    }
+
     private class WaitBeforeWriteStream(TaskCompletionSource tcs) : MemoryStream
     {
         public int WrittenBytes { get; private set; }
