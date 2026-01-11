@@ -184,3 +184,26 @@ public class WriteUInt32
 
     public static uint ReadUInt24BigEndian(ReadOnlySpan<byte> source) => (uint)((source[0] << 16) | (source[1] << 8) | source[2]);
 }
+
+[SimpleJob, DisassemblyDiagnoser]
+public class PrefixedIntegerEncoderBenchmarks
+{
+    [Params(2147483647)]
+    public int Value { get; set; }
+
+    [Benchmark]
+    public bool EncodeIntegerSimd()
+    {
+        Span<byte> buffer = stackalloc byte[33];
+        QPackIntegerEncoder encoder = new();
+        return encoder.TryEncodeSimd(buffer, Value, 7, out _);
+    }
+
+    [Benchmark]
+    public bool EncodeInteger()
+    {
+        Span<byte> buffer = stackalloc byte[33];
+        QPackIntegerEncoder encoder = new();
+        return encoder.TryEncode(buffer, Value, 7, out _);
+    }
+}
