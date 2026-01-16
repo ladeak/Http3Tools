@@ -6,6 +6,7 @@ using System.Net.Quic;
 using System.Runtime.Versioning;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
+using Microsoft.AspNetCore.Http;
 
 namespace CHttpServer.Http3;
 
@@ -409,6 +410,16 @@ internal sealed class QPackDecoder
         consumed = 1;
         _status = DecoderState.ReadBase;
         return true;
+    }
+
+    /// <summary>
+    /// Encodes a header dictionary into a response stream.
+    /// </summary>
+    internal void Encode(int statusCode, IHeaderDictionary headers, PipeWriter writer)
+    {
+        // length?
+        // iterate headers, match _staticEncoderTable
+        // write, wire format
     }
 
     private static readonly KnownHeaderField[] _staticDecoderTable =

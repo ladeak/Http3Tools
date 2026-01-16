@@ -5,7 +5,7 @@ using CHttpServer.Http3;
 
 namespace CHttpServer.Tests.Http3;
 
-public class Http3DataFramingStreamWriterTests
+public class Http3FramingStreamWriterTests
 {
     [Theory]
     [InlineData(10, 2)]
@@ -17,7 +17,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var stream = new MemoryStream();
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(stream, arrayPool);
+        var sut = new Http3FramingStreamWriter(stream, 0, arrayPool);
         var buffer = sut.GetSpan(payloadLength);
         Assert.True(buffer.Length >= payloadLength);
         for (int i = 0; i < payloadLength; i++)
@@ -42,7 +42,7 @@ public class Http3DataFramingStreamWriterTests
     [Fact]
     public void GetMemory_NoAdvance_Returns_SameMemory()
     {
-        var sut = new Http3DataFramingStreamWriter(Stream.Null);
+        var sut = new Http3FramingStreamWriter(Stream.Null, 0);
         var m1 = sut.GetMemory(100);
         m1.Span.Fill(1);
 
@@ -59,7 +59,7 @@ public class Http3DataFramingStreamWriterTests
     [Fact]
     public void GetMemory_Advance_Returns_NotSameMemory()
     {
-        var sut = new Http3DataFramingStreamWriter(Stream.Null);
+        var sut = new Http3FramingStreamWriter(Stream.Null, 0);
         var m1 = sut.GetMemory(100);
         m1.Span.Fill(1);
         sut.Advance(100);
@@ -80,7 +80,7 @@ public class Http3DataFramingStreamWriterTests
     public void AdvanceTooMuch_ThrowsArgumentOutOfRangeException()
     {
         var smallArrayPool = ArrayPool<byte>.Create(128, 1);
-        var sut = new Http3DataFramingStreamWriter(Stream.Null, smallArrayPool);
+        var sut = new Http3FramingStreamWriter(Stream.Null, 0, smallArrayPool);
         Assert.Throws<ArgumentOutOfRangeException>(() => sut.Advance(1));
 
         sut.GetMemory(128);
@@ -93,7 +93,7 @@ public class Http3DataFramingStreamWriterTests
     [Fact]
     public async Task WhenCompleted_CannotGetMoreMemory()
     {
-        var sut = new Http3DataFramingStreamWriter(Stream.Null);
+        var sut = new Http3FramingStreamWriter(Stream.Null, 0);
         sut.Complete();
         sut.Complete(); // It is OK to call twice.
         Assert.Throws<InvalidOperationException>(() => sut.GetMemory(1));
@@ -108,7 +108,7 @@ public class Http3DataFramingStreamWriterTests
     [Fact]
     public async Task WhenCompletedAsync_CannotGetMoreMemory()
     {
-        var sut = new Http3DataFramingStreamWriter(Stream.Null);
+        var sut = new Http3FramingStreamWriter(Stream.Null, 0);
         await sut.CompleteAsync();
         await sut.CompleteAsync(); // It is OK to call twice.
         Assert.Throws<InvalidOperationException>(() => sut.GetMemory(1));
@@ -124,7 +124,7 @@ public class Http3DataFramingStreamWriterTests
     public async Task WriteAsync_WritesToStreamAndFlushes()
     {
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         byte[] data = [0, 1, 2, 3, 4, 5];
         await sut.WriteAsync(data, TestContext.Current.CancellationToken);
 
@@ -145,7 +145,7 @@ public class Http3DataFramingStreamWriterTests
     public async Task WriteAsync_GetMemory_DoesNotMix()
     {
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         sut.GetMemory(1);
         sut.Advance(1);
 
@@ -170,7 +170,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var stream = new MemoryStream();
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(stream, arrayPool);
+        var sut = new Http3FramingStreamWriter(stream, 0, arrayPool);
         var memory = sut.GetSpan(1);
         memory[0] = 1;
         sut.Advance(1);
@@ -187,7 +187,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var stream = new MemoryStream();
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(stream, arrayPool);
+        var sut = new Http3FramingStreamWriter(stream, 0, arrayPool);
         var memory = sut.GetSpan(1);
         memory[0] = 1;
         sut.Advance(1);
@@ -206,7 +206,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var stream = new MemoryStream();
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(stream, arrayPool);
+        var sut = new Http3FramingStreamWriter(stream, 0, arrayPool);
         var memory = sut.GetSpan(1);
         memory[0] = 1;
         sut.Advance(1);
@@ -224,7 +224,7 @@ public class Http3DataFramingStreamWriterTests
     public void MultipleAdvanceCalls()
     {
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         var memory = sut.GetSpan(5);
         memory[0] = 0;
         memory[1] = 1;
@@ -249,7 +249,7 @@ public class Http3DataFramingStreamWriterTests
     public async Task CancelPendingFlush()
     {
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         var memory = sut.GetSpan(5);
         sut.Advance(5);
 
@@ -269,7 +269,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stream = new WaitBeforeWriteStream(tcs);
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         var memory = sut.GetSpan(5);
         sut.Advance(5);
 
@@ -289,7 +289,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stream = new WaitBeforeWriteStream(tcs);
-        var sut = new Http3DataFramingStreamWriter(stream);
+        var sut = new Http3FramingStreamWriter(stream, 0);
         var memory = sut.GetSpan(5);
         sut.Advance(5);
 
@@ -309,7 +309,7 @@ public class Http3DataFramingStreamWriterTests
     {
         var stream = new MemoryStream();
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(stream, arrayPool);
+        var sut = new Http3FramingStreamWriter(stream, 0, arrayPool);
         var memory = sut.GetSpan(5);
         sut.Advance(5);
         await Assert.ThrowsAsync<TaskCanceledException>(async () => await sut.FlushAsync(new CancellationToken(true)));
@@ -332,7 +332,7 @@ public class Http3DataFramingStreamWriterTests
         testStream.Close();
 
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(testStream, arrayPool);
+        var sut = new Http3FramingStreamWriter(testStream, 0, arrayPool);
         var memory = sut.GetSpan(5);
         sut.Advance(5);
         await Assert.ThrowsAsync<ObjectDisposedException>(async () => await sut.FlushAsync(TestContext.Current.CancellationToken));
@@ -355,7 +355,7 @@ public class Http3DataFramingStreamWriterTests
         testStream.Close();
 
         var arrayPool = new TestArrayPool();
-        var sut = new Http3DataFramingStreamWriter(testStream, arrayPool);
+        var sut = new Http3FramingStreamWriter(testStream, 0, arrayPool);
         await Assert.ThrowsAsync<ObjectDisposedException>(async () => await sut.WriteAsync(new byte[1], TestContext.Current.CancellationToken));
 
         Assert.True(sut.Completion.IsFaulted);
@@ -368,7 +368,7 @@ public class Http3DataFramingStreamWriterTests
         // Setup a stream.
         var ms = new MemoryStream();
         var arrayPool = new TestArrayPool(32, 2);
-        var sut = new Http3DataFramingStreamWriter(ms, arrayPool);
+        var sut = new Http3FramingStreamWriter(ms, 0, arrayPool);
         Span<byte> data = [0, 1, 2, 3, 4];
         var memory0 = sut.GetMemory(data.Length);
         data.CopyTo(memory0.Span);
@@ -398,7 +398,7 @@ public class Http3DataFramingStreamWriterTests
         // Setup a stream.
         var ms = new MemoryStream();
         var arrayPool = new TestArrayPool(16, 2);
-        var sut = new Http3DataFramingStreamWriter(ms, arrayPool);
+        var sut = new Http3FramingStreamWriter(ms, 0, arrayPool);
         byte[] data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
         var memory0 = sut.GetMemory(data.Length);
         data.CopyTo(memory0.Span);
@@ -428,7 +428,7 @@ public class Http3DataFramingStreamWriterTests
         // Setup a stream.
         var ms = new MemoryStream();
         var arrayPool = new TestArrayPool(32, 2);
-        var sut = new Http3DataFramingStreamWriter(ms, arrayPool);
+        var sut = new Http3FramingStreamWriter(ms, 0, arrayPool);
         byte[] data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
         var memory0 = sut.GetMemory(data.Length);
         data.CopyTo(memory0.Span);
@@ -463,7 +463,7 @@ public class Http3DataFramingStreamWriterTests
         }
 
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+        var sut = new Http3FramingStreamWriter(stream, 0, onResponseStartingCallback: Callback);
 
         sut.GetMemory(1);
         sut.Advance(1);
@@ -488,7 +488,7 @@ public class Http3DataFramingStreamWriterTests
         }
 
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+        var sut = new Http3FramingStreamWriter(stream, 0, onResponseStartingCallback: Callback);
 
         Assert.Equal(0, invocationCount);
         await sut.WriteAsync(new byte[1], TestContext.Current.CancellationToken);
@@ -508,12 +508,76 @@ public class Http3DataFramingStreamWriterTests
         }
 
         var stream = new MemoryStream();
-        var sut = new Http3DataFramingStreamWriter(stream, onResponseStartingCallback: Callback);
+        var sut = new Http3FramingStreamWriter(stream, 0, onResponseStartingCallback: Callback);
         sut.GetMemory(1);
         sut.Advance(1);
         Assert.Equal(0, invocationCount);
         sut.Complete();
         Assert.Equal(1, invocationCount);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public async Task GetMemoryFlushAsync_Writes_FrameType(byte frameType)
+    {
+        var ms = new MemoryStream();
+        var sut = new Http3FramingStreamWriter(ms, frameType);
+        sut.GetMemory(1).Span[0] = 9;
+        sut.Advance(1);
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+
+        byte[] expected = [frameType, 99, 9];
+        VariableLenghtIntegerDecoder.TryWrite(expected.AsSpan(1), 1, out _);
+
+        Assert.Equal(expected, ms.ToArray());
+    }
+
+    [Fact]
+    public void Complete_Writes_FrameType()
+    {
+        byte frameType = 4;
+        var ms = new MemoryStream();
+        var sut = new Http3FramingStreamWriter(ms, frameType);
+        sut.GetMemory(1).Span[0] = 9;
+        sut.Advance(1);
+        sut.Complete();
+
+        byte[] expected = [frameType, 99, 9];
+        VariableLenghtIntegerDecoder.TryWrite(expected.AsSpan(1), 1, out _);
+
+        Assert.Equal(expected, ms.ToArray());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Writes_FrameType()
+    {
+        byte frameType = 4;
+        var ms = new MemoryStream();
+        var sut = new Http3FramingStreamWriter(ms, frameType);
+        sut.GetMemory(1).Span[0] = 9;
+        sut.Advance(1);
+        await sut.CompleteAsync();
+
+        byte[] expected = [frameType, 99, 9];
+        VariableLenghtIntegerDecoder.TryWrite(expected.AsSpan(1), 1, out _);
+
+        Assert.Equal(expected, ms.ToArray());
+    }
+
+    [Fact]
+    public async Task WriteAsync_Writes_FrameType()
+    {
+        byte frameType = 4;
+        var ms = new MemoryStream();
+        var sut = new Http3FramingStreamWriter(ms, frameType);
+        byte[] data = [7];
+        await sut.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        byte[] expected = [frameType, 99, 7];
+        VariableLenghtIntegerDecoder.TryWrite(expected.AsSpan(1), 1, out _);
+
+        Assert.Equal(expected, ms.ToArray());
     }
 
     private class WaitBeforeWriteStream(TaskCompletionSource tcs) : MemoryStream

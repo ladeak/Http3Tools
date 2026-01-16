@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace CHttpServer.Http3;
 
-internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byte>? memoryPool = null, Func<CancellationToken, Task>? onResponseStartingCallback = null) : PipeWriter
+internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, ArrayPool<byte>? memoryPool = null, Func<CancellationToken, Task>? onResponseStartingCallback = null) : PipeWriter
 {
     private readonly struct Segment()
     {
@@ -20,6 +20,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
     private readonly List<Segment> _segments = new List<Segment>(128) { new Segment() };
     private readonly ArrayPool<byte> _memoryPool = memoryPool ?? ArrayPool<byte>.Shared;
     private Stream _responseStream = responseStream;
+    private readonly byte _frameType = frameType;
     private CancellationTokenSource? _cts;
     private bool _isCompleted = false;
     private long _unflushedBytes;
@@ -178,7 +179,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
                 }
                 return new FlushResult(true, false);
             }
-            using var _ = cancellationToken.Register(static (object? state) => { ((Http3DataFramingStreamWriter)state!).InternalCancellation.Cancel(); }, this);
+            using var _ = cancellationToken.Register(static (object? state) => { ((Http3FramingStreamWriter)state!).InternalCancellation.Cancel(); }, this);
 
             if (_onResponseStartingCallback != null)
             {
@@ -273,7 +274,7 @@ internal class Http3DataFramingStreamWriter(Stream responseStream, ArrayPool<byt
     /// <returns>The length of the frame header in bytes.</returns>
     private int PrepareDataFrameHeader(long length)
     {
-        _buffer[0] = 0;
+        _buffer[0] = _frameType;
         var success = VariableLenghtIntegerDecoder.TryWrite(_buffer.AsSpan(1), length, out var writtenCount);
         Debug.Assert(success);
         return writtenCount + 1;
