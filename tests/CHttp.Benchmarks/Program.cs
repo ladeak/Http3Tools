@@ -188,22 +188,21 @@ public class WriteUInt32
 [SimpleJob, DisassemblyDiagnoser]
 public class PrefixedIntegerEncoderBenchmarks
 {
-    [Params(2147483647)]
-    public int Value { get; set; }
+    //      0     3      4        5          6            7              8                9
+    [Params(0, 1024, 17408, 2098176, 268436480, 34359739392, 4398046512128, 562949953427456)]
+    public long Value { get; set; }
 
     [Benchmark]
-    public bool EncodeIntegerSimd()
+    public bool EncodeLongSimd()
     {
         Span<byte> buffer = stackalloc byte[33];
-        QPackIntegerEncoder encoder = new();
-        return encoder.TryEncodeSimd(buffer, Value, 7, out _);
+        return QPackIntegerEncoder.TryEncodeSimd(buffer, Value, 7, out _);
     }
 
     [Benchmark]
-    public bool EncodeInteger()
+    public bool EncodeLong()
     {
         Span<byte> buffer = stackalloc byte[33];
-        QPackIntegerEncoder encoder = new();
-        return encoder.TryEncode(buffer, Value, 7, out _);
+        return QPackIntegerEncoder.TryEncode(buffer, Value, 7, out _);
     }
 }
