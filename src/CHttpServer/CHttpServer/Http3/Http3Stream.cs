@@ -215,7 +215,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
         if (_onStartingCallback.HasValue)
             await _onStartingCallback.Value.Callback(_onStartingCallback.Value.State);
         _responseHeaders.SetReadOnly();
-        await WriteHeadersAsync(_responseHeaders, StatusCode);
+        await WriteHeadersAsync(StatusCode, _responseHeaders);
     }
 
     // StartApplicationProcessing start application processing
@@ -248,13 +248,13 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
         }
     }
 
-    private async Task WriteHeadersAsync(int statusCode, IHeaderDictionary headers)
+    private async Task WriteHeadersAsync(int statusCode, Http3ResponseHeaderCollection headers)
     {
         _qpackDecoder.Encode(statusCode, headers, _responseHeaderWriter);
         await _responseHeaderWriter.FlushAsync();
     }
 
-    private async Task WriteHeadersAsync(IHeaderDictionary headers)
+    private async Task WriteHeadersAsync(Http3ResponseHeaderCollection headers)
     {
         _qpackDecoder.Encode(headers, _responseHeaderWriter);
         await _responseHeaderWriter.FlushAsync();

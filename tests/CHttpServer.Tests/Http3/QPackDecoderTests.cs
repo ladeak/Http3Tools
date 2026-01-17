@@ -274,6 +274,32 @@ public class QPackDecoderTests
         Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
     }
 
+    [Fact]
+    public async Task EncodeStatusCode200()
+    {
+        var stream = new MemoryStream();
+        var writer = new Http3FramingStreamWriter(stream, 1);
+        var sut = new QPackDecoder();
+        sut.Encode(200, new Http3ResponseHeaderCollection(), writer);
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        byte[] expected = [0, 0, 25 | 0b1100_000];
+        expected.SequenceEqual(stream.ToArray());
+    }
+
+    [Fact]
+    public async Task EncodeStatusCode103()
+    {
+        var stream = new MemoryStream();
+        var writer = new Http3FramingStreamWriter(stream, 1);
+        var sut = new QPackDecoder();
+        sut.Encode(200, new Http3ResponseHeaderCollection(), writer);
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        byte[] expected = [0, 0, 24 | 0b1100_000];
+        expected.SequenceEqual(stream.ToArray());
+    }
+
     private class TestQPackHeaderHandler : IQPackHeaderHandler
     {
         internal Dictionary<string, string> Headers { get; } = new();

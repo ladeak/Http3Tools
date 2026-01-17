@@ -6,7 +6,6 @@ using System.Net.Quic;
 using System.Runtime.Versioning;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
-using Microsoft.AspNetCore.Http;
 
 namespace CHttpServer.Http3;
 
@@ -415,11 +414,71 @@ internal sealed class QPackDecoder
     /// <summary>
     /// Encodes a header dictionary into a response stream.
     /// </summary>
-    internal void Encode(int statusCode, IHeaderDictionary headers, PipeWriter writer)
+    internal void Encode(int statusCode, Http3ResponseHeaderCollection headers, PipeWriter destinationWriter)
+    {
+        EncodeFieldSectionPrefix(destinationWriter);
+        if (_statusCodesEncoderTable.TryGetValue(statusCode, out var knownHeader))
+            EncodeFieldLine(knownHeader, destinationWriter);
+        else
+            EncodeFieldLine((":status", statusCode.ToString()), destinationWriter);
+
+        Encode(headers, destinationWriter);
+    }
+
+    internal void Encode(Http3ResponseHeaderCollection headers, PipeWriter destinationWriter)
+    {
+        EncodeFieldSectionPrefix(destinationWriter);
+        EncodeFieldLines(headers, destinationWriter);
+    }
+
+    private void EncodeFieldLines(Http3ResponseHeaderCollection headers, PipeWriter destinationWriter)
     {
         // length?
         // iterate headers, match _staticEncoderTable
         // write, wire format
+        foreach (var header in headers)
+        {
+        }
+    }
+
+    private void EncodeFieldLine(KnownHeaderField header, PipeWriter destinationWriter)
+    {
+        if (header.Value != string.Empty)
+            EncodeIndexedFieldLine(header, destinationWriter);
+
+        //...
+    }
+
+    private void EncodeFieldLine((string Name, string Value) header, PipeWriter destinationWriter)
+    {
+    }
+
+    private void EncodeFieldSectionPrefix(PipeWriter destinationWriter)
+    {
+        //   0   1   2   3   4   5   6   7
+        // +---+---+---+---+---+---+---+---+
+        // | Required Insert Count(8 +)    |
+        // +---+---------------------------+
+        // | S | Delta Base(7 +)           |
+        // +---+---------------------------+
+        // | Encoded Field Lines         ...
+        // +-------------------------------+
+        var buffer = destinationWriter.GetSpan(2);
+        buffer[0] = 0;
+        buffer[1] = 0;
+        destinationWriter.Advance(2);
+    }
+
+    private void EncodeIndexedFieldLine(KnownHeaderField header, PipeWriter destinationWriter)
+    {
+        //   0   1   2   3   4   5   6   7
+        // +---+---+---+---+---+---+---+---+
+        // | 1 | T | Index(6 +)            |
+        // +---+---+-----------------------+
+        var buffer = destinationWriter.GetSpan(2);
+        QPackIntegerEncoder.TryEncode(buffer, header.StaticTableIndex, 6, out var writtenLength);
+        buffer[0] |= 0b1100000;
+        destinationWriter.Advance(writtenLength);
     }
 
     private static readonly KnownHeaderField[] _staticDecoderTable =
@@ -526,6 +585,21 @@ internal sealed class QPackDecoder
     ];
 
     private static readonly FrozenDictionary<string, KnownHeaderField[]> _staticEncoderTable = BuildEndoderTable(_staticDecoderTable);
+
+    private static readonly FrozenDictionary<int, KnownHeaderField> _statusCodesEncoderTable = BuildStatusCodeEndoderTable(_staticDecoderTable);
+
+    private static FrozenDictionary<int, KnownHeaderField> BuildStatusCodeEndoderTable(KnownHeaderField[] source)
+    {
+        var dict = new Dictionary<int, KnownHeaderField>();
+        foreach (var header in source)
+        {
+            if (header.Name != ":status")
+                continue;
+            var value = int.Parse(header.Value);
+            dict[value] = header;
+        }
+        return dict.ToFrozenDictionary();
+    }
 
     private static KnownHeaderField CreateHeaderField(int index, string name, string value) =>
         new(index, name, Encoding.ASCII.GetBytes(name), value, Encoding.ASCII.GetBytes(value));
