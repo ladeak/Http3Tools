@@ -23,6 +23,15 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
+    public void Encode16385_Integer()
+    {
+        Span<byte> buffer = stackalloc byte[8];
+        Assert.True(QPackIntegerEncoder.TryEncode(buffer, 16385, 1, out var length));
+        byte[] b = [0b00000001, 0b10000000, 0b10000000, 0b00000001];
+        Assert.True(b.SequenceEqual(buffer[..length]));
+    }
+
+    [Fact]
     public void Encode167225()
     {
         Span<byte> buffer = stackalloc byte[8];
@@ -92,6 +101,15 @@ public class QPackIntegerEncoderTests
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 2, 1, out var length));
         byte[] b = [0b00000001, 0b00000001];
+        Assert.True(b.SequenceEqual(buffer[..length]));
+    }
+
+    [Fact]
+    public void EncodeSimd16385_Integer()
+    {
+        Span<byte> buffer = stackalloc byte[33];
+        Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 16385, 1, out var length));
+        byte[] b = [0b00000001, 0b10000000, 0b10000000, 0b00000001];
         Assert.True(b.SequenceEqual(buffer[..length]));
     }
 
@@ -203,6 +221,15 @@ public class QPackIntegerEncoderTests
         Span<byte> buffer = stackalloc byte[128];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 2L, 1, out var length));
         byte[] b = [0b00000001, 0b00000001];
+        Assert.True(b.SequenceEqual(buffer[..length]));
+    }
+
+    [Fact]
+    public void EncodeSimd16385_Long()
+    {
+        Span<byte> buffer = stackalloc byte[33];
+        Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 16385L, 1, out var length));
+        byte[] b = [0b00000001, 0b10000000, 0b10000000, 0b00000001];
         Assert.True(b.SequenceEqual(buffer[..length]));
     }
 
