@@ -77,7 +77,7 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void EncodeSimd1337()
+    public void EncodeSimd1337_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         QPackIntegerEncoder.TryEncodeSimd(buffer, 1337, 5, out var length);
@@ -87,7 +87,7 @@ public class QPackIntegerEncoderTests
 
 
     [Fact]
-    public void EncodeSimd2()
+    public void EncodeSimd2_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 2, 1, out var length));
@@ -96,7 +96,7 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void EncodeSimd167225()
+    public void EncodeSimd167225_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 167225, 5, out var length));
@@ -105,7 +105,7 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void EncodeSimd0()
+    public void EncodeSimd_0_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 0, 5, out var length));
@@ -114,7 +114,7 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void EncodeSimd2147483647_7()
+    public void EncodeSimd2147483647_7_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 2147483647, 7, out var length));
@@ -123,23 +123,32 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void EncodeSimd2147483647_1()
+    public void EncodeSimd2147483647_1_Integer()
     {
         Span<byte> buffer = stackalloc byte[33];
         Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, 2147483647, 1, out var length));
         byte[] b = [0b0000_0001, 0b11111110, 0b11111111, 0b11111111, 0b11111111, 0b00000111];
         Assert.True(b.SequenceEqual(buffer[..length]));
     }
-    [Fact]
-    public void Encode_Decode_Simd()
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    public void Encode_Decode_Simd_Integer(byte prefixLength)
     {
         Span<byte> buffer = stackalloc byte[64];
         for (int i = 1; i < int.MaxValue - 127; i += 127)
         {
             buffer.Clear();
-            Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, i, 5, out var length));
+            Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, i, prefixLength, out var length));
             var decoder = new QPackIntegerDecoder();
-            if (decoder.BeginTryDecode(buffer[0], 5, out var result))
+            if (decoder.BeginTryDecode(buffer[0], prefixLength, out var result))
                 Assert.Equal(i, result);
             else
             {
@@ -150,16 +159,24 @@ public class QPackIntegerEncoderTests
         }
     }
 
-    [Fact]
-    public void Encode_Decode()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    public void Encode_Decode(byte prefixLength)
     {
         Span<byte> buffer = stackalloc byte[64];
         for (int i = 1; i < int.MaxValue - 127; i += 127)
         {
             buffer.Clear();
-            Assert.True(QPackIntegerEncoder.TryEncode(buffer, i, 5, out var length));
+            Assert.True(QPackIntegerEncoder.TryEncode(buffer, i, prefixLength, out var length));
             var decoder = new QPackIntegerDecoder();
-            if (decoder.BeginTryDecode(buffer[0], 5, out var result))
+            if (decoder.BeginTryDecode(buffer[0], prefixLength, out var result))
                 Assert.Equal(i, result);
             else
             {
@@ -225,16 +242,24 @@ public class QPackIntegerEncoderTests
         Assert.True(b.SequenceEqual(buffer[..length]));
     }
 
-    [Fact]
-    public void Encode_Decode_SimdLong()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    public void Encode_Decode_Simd_Long(byte prefixLength)
     {
         Span<byte> buffer = stackalloc byte[128];
         for (long i = 1; i < uint.MaxValue; i += 127)
         {
             buffer.Clear();
-            Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, i, 5, out var length));
+            Assert.True(QPackIntegerEncoder.TryEncodeSimd(buffer, i, prefixLength, out var length));
             var decoder = new QPackIntegerDecoder();
-            if (decoder.BeginTryDecode(buffer[0], 5, out var result))
+            if (decoder.BeginTryDecode(buffer[0], prefixLength, out var result))
                 Assert.Equal(i, result);
             else
             {
@@ -246,7 +271,7 @@ public class QPackIntegerEncoderTests
     }
 
     [Fact]
-    public void Encode_Decode_LongMax()
+    public void Encode_Decode_MaxValue_Simd_Long()
     {
         long input = long.MaxValue >> 1;
         Span<byte> buffer = stackalloc byte[128];
