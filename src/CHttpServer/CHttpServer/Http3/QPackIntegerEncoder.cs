@@ -180,7 +180,7 @@ internal struct QPackIntegerEncoder
 
         var vLength = Avx2.CompareEqual(vNumber, Vector256<uint>.Zero).AsByte();
         writtenCount = 1 + (int.TrailingZeroCount(Avx2.MoveMask(vLength)) >> 2);
-        if (writtenCount == 1 || writtenCount == 9)
+        if (writtenCount == 9) // writtenCount == 1 || is not needed in this case and at least a 2 bytes written.
             destination[writtenCount] = (byte)(number >> 56);
         else
             destination[writtenCount - 1] -= 128;
