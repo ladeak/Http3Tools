@@ -137,7 +137,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         ThrowIfCompleted();
         if (source.Length == 0)
             return new FlushResult(false, false);
-        var frameHeaderLength = PrepareDataFrameHeader(source.Length);
+        var frameHeaderLength = PrepareFrameHeader(source.Length);
         try
         {
             if (_onResponseStartingCallback != null)
@@ -186,7 +186,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
                 await _onResponseStartingCallback.Invoke(localToken);
                 _onResponseStartingCallback = null;
             }
-            var dataFrameHeaderLength = PrepareDataFrameHeader(_unflushedBytes);
+            var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
             await _responseStream.WriteAsync(_buffer.AsMemory(0, dataFrameHeaderLength), localToken);
 
             int i = 0;
@@ -243,7 +243,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
             _onResponseStartingCallback.Invoke(CancellationToken.None).GetAwaiter().GetResult();
             _onResponseStartingCallback = null;
         }
-        var dataFrameHeaderLength = PrepareDataFrameHeader(_unflushedBytes);
+        var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
         _responseStream.Write(_buffer.AsSpan(0, dataFrameHeaderLength));
         var source = CollectionsMarshal.AsSpan(_segments);
         int i = 0;
@@ -263,8 +263,8 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     }
 
     /// <summary>
-    /// Write the DATA frame header into the local <see cref="_buffer"/>
-    /// DATA Frame {
+    /// Write the frame header into the local <see cref="_buffer"/>
+    /// DATA/HEADER Frame {
     /// Type(i) = 0x00,
     ///   Length(i),
     ///   Data(..),
@@ -272,7 +272,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     /// </summary>
     /// <param name="length">The length of the DATA frame payload.</param>
     /// <returns>The length of the frame header in bytes.</returns>
-    private int PrepareDataFrameHeader(long length)
+    private int PrepareFrameHeader(long length)
     {
         _buffer[0] = _frameType;
         var success = VariableLenghtIntegerDecoder.TryWrite(_buffer.AsSpan(1), length, out var writtenCount);

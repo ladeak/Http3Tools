@@ -214,7 +214,6 @@ public class QPackIntegerEncoderTests
         Assert.True(b.SequenceEqual(buffer[..length]));
     }
 
-
     [Fact]
     public void EncodeSimd2_Long()
     {
