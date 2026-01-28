@@ -13,17 +13,22 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
 
         public byte[] Reference { get; init; } = [];
         public Memory<byte> Used { get; init; } = Memory<byte>.Empty;
+
+        public bool IsEmpty => Used.IsEmpty;
+
+        public bool IsAllocated => Reference.Length > 0;
     }
 
     private readonly byte[] _buffer = new byte[9];
     private readonly Lock _lockObject = new();
-    private readonly List<Segment> _segments = new List<Segment>(128) { new Segment() };
+    private readonly List<Segment> _segments = new List<Segment>(128);
     private readonly ArrayPool<byte> _memoryPool = memoryPool ?? ArrayPool<byte>.Shared;
     private Stream _responseStream = responseStream;
     private readonly byte _frameType = frameType;
     private CancellationTokenSource? _cts;
     private bool _isCompleted = false;
     private long _unflushedBytes;
+    private Segment _currentSegment = Segment.Empty;
     private TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Func<CancellationToken, Task>? _onResponseStartingCallback = onResponseStartingCallback;
 
@@ -60,12 +65,11 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     public override void Advance(int bytes)
     {
         ThrowIfCompleted();
-        var current = _segments[^1];
+        var current = _currentSegment;
         var usedLength = current.Used.Length;
         var available = current.Reference.Length - usedLength;
         ArgumentOutOfRangeException.ThrowIfLessThan(available, bytes);
-        current = current with { Used = current.Reference.AsMemory(0, usedLength + bytes) };
-        _segments[^1] = current;
+        _currentSegment = current with { Used = current.Reference.AsMemory(0, usedLength + bytes) };
         _unflushedBytes += bytes;
     }
 
@@ -111,23 +115,19 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     {
         ThrowIfCompleted();
         ArgumentOutOfRangeException.ThrowIfLessThan(sizeHint, 0);
-        var current = _segments[^1];
+        var current = _currentSegment;
         var available = current.Reference.Length - current.Used.Length;
         if (sizeHint <= available)
             return current.Reference.AsMemory(current.Used.Length);
 
-        var segment = new Segment() { Reference = _memoryPool.Rent(sizeHint) }; // Minimum size left for ArrayPool.
+        // Not enough memory left in the current segment.
+        if (!current.IsEmpty)
+            _segments.Add(current);
+        else if (current.IsAllocated)
+            _memoryPool.Return(current.Reference, true);
 
-        // If it is unused segment, but too small, return the currently rented array and replace the segment.
-        if (current.Used.Length == 0)
-        {
-            if (current.Reference.Length != 0)
-                _memoryPool.Return(current.Reference, true);
-            _segments[^1] = segment;
-        }
-        else
-            _segments.Add(segment);
-        return segment.Reference.AsMemory();
+        _currentSegment = new Segment() { Reference = _memoryPool.Rent(sizeHint) }; // Minimum size left for ArrayPool.
+        return _currentSegment.Reference.AsMemory();
     }
 
     public override Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
@@ -189,21 +189,20 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
             var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
             await _responseStream.WriteAsync(_buffer.AsMemory(0, dataFrameHeaderLength), localToken);
 
-            int i = 0;
-            var emptySegment = Segment.Empty;
-            for (; i < _segments.Count; i++)
+            // Shortcut: if flushed after every write, no need to address segments
+            if (_segments.Count == 0)
             {
-                var memory = _segments[i];
-                if (memory.Reference.Length == 0)
-                    break;
-                if (memory.Used.Length > 0)
-                    await _responseStream.WriteAsync(memory.Used, localToken);
-                _memoryPool.Return(memory.Reference, true);
-                _segments[i] = emptySegment;
+                if (!_currentSegment.IsEmpty)
+                    await _responseStream.WriteAsync(_currentSegment.Used, localToken);
+                if (_currentSegment.IsAllocated)
+                    _memoryPool.Return(_currentSegment.Reference, true);
+                _currentSegment = Segment.Empty;
+                _unflushedBytes = 0;
+                await _responseStream.FlushAsync();
+                return new FlushResult(false, false);
             }
-            _unflushedBytes = 0;
-            await _responseStream.FlushAsync(localToken);
-            return new FlushResult(isCanceled: false, isCompleted: false);
+
+            return await FlushAllSegmentsAsync(localToken);
         }
         catch (OperationCanceledException)
         {
@@ -233,6 +232,27 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         }
     }
 
+    private async Task<FlushResult> FlushAllSegmentsAsync(CancellationToken localToken)
+    {
+        if (!_currentSegment.IsEmpty)
+            _segments.Add(_currentSegment);
+        else if (_currentSegment.IsAllocated)
+            _memoryPool.Return(_currentSegment.Reference, true);
+        _currentSegment = Segment.Empty;
+
+        for (int i = 0; i < _segments.Count; i++)
+        {
+            var memory = _segments[i];
+            if (!memory.IsEmpty)
+                await _responseStream.WriteAsync(memory.Used, localToken);
+            _memoryPool.Return(memory.Reference, true);
+        }
+        _segments.Clear();
+        _unflushedBytes = 0;
+        await _responseStream.FlushAsync(localToken);
+        return new FlushResult(isCanceled: false, isCompleted: false);
+    }
+
     private void Flush()
     {
         if (_unflushedBytes == 0)
@@ -245,19 +265,40 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         }
         var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
         _responseStream.Write(_buffer.AsSpan(0, dataFrameHeaderLength));
+
+        // Shortcut: if flushed after every write, no need to address segments
+        if (_segments.Count == 0)
+        {
+            if (!_currentSegment.IsEmpty)
+                _responseStream.Write(_currentSegment.Used.Span);
+            if (_currentSegment.IsAllocated)
+                _memoryPool.Return(_currentSegment.Reference, true);
+            _currentSegment = Segment.Empty;
+            _unflushedBytes = 0;
+            _responseStream.Flush();
+            return;
+        }
+
+        FlushAllSegments();
+    }
+
+    private void FlushAllSegments()
+    {
+        if (!_currentSegment.IsEmpty)
+            _segments.Add(_currentSegment);
+        else if (_currentSegment.IsAllocated)
+            _memoryPool.Return(_currentSegment.Reference, true);
+        _currentSegment = Segment.Empty;
+
         var source = CollectionsMarshal.AsSpan(_segments);
-        int i = 0;
-        var emptySegment = Segment.Empty;
-        for (; i < _segments.Count; i++)
+        for (int i = 0; i < _segments.Count; i++)
         {
             ref var memory = ref source[i];
-            if (memory.Reference.Length == 0)
-                break;
             if (memory.Used.Length > 0)
                 _responseStream.Write(memory.Used.Span);
             _memoryPool.Return(memory.Reference, true);
-            source[i] = emptySegment;
         }
+        _segments.Clear();
         _unflushedBytes = 0;
         _responseStream.Flush();
     }
@@ -290,7 +331,9 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         }
         _unflushedBytes = 0;
         _segments.Clear();
-        _segments.Add(Segment.Empty);
+        if (_currentSegment.IsAllocated)
+            _memoryPool.Return(_currentSegment.Reference);
+        _currentSegment = Segment.Empty;
     }
 
     private void ThrowIfCompleted()

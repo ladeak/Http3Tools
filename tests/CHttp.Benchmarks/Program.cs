@@ -206,3 +206,24 @@ public class PrefixedIntegerEncoderBenchmarks
         return QPackIntegerEncoder.TryEncode(buffer, Value, 7, out _);
     }
 }
+
+[SimpleJob, DisassemblyDiagnoser]
+public class Http3FramingStreamWriterBenchmarks
+{
+    private Http3FramingStreamWriter _writer = new Http3FramingStreamWriter(Stream.Null, 0);
+
+    [Benchmark]
+    public async Task FlushAsync()
+    {
+        Span<byte> data = [0, 1, 2, 3, 4];
+        var memory0 = _writer.GetMemory(data.Length);
+        data.CopyTo(memory0.Span);
+        _writer.Advance(data.Length);
+
+        var memory1 = _writer.GetMemory(data.Length);
+        data.CopyTo(memory1.Span);
+        _writer.Advance(data.Length);
+
+        await _writer.FlushAsync();
+    }
+}

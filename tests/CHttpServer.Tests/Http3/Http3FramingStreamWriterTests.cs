@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Formats.Asn1;
 using System.Net.Quic;
 using System.Runtime.InteropServices;
 using CHttpServer.Http3;
@@ -363,6 +364,24 @@ public class Http3FramingStreamWriterTests
     }
 
     [Fact]
+    public async Task GetMemory_WhenNoDataAvailable_InSegment()
+    {
+        var ms = new MemoryStream();
+        var sut = new Http3FramingStreamWriter(ms, 0);
+        Span<byte> data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        var memory0 = sut.GetMemory(data.Length);
+        data.CopyTo(memory0.Span);
+        sut.Advance(data.Length);
+
+        var memory1 = sut.GetMemory(data.Length);
+        data.CopyTo(memory1.Span);
+        sut.Advance(data.Length);
+
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(24, ms.Length);
+    }
+
+    [Fact]
     public async Task GetMemory_WhenDataAvailable_InSegment()
     {
         // Setup a stream.
@@ -581,58 +600,58 @@ public class Http3FramingStreamWriterTests
     }
 
     private class WaitBeforeWriteStream(TaskCompletionSource tcs) : MemoryStream
-    {
-        public int WrittenBytes { get; private set; }
+{
+    public int WrittenBytes { get; private set; }
 
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await tcs.Task;
-            await base.WriteAsync(buffer, cancellationToken);
-            WrittenBytes += buffer.Length;
-        }
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        await tcs.Task;
+        await base.WriteAsync(buffer, cancellationToken);
+        WrittenBytes += buffer.Length;
+    }
+}
+
+private class WaitAfterWriteStream(TaskCompletionSource tcs) : MemoryStream
+{
+    public int WrittenBytes { get; private set; }
+
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        await base.WriteAsync(buffer, cancellationToken);
+        WrittenBytes += buffer.Length;
+        await tcs.Task;
+    }
+}
+
+private class TestArrayPool : ArrayPool<byte>
+{
+    private readonly ArrayPool<byte> _internalPool;
+    private readonly List<byte[]> _rentedArrays = new();
+
+    public TestArrayPool()
+    {
+        _internalPool = Shared;
     }
 
-    private class WaitAfterWriteStream(TaskCompletionSource tcs) : MemoryStream
+    public TestArrayPool(int maxArrayLength, int maxArrayPerBucket)
     {
-        public int WrittenBytes { get; private set; }
-
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await base.WriteAsync(buffer, cancellationToken);
-            WrittenBytes += buffer.Length;
-            await tcs.Task;
-        }
+        _internalPool = Create(maxArrayLength, maxArrayPerBucket);
     }
 
-    private class TestArrayPool : ArrayPool<byte>
+    public int OutstandingBytes => _rentedArrays.Sum(x => x.Length);
+
+    public override byte[] Rent(int minimumLength)
     {
-        private readonly ArrayPool<byte> _internalPool;
-        private readonly List<byte[]> _rentedArrays = new();
-
-        public TestArrayPool()
-        {
-            _internalPool = Shared;
-        }
-
-        public TestArrayPool(int maxArrayLength, int maxArrayPerBucket)
-        {
-            _internalPool = Create(maxArrayLength, maxArrayPerBucket);
-        }
-
-        public int OutstandingBytes => _rentedArrays.Sum(x => x.Length);
-
-        public override byte[] Rent(int minimumLength)
-        {
-            var buffer = _internalPool.Rent(minimumLength);
-            _rentedArrays.Add(buffer);
-            return buffer;
-        }
-
-        public override void Return(byte[] array, bool clearArray = false)
-        {
-            _internalPool.Return(array, clearArray);
-            _rentedArrays.Remove(array);
-        }
+        var buffer = _internalPool.Rent(minimumLength);
+        _rentedArrays.Add(buffer);
+        return buffer;
     }
+
+    public override void Return(byte[] array, bool clearArray = false)
+    {
+        _internalPool.Return(array, clearArray);
+        _rentedArrays.Remove(array);
+    }
+}
 }
 
