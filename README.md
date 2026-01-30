@@ -9,7 +9,7 @@ CHttp is a tool to send HTTP requests. The tool is based on .NET10, for HTTP/3 u
 To install as a dotnet tool:
 
 ```
-dotnet tool install -g LaDeak.CHttpExec --prerelease
+dotnet tool install --global LaDeak.CHttp --prerelease
 ```
 
 ### Install Executable
