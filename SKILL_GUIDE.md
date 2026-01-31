@@ -45,7 +45,7 @@ Search for "CHttp" in the VS Code marketplace and install it.
 
 ### 1. Basic HTTP Request
 ```bash
-chttp --method GET --uri https://api.example.com/data
+chttp --http-version 2 --method GET --uri https://api.example.com/data
 ```
 
 **Key Options:**
@@ -60,7 +60,7 @@ chttp --method GET --uri https://api.example.com/data
 
 ### 2. Performance Measurement
 ```bash
-chttp perf --uri https://api.example.com --clients 10 --requestCount 1000 --output results.json
+chttp perf --http-version 2 --uri https://api.example.com --clients 10 --requestCount 1000 --output results.json
 ```
 
 **Key Options:**
@@ -103,24 +103,24 @@ GET https://api.example.com/data HTTP/2
 
 ### Testing an API Endpoint
 ```bash
-chttp --method GET --uri https://localhost:5001/api/users --log Quiet
+chttp --http-version 2 --method GET --uri https://localhost:5001/api/users --log Quiet
 ```
 
 ### POST Request with JSON Body
 ```bash
 # Save JSON to file first (due to CLI limitation)
-chttp --method POST --uri https://api.example.com/users \
+chttp --http-version 2 --method POST --uri https://api.example.com/users \
   --header="Content-Type:application/json" \
   --body payload.json
 ```
 
 ### Testing Different HTTP Versions
 ```bash
+# Test with HTTP/2 (default for this skill)
+chttp --http-version 2 --uri https://api.example.com
+
 # Test with HTTP/3
 chttp --http-version 3 --uri https://api.example.com
-
-# Test with HTTP/2
-chttp --http-version 2 --uri https://api.example.com
 
 # Test with HTTP/1.1
 chttp --http-version 1.1 --uri https://api.example.com
@@ -128,7 +128,7 @@ chttp --http-version 1.1 --uri https://api.example.com
 
 ### Load Testing
 ```bash
-chttp perf --uri https://api.example.com \
+chttp perf --http-version 2 --uri https://api.example.com \
   --clients 20 \
   --requestCount 1000 \
   --output load-test-results.json
@@ -137,10 +137,10 @@ chttp perf --uri https://api.example.com \
 ### Comparing Performance Changes
 ```bash
 # Baseline from old code
-chttp perf --uri https://api.example.com --clients 10 --requestCount 500 --output baseline.json
+chttp perf --http-version 2 --uri https://api.example.com --clients 10 --requestCount 500 --output baseline.json
 
 # Current implementation
-chttp perf --uri https://api.example.com --clients 10 --requestCount 500 --output current.json
+chttp perf --http-version 2 --uri https://api.example.com --clients 10 --requestCount 500 --output current.json
 
 # Compare
 chttp diff --files baseline.json --files current.json
@@ -148,24 +148,24 @@ chttp diff --files baseline.json --files current.json
 
 ### Testing with Custom Headers
 ```bash
-chttp --method GET --uri https://api.example.com \
+chttp --http-version 2 --method GET --uri https://api.example.com \
   --header="Authorization:Bearer token123" \
   --header="Custom-Header:value"
 ```
 
 ### Saving Responses to File
 ```bash
-chttp --uri https://api.example.com/data --output response.json
+chttp --http-version 2 --uri https://api.example.com/data --output response.json
 ```
 
 ### Using Kerberos Authentication
 ```bash
-chttp --kerberos-auth --uri https://secure-api.example.com/data
+chttp --http-version 2 --kerberos-auth --uri https://secure-api.example.com/data
 ```
 
 ### Simulating Network Throttling
 ```bash
-chttp --uri https://api.example.com/large-file \
+chttp --http-version 2 --uri https://api.example.com/large-file \
   --upload-throttle 512
 ```
 

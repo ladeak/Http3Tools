@@ -52,22 +52,22 @@ chttp [command] [options]
 
 ### Basic GET Request
 ```bash
-chttp --method GET --uri https://api.example.com/data
+chttp --http-version 2 --method GET --uri https://api.example.com/data
 ```
 
 ### POST Request with Headers and Body
 ```bash
-chttp --method POST --uri https://api.example.com/data --header="Content-Type:application/json" --body request.json
+chttp --http-version 2 --method POST --uri https://api.example.com/data --header="Content-Type:application/json" --body request.json
 ```
 
-### Using HTTP/2
+### Using HTTP/2 (Default for this Skill)
 ```bash
 chttp --http-version 2 --method GET --uri https://api.example.com
 ```
 
 ### Quiet Output
 ```bash
-chttp --log Quiet --uri https://api.example.com
+chttp --http-version 2 --log Quiet --uri https://api.example.com
 ```
 
 ## Performance Measurement Command
@@ -87,7 +87,7 @@ chttp perf [options]
 
 ### Performance Example
 ```bash
-chttp perf --uri https://api.example.com --clients 10 --requestCount 1000 --output results.json
+chttp perf --http-version 2 --uri https://api.example.com --clients 10 --requestCount 1000 --output results.json
 ```
 
 ### Performance Output Includes
