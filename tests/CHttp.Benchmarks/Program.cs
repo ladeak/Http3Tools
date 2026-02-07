@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
+using CHttpServer;
 using CHttpServer.Http3;
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
@@ -225,5 +226,165 @@ public class Http3FramingStreamWriterBenchmarks
         _writer.Advance(data.Length);
 
         await _writer.FlushAsync();
+    }
+}
+
+[SimpleJob, MemoryDiagnoser]
+public class FeatureCollectionBenchmarks
+{
+    private interface F0 { }
+    private interface F1 { }
+    private interface F2 { }
+    private interface F3 { }
+    private interface F4 { }
+    private interface F5 { }
+    private interface F6 { }
+    private interface F7 { }
+    private interface F8 { }
+    private interface F9 { }
+    private interface F10 { }
+    private interface F11 { }
+    private interface F12 { }
+    private interface F13 { }
+    private interface F14 { }
+    private interface F15 { }
+    private interface F16 { }
+    private interface F17 { }
+    private interface F18 { }
+    private interface F19 { }
+    private class SampleFeature : F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19 { }
+
+    private static SampleFeature Feature { get; } = new SampleFeature();
+
+    [Benchmark]
+    public bool FeatureCollectionLookup()
+    {
+        // Server
+        var featureCollection = new FeatureCollectionLookup();
+        featureCollection.Add<F0>(Feature);
+        featureCollection.Add<F1>(Feature);
+
+        // ToContextAware
+        var contextFeatures = featureCollection.ToContextAware<object>();
+
+        // Connection
+        contextFeatures.Add<F3>(Feature);
+        contextFeatures.Add<F4>(Feature);
+
+        // Copy for stream
+        var streamFeatures = contextFeatures.Copy();
+
+        // Stream Add
+        streamFeatures.Add<F5>(Feature);
+        streamFeatures.Add<F6>(Feature);
+        streamFeatures.Add<F7>(Feature);
+        streamFeatures.Add<F8>(Feature);
+        streamFeatures.Add<F9>(Feature);
+        streamFeatures.Add<F10>(Feature);
+        streamFeatures.Add<F11>(Feature);
+
+        // Stream Checkpoint
+        streamFeatures.Checkpoint();
+        bool hasAll = true;
+        for (int i = 0; i < 10; i++)
+        {
+            // Add more
+            streamFeatures.Add<F12>(Feature);
+            streamFeatures.Add<F13>(Feature);
+            streamFeatures.Add<F14>(Feature);
+            streamFeatures.Add<F15>(Feature);
+
+            // Then retrieve
+            hasAll &= streamFeatures.Get<F0>() != null;
+            hasAll &= streamFeatures.Get<F1>() != null;
+            hasAll &= streamFeatures.Get<F3>() != null;
+            hasAll &= streamFeatures.Get<F4>() != null;
+            hasAll &= streamFeatures.Get<F5>() != null;
+            hasAll &= streamFeatures.Get<F6>() != null;
+            hasAll &= streamFeatures.Get<F7>() != null;
+            hasAll &= streamFeatures.Get<F8>() != null;
+            hasAll &= streamFeatures.Get<F9>() != null;
+            hasAll &= streamFeatures.Get<F10>() != null;
+            hasAll &= streamFeatures.Get<F11>() != null;
+            hasAll &= streamFeatures.Get<F12>() != null;
+            hasAll &= streamFeatures.Get<F13>() != null;
+            hasAll &= streamFeatures.Get<F14>() != null;
+            hasAll &= streamFeatures.Get<F14>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+
+            // Reset to checkpoint
+            streamFeatures.ResetCheckpoint();
+        }
+        return hasAll;
+    }
+
+    [Benchmark]
+    public bool FeatureCollection()
+    {
+        // Server
+        var featureCollection = new FeatureCollection();
+        featureCollection.AddRange(
+            (typeof(F0), Feature),
+            (typeof(F1), Feature));
+
+        // ToContextAware
+        var contextFeatures = featureCollection.ToContextAware<object>();
+
+        // Connection
+        contextFeatures.Add<F3>(Feature);
+        contextFeatures.Add<F4>(Feature);
+
+        // Copy for stream
+        var streamFeatures = contextFeatures.Copy();
+
+        // Stream Add
+        streamFeatures.AddRange(
+            (typeof(F5), Feature),
+            (typeof(F6), Feature),
+            (typeof(F7), Feature),
+            (typeof(F8), Feature),
+            (typeof(F9), Feature),
+            (typeof(F10), Feature),
+            (typeof(F11), Feature));
+
+        // Stream Checkpoint
+        streamFeatures.Checkpoint();
+        bool hasAll = true;
+        for (int i = 0; i < 10; i++)
+        {
+            // Add more
+            streamFeatures.Add<F12>(Feature);
+            streamFeatures.Add<F13>(Feature);
+            streamFeatures.Add<F14>(Feature);
+            streamFeatures.Add<F15>(Feature);
+
+            // Then retrieve
+            hasAll &= streamFeatures.Get<F0>() != null;
+            hasAll &= streamFeatures.Get<F1>() != null;
+            hasAll &= streamFeatures.Get<F3>() != null;
+            hasAll &= streamFeatures.Get<F4>() != null;
+            hasAll &= streamFeatures.Get<F5>() != null;
+            hasAll &= streamFeatures.Get<F6>() != null;
+            hasAll &= streamFeatures.Get<F7>() != null;
+            hasAll &= streamFeatures.Get<F8>() != null;
+            hasAll &= streamFeatures.Get<F9>() != null;
+            hasAll &= streamFeatures.Get<F10>() != null;
+            hasAll &= streamFeatures.Get<F11>() != null;
+            hasAll &= streamFeatures.Get<F12>() != null;
+            hasAll &= streamFeatures.Get<F13>() != null;
+            hasAll &= streamFeatures.Get<F14>() != null;
+            hasAll &= streamFeatures.Get<F14>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+            hasAll &= streamFeatures.Get<F15>() != null;
+
+            // Reset to checkpoint
+            streamFeatures.ResetCheckpoint();
+        }
+        return hasAll;
     }
 }

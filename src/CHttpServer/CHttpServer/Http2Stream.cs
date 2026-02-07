@@ -51,13 +51,14 @@ internal partial class Http2Stream
         _clientFlowControlBarrier = new ManualResetValueTaskSource<bool>() { RunContinuationsAsynchronously = true };
 
         _featureCollection = featureCollection.Copy();
-        _featureCollection.Add<IHttpRequestFeature>(this);
-        _featureCollection.Add<IHttpResponseFeature>(this);
-        _featureCollection.Add<IHttpResponseBodyFeature>(this);
-        _featureCollection.Add<IHttpResponseTrailersFeature>(this);
-        _featureCollection.Add<IHttpRequestBodyDetectionFeature>(this);
-        _featureCollection.Add<IHttpRequestLifetimeFeature>(this);
-        _featureCollection.Add<IPriority9218Feature>(this);
+        _featureCollection.AddRange(
+            (typeof(IHttpRequestFeature), this),
+            (typeof(IHttpResponseFeature), this),
+            (typeof(IHttpResponseBodyFeature), this),
+            (typeof(IHttpResponseTrailersFeature), this),
+            (typeof(IHttpRequestBodyDetectionFeature), this),
+            (typeof(IHttpRequestLifetimeFeature), this),
+            (typeof(IPriority9218Feature), this));
         _featureCollection.Checkpoint();
 
         _usePriority = _connection.ServerOptions.UsePriority;
@@ -388,7 +389,7 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
             return;
         if (_onStartingCallback != null)
             await _onStartingCallback.Invoke(_onStartingState!);
-        if(_altservice != null)
+        if (_altservice != null)
             _responseHeaders.AltSvc = _altservice;
         _responseHeaders.SetReadOnly();
         cancellationToken.Register(() => _cts.Cancel());

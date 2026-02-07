@@ -59,10 +59,11 @@ internal sealed class HttpsConnectionMiddleware
         var sslStream = sslDuplexPipe.Stream;
 
         var feature = new CHttpTlsConnectionFeature(sslStream);
-        context.Features.Set<ITlsConnectionFeature>(feature);
-        context.Features.Set<ITlsHandshakeFeature>(feature);
-        context.Features.Set<ITlsApplicationProtocolFeature>(feature);
-        context.Features.Set<ISslStreamFeature>(feature);
+        context.Features.AddRange(
+            (typeof(ITlsConnectionFeature), feature),
+            (typeof(ITlsHandshakeFeature), feature),
+            (typeof(ITlsApplicationProtocolFeature), feature),
+            (typeof(ISslStreamFeature), feature));
 
         var startTimestamp = Stopwatch.GetTimestamp();
         try

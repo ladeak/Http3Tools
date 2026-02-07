@@ -41,9 +41,10 @@ internal sealed partial class Http3Stream
         _responseHeaders = [];
 
         _features = features;
-        _features.Add<IHttpRequestFeature>(this);
-        _features.Add<IHttpResponseFeature>(this);
-        _features.Add<IHttpResponseBodyFeature>(this);
+        _features.AddRange(
+            (typeof(IHttpRequestFeature), this),
+            (typeof(IHttpResponseFeature), this),
+            (typeof(IHttpResponseBodyFeature), this));
         //_features.Add<IHttpResponseTrailersFeature>(this);
         //_features.Add<IHttpRequestBodyDetectionFeature>(this);
         //_features.Add<IHttpRequestLifetimeFeature>(this);

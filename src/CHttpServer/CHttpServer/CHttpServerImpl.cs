@@ -21,8 +21,7 @@ public class CHttpServerImpl : IServer
         _options = options.Value;
         _features = new FeatureCollection();
         var serverAddresses = new ServerAddressesFeature();
-        Features.Set<IServerAddressesFeature>(serverAddresses);
-        Features.Set<IMemoryPoolFeature>(new CHttpMemoryPool());
+        _features.AddRange((typeof(IServerAddressesFeature), serverAddresses), (typeof(IMemoryPoolFeature), new CHttpMemoryPool()));
         _http2Server = new Http2CHttpServer(options, _features);
         if (_options.UseHttp3)
             _http3Server = new Http3CHttpServer(options, _features);
@@ -36,7 +35,7 @@ public class CHttpServerImpl : IServer
 
     public Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken) where TContext : notnull
     {
-        var addresses = Features.Get<IServerAddressesFeature>()?.Addresses;
+        var addresses = _features.Get<IServerAddressesFeature>()?.Addresses;
         var httpsAddress = addresses?.FirstOrDefault(x => x.StartsWith("https://"));
 
         Uri? uri = null;

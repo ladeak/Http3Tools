@@ -40,7 +40,7 @@ internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifeti
     {
         _connectionContext = connectionContext;
         _connectionsManager = connectionsManager;
-        _connectionContext.Features.Set<IConnectionLifetimeNotificationFeature>(this);
+        _connectionContext.Features.Add<IConnectionLifetimeNotificationFeature>(this);
     }
 
     public CancellationToken ConnectionClosedRequested { get => _connectionContext.ConnectionCancellation.Token; set => throw new NotSupportedException(); }
@@ -79,7 +79,7 @@ internal sealed class CHttp2Connection<TContext> : CHttpConnection, IConnectionH
     {
         _connectionContext = connectionContext;
         _connectionDelegate = connectionDelegate;
-        _connectionContext.Features.Set<IConnectionHeartbeatFeature>(this);
+        _connectionContext.Features.Add<IConnectionHeartbeatFeature>(this);
     }
 
     public override void Heartbeat()
