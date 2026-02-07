@@ -21,11 +21,11 @@ public class FeatureCollection : IFeatureCollection
 {
     protected record struct CheckpointCollection(FeatureItem[] Features, int Revision)
     {
-        public object? Get(Type key)
+        public readonly object? Get(Type key)
         {
-            foreach (var feature in Features)
-                if (feature.Key == key)
-                    return feature.Value;
+            foreach (var (Key, Value) in Features)
+                if (Key == key)
+                    return Value;
             return null;
         }
     }
