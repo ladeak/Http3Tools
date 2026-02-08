@@ -161,6 +161,11 @@ public class FeatureCollectionTests
         Assert.True(features.SequenceEqual([new(typeof(string), "test"), new(typeof(DateTime), testDate)]));
         features.ResetCheckpoint();
         Assert.True(features.SequenceEqual([new(typeof(DateTime), testDate)]));
+
+        features.Set("test");
+        Assert.True(features.SequenceEqual([new(typeof(string), "test"), new(typeof(DateTime), testDate)]));
+        features.ResetCheckpoint();
+        Assert.True(features.SequenceEqual([new(typeof(DateTime), testDate)]));
     }
 
     [Fact]
