@@ -10,7 +10,12 @@ internal sealed class FeatureCollection<TContext> : FeatureCollection, IHostCont
 {
     public TContext? HostContext { get; set; }
 
-    internal override FeatureCollection Copy() => Copy<FeatureCollection<TContext>>();
+    internal override FeatureCollection<TContext> Copy()
+    {
+        var instance = Copy<FeatureCollection<TContext>>();
+        instance.HostContext = HostContext;
+        return instance;
+    }
 
     internal override void ResetCheckpoint()
     {
