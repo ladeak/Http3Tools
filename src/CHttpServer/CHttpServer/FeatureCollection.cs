@@ -89,17 +89,8 @@ public class FeatureCollection : IFeatureCollection
 
     internal virtual void ResetCheckpoint()
     {
-        if (_checkpoint == null)
-        {
-            _features = [];
-            _revision = 0;
-        }
-        else
-        {
-            _features = _checkpoint.Value.Features;
-            _revision = _checkpoint.Value.Revision;
-            _checkpoint = null;
-        }
+        _features = [];
+        _revision = _checkpoint?.Revision ?? 0;
     }
 
     internal virtual FeatureCollection Copy() => Copy<FeatureCollection>();
@@ -123,25 +114,19 @@ public class FeatureCollection : IFeatureCollection
 
     private void Set(Type key, object? value)
     {
-        if (value is null)
+        ArgumentNullException.ThrowIfNull(value);
+        for (int i = 0; i < _features.Length; i++)
         {
-            throw new InvalidOperationException();
-        }
-        else
-        {
-            for (int i = 0; i < _features.Length; i++)
+            if (_features[i].Key == key)
             {
-                if (_features[i].Key == key)
-                {
-                    _features = [.. _features];
-                    _features[i] = (key, value);
-                    _revision++;
-                    return;
-                }
+                _features = [.. _features];
+                _features[i] = (key, value);
+                _revision++;
+                return;
             }
-
-            _features = [.. _features, (key, value)];
         }
+
+        _features = [.. _features, (key, value)];
         _revision++;
     }
 
