@@ -180,6 +180,14 @@ public class FeatureCollectionTests
         Assert.True(copy.SequenceEqual([]));
     }
 
+    [Fact]
+    public void CopyAfterToContextAwareShouldNotLooseType()
+    {
+        var features = new FeatureCollection();
+        var contextAware = features.ToContextAware<object>();
+        var copy = contextAware.Copy();
+        Assert.IsType<FeatureCollection<object>>(copy);
+    }
 
     [Fact]
     public void ImmutableFeatureCollection()

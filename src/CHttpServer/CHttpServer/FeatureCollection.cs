@@ -10,6 +10,8 @@ internal sealed class FeatureCollection<TContext> : FeatureCollection, IHostCont
 {
     public TContext? HostContext { get; set; }
 
+    internal override FeatureCollection Copy() => Copy<FeatureCollection<TContext>>();
+
     internal override void ResetCheckpoint()
     {
         base.ResetCheckpoint();
@@ -95,7 +97,7 @@ public class FeatureCollection : IFeatureCollection
         }
     }
 
-    internal FeatureCollection Copy() => Copy<FeatureCollection>();
+    internal virtual FeatureCollection Copy() => Copy<FeatureCollection>();
 
     internal T Copy<T>() where T : FeatureCollection, new()
     {
