@@ -6,6 +6,17 @@ using FeatureItem = (System.Type Key, object Value);
 
 namespace CHttpServer;
 
+// FeatureCollection is a type over a mutable and an immutable data structure.
+// After instantiating a FeatureCollection, Add and AddRange methods update the
+// immutable data structure. This makes copies relatively cheap. Copies are
+// created by the server, the connection and the stream. After the last copy
+// a checkpoint can be created (no copies allowed after the checkpoint). After
+// the checkpoint, updates mutate CheckpointCollection. The 'ASP.NET application'
+// only adds features / reads features after the checkpoint. When the application
+// completes, the checkpoint is reset.
+// This collection does not allow feature removal and does not allow amending
+// features after the checkpoint created.
+
 internal sealed class FeatureCollection<TContext> : FeatureCollection, IHostContextContainer<TContext> where TContext : notnull
 {
     public TContext? HostContext { get; set; }
@@ -26,20 +37,52 @@ internal sealed class FeatureCollection<TContext> : FeatureCollection, IHostCont
 
 public class FeatureCollection : IFeatureCollection
 {
-    protected record struct CheckpointCollection(FeatureItem[] Features, int Revision)
+    private class CheckpointCollection(int revision)
     {
-        public readonly object? Get(Type key)
+        private readonly List<FeatureItem> _features = [];
+        public int Revision { get; private set; } = revision;
+
+        public object? Get(Type key)
         {
-            foreach (var (Key, Value) in Features)
+            foreach (var (Key, Value) in _features)
                 if (Key == key)
                     return Value;
             return null;
         }
+
+        public void Set(Type key, object value)
+        {
+            for (int i = 0; i < _features.Count; i++)
+            {
+                var currentFeatureKey = _features[i].Key;
+                if (currentFeatureKey == key)
+                {
+                    _features[i] = (key, value);
+                    Revision++;
+                    return;
+                }
+            }
+            Add((key, value));
+        }
+
+        public void Add(FeatureItem item)
+        {
+            Revision++;
+            _features.Add(item);
+        }
+
+        public void Reset(int revision)
+        {
+            _features.Clear();
+            Revision = revision;
+        }
+
+        public IEnumerator<FeatureItem> GetEnumerator() => _features.GetEnumerator();
     }
 
-    protected CheckpointCollection? _checkpoint = null;
-    protected FeatureItem[] _features = [];
-    protected int _revision = 0;
+    private CheckpointCollection? _checkpoint = null;
+    private FeatureItem[] _features = [];
+    private int _revision = 0;
 
     public object? this[Type key]
     {
@@ -49,7 +92,7 @@ public class FeatureCollection : IFeatureCollection
 
     public bool IsReadOnly => false;
 
-    public int Revision => _revision;
+    public int Revision => _checkpoint?.Revision ?? _revision;
 
     [return: MaybeNull]
     public TFeature? Get<TFeature>()
@@ -62,20 +105,29 @@ public class FeatureCollection : IFeatureCollection
 
     public void Add<TFeature>(TFeature value) where TFeature : notnull
     {
-        _features = [.. _features, (typeof(TFeature), value)];
-        _revision++;
+        if (_checkpoint != null)
+        {
+            _checkpoint.Add((typeof(TFeature), value));
+            return;
+        }
+        else
+        {
+            _features = [.. _features, (typeof(TFeature), value)];
+            _revision++;
+        }
     }
 
     public IEnumerator<KeyValuePair<Type, object>> GetEnumerator()
     {
-        foreach (var pair in _features)
-            yield return new KeyValuePair<Type, object>(pair.Key, pair.Value);
+        if (_checkpoint != null)
+        {
+            foreach (var (Key, Value) in _checkpoint)
+                yield return new KeyValuePair<Type, object>(Key, Value);
+        }
 
-        if (_checkpoint == null)
-            yield break;
+        foreach (var (Key, Value) in _features)
+            yield return new KeyValuePair<Type, object>(Key, Value);
 
-        foreach (var pair in _checkpoint.Value.Features)
-            yield return new KeyValuePair<Type, object>(pair.Key, pair.Value);
     }
 
     public void Set<TFeature>(TFeature? value) => Set(typeof(TFeature), value);
@@ -83,31 +135,35 @@ public class FeatureCollection : IFeatureCollection
     internal void Checkpoint()
     {
         _revision++;
-        _checkpoint = new CheckpointCollection(_features, _revision);
-        _features = [];
+        _checkpoint = new CheckpointCollection(_revision);
     }
 
     internal virtual void ResetCheckpoint()
     {
-        _features = [];
-        _revision = _checkpoint?.Revision ?? 0;
+        _checkpoint?.Reset(_revision);
     }
 
     internal virtual FeatureCollection Copy() => Copy<FeatureCollection>();
 
     internal T Copy<T>() where T : FeatureCollection, new()
     {
-        return new T() { _features = this._features, _revision = this._revision, _checkpoint = this._checkpoint };
+        // Copy not supported after checkpoint.
+        if (_checkpoint != null)
+            throw new InvalidOperationException();
+        return new T() { _features = this._features, _revision = this._revision };
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     private object? Get(Type key)
     {
-        foreach (var feature in _features)
-            if (feature.Key == key)
-                return feature.Value;
-        return _checkpoint?.Get(key);
+        var item = _checkpoint?.Get(key);
+        if (item is not null)
+            return item;
+        foreach (var (Key, Value) in _features)
+            if (Key == key)
+                return Value;
+        return null;
     }
 
     internal FeatureCollection ToContextAware<TContext>() where TContext : notnull => Copy<FeatureCollection<TContext>>();
@@ -115,6 +171,12 @@ public class FeatureCollection : IFeatureCollection
     private void Set(Type key, object? value)
     {
         ArgumentNullException.ThrowIfNull(value);
+        if (_checkpoint != null)
+        {
+            _checkpoint.Set(key, value);
+            return;
+        }
+
         for (int i = 0; i < _features.Length; i++)
         {
             if (_features[i].Key == key)
@@ -125,13 +187,14 @@ public class FeatureCollection : IFeatureCollection
                 return;
             }
         }
-
         _features = [.. _features, (key, value)];
         _revision++;
     }
 
     public void AddRange(params ReadOnlySpan<FeatureItem> items)
     {
+        if (_checkpoint != null)
+            throw new InvalidOperationException("Only use AddRange before checkpoint.");
         _features = [.. _features, .. items];
         _revision++;
     }

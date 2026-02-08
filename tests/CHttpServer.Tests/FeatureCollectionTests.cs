@@ -182,7 +182,7 @@ public class FeatureCollectionTests
         Assert.True(copy.SequenceEqual([new(typeof(DateTime), testDate), new(typeof(string), "test")]));
         Assert.True(features.SequenceEqual([new(typeof(DateTime), default(DateTime)), new(typeof(string), "test2")]));
         copy.ResetCheckpoint();
-        Assert.True(copy.SequenceEqual([]));
+        Assert.True(copy.SequenceEqual([new(typeof(DateTime), testDate), new(typeof(string), "test")]));
     }
 
     [Fact]
@@ -203,6 +203,10 @@ public class FeatureCollectionTests
             (typeof(F0), Feature),
             (typeof(F1), Feature));
 
+        Assert.NotNull(featureCollection.Get<F0>());
+        Assert.Null(featureCollection.Get<F3>());
+        Assert.Null(featureCollection.Get<F5>());
+
         // ToContextAware
         var contextFeatures = featureCollection.ToContextAware<object>();
 
@@ -210,53 +214,74 @@ public class FeatureCollectionTests
         contextFeatures.Add<F3>(Feature);
         contextFeatures.Add<F4>(Feature);
 
-        // Copy for stream
-        var streamFeatures = contextFeatures.Copy<FeatureCollection<object>>();
+        Assert.NotNull(contextFeatures.Get<F0>());
+        Assert.NotNull(contextFeatures.Get<F3>());
+        Assert.Null(contextFeatures.Get<F5>());
 
-        // Stream Add
-        streamFeatures.AddRange(
-            (typeof(F5), Feature),
-            (typeof(F6), Feature),
-            (typeof(F7), Feature),
-            (typeof(F8), Feature),
-            (typeof(F9), Feature),
-            (typeof(F10), Feature),
-            (typeof(F11), Feature));
-
-        // Stream Checkpoint
-        streamFeatures.Checkpoint();
-
-        for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++)
         {
-            // Add more
-            streamFeatures.Add<F12>(Feature);
-            streamFeatures.Add<F13>(Feature);
-            streamFeatures.Add<F14>(Feature);
-            streamFeatures.Add<F15>(Feature);
+            // Copy for stream
+            var streamFeatures = contextFeatures.Copy<FeatureCollection<object>>();
 
-            // Then retrieve
             Assert.NotNull(streamFeatures.Get<F0>());
-            Assert.NotNull(streamFeatures.Get<F1>());
             Assert.NotNull(streamFeatures.Get<F3>());
-            Assert.NotNull(streamFeatures.Get<F4>());
-            Assert.NotNull(streamFeatures.Get<F5>());
-            Assert.NotNull(streamFeatures.Get<F6>());
-            Assert.NotNull(streamFeatures.Get<F7>());
-            Assert.NotNull(streamFeatures.Get<F8>());
-            Assert.NotNull(streamFeatures.Get<F9>());
-            Assert.NotNull(streamFeatures.Get<F10>());
-            Assert.NotNull(streamFeatures.Get<F11>());
-            Assert.NotNull(streamFeatures.Get<F12>());
-            Assert.NotNull(streamFeatures.Get<F13>());
-            Assert.NotNull(streamFeatures.Get<F14>());
-            Assert.NotNull(streamFeatures.Get<F14>());
-            Assert.NotNull(streamFeatures.Get<F15>());
-            Assert.NotNull(streamFeatures.Get<F15>());
-            Assert.NotNull(streamFeatures.Get<F15>());
-            Assert.NotNull(streamFeatures.Get<F15>());
+            Assert.Null(streamFeatures.Get<F5>());
 
-            // Reset to checkpoint
-            streamFeatures.ResetCheckpoint();
+            // Stream Add
+            streamFeatures.AddRange(
+                (typeof(F5), Feature),
+                (typeof(F6), Feature),
+                (typeof(F7), Feature),
+                (typeof(F8), Feature),
+                (typeof(F9), Feature),
+                (typeof(F10), Feature),
+                (typeof(F11), Feature));
+
+
+            Assert.NotNull(streamFeatures.Get<F0>());
+            Assert.NotNull(streamFeatures.Get<F3>());
+            Assert.NotNull(streamFeatures.Get<F5>());
+
+            // Stream Checkpoint
+            streamFeatures.Checkpoint();
+
+            for (int i = 0; i < 2; i++)
+            {
+                Assert.NotNull(streamFeatures.Get<F0>());
+                Assert.NotNull(streamFeatures.Get<F3>());
+                Assert.NotNull(streamFeatures.Get<F5>());
+                Assert.Null(streamFeatures.Get<F12>());
+
+                // Add more
+                streamFeatures.Add<F12>(Feature);
+                streamFeatures.Add<F13>(Feature);
+                streamFeatures.Add<F14>(Feature);
+                streamFeatures.Add<F15>(Feature);
+
+                // Then retrieve
+                Assert.NotNull(streamFeatures.Get<F0>());
+                Assert.NotNull(streamFeatures.Get<F1>());
+                Assert.NotNull(streamFeatures.Get<F3>());
+                Assert.NotNull(streamFeatures.Get<F4>());
+                Assert.NotNull(streamFeatures.Get<F5>());
+                Assert.NotNull(streamFeatures.Get<F6>());
+                Assert.NotNull(streamFeatures.Get<F7>());
+                Assert.NotNull(streamFeatures.Get<F8>());
+                Assert.NotNull(streamFeatures.Get<F9>());
+                Assert.NotNull(streamFeatures.Get<F10>());
+                Assert.NotNull(streamFeatures.Get<F11>());
+                Assert.NotNull(streamFeatures.Get<F12>());
+                Assert.NotNull(streamFeatures.Get<F13>());
+                Assert.NotNull(streamFeatures.Get<F14>());
+                Assert.NotNull(streamFeatures.Get<F14>());
+                Assert.NotNull(streamFeatures.Get<F15>());
+                Assert.NotNull(streamFeatures.Get<F15>());
+                Assert.NotNull(streamFeatures.Get<F15>());
+                Assert.NotNull(streamFeatures.Get<F15>());
+
+                // Reset to checkpoint
+                streamFeatures.ResetCheckpoint();
+            }
         }
     }
 
