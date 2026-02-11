@@ -10,6 +10,8 @@
     <Description>A simple HTTP/2 and HTTP/3 server.</Description>
     <DebugType>full</DebugType>
     <LangVersion>preview</LangVersion>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 
   <ItemGroup>
