@@ -7,8 +7,8 @@ on:
 
 env:
   CONFIGURATION: Release
-  DOTNET_VERSION: 10.0.x
-  GH_PACKAGE_VERSION: net10.0
+  DOTNET_VERSION: 11.0.x
+  GH_PACKAGE_VERSION: net11.0
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
