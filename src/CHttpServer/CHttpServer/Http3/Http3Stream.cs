@@ -223,7 +223,6 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     // Before writing reponse DATA StartAsync invoked
     // DATA response written
     // Trailers written
-
     private async Task StartApplicationProcessing<TContext>(IHttpApplication<TContext> application, CancellationToken token) where TContext : notnull
     {
         try
@@ -238,6 +237,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
             await _responseDataWriter.CompleteAsync();
 
             // Invoke start to make sure headers written when no DATA in the response.
+            // When DATA frames are written, the DATA writer invokes it before the first write.
             await StartAsync(token);
 
             // Write trailers
