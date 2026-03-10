@@ -317,4 +317,16 @@ public class QPackIntegerEncoderTests
         Assert.True(QPackIntegerEncoder.TryEncode(buffer, input, 1, out var length));
         Assert.Equal(QPackIntegerEncoder.MaxLength, length);
     }
+
+    [Fact]
+    public void Encode98_On_6_4_Prefix()
+    {
+        // The largest Static table index (98) must fit within 4 and 6 byte prefix
+        Span<byte> buffer = stackalloc byte[8];
+        Assert.True(QPackIntegerEncoder.TryEncode(buffer, 98, 6, out var length));
+        Assert.True(length == 2);
+
+        Assert.True(QPackIntegerEncoder.TryEncode(buffer, 98, 4, out length));
+        Assert.True(length == 2);
+    }
 }

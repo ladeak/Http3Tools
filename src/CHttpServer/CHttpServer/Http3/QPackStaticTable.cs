@@ -108,5 +108,5 @@ internal static class QPackStaticTable
     ];
 
     private static KnownHeaderField CreateHeaderField(int index, string name, string value) =>
-        new(index, name, Encoding.ASCII.GetBytes(name), value, Encoding.ASCII.GetBytes(value));
+        new(index, name, value);
 }
