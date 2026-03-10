@@ -12,7 +12,7 @@ namespace CHttpServer.Http3;
 [SupportedOSPlatform("windows")]
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("macos")]
-internal sealed class QPackDecoder
+internal sealed partial class QPackDecoder
 {
     private enum DecoderState
     {
@@ -167,7 +167,7 @@ internal sealed class QPackDecoder
             }
         }
 
-        var staticHeader = _staticDecoderTable[index];
+        var staticHeader = QPackStaticTable.Instance[index];
         handler.OnHeader(staticHeader);
         return true;
     }
@@ -249,12 +249,12 @@ internal sealed class QPackDecoder
                 decodedLength = Huffman.Decode(buffer, ref decodedValue);
                 ArrayPool<byte>.Shared.Return(input);
             }
-            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], new ReadOnlySequence<byte>(decodedValue.Memory[0..decodedLength]));
+            handler.OnHeader(QPackStaticTable.Instance[_fieldNameIndex], new ReadOnlySequence<byte>(decodedValue.Memory[0..decodedLength]));
             decodedValue.Dispose();
         }
         else
         {
-            handler.OnHeader(_staticDecoderTable[_fieldNameIndex], source);
+            handler.OnHeader(QPackStaticTable.Instance[_fieldNameIndex], source);
         }
         consumed = _fieldValueLength;
         _fieldValueLength = 0;
@@ -388,7 +388,6 @@ internal sealed class QPackDecoder
         return true;
     }
 
-
     private bool DecodeBase(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, out int consumed)
     {
         var data = source.FirstSpan[0];
@@ -410,6 +409,41 @@ internal sealed class QPackDecoder
         _status = DecoderState.ReadBase;
         return true;
     }
+}
+
+internal sealed partial class QPackDecoder
+{
+    private static FrozenDictionary<int, KnownHeaderField> BuildStatusCodeEndoderTable(KnownHeaderField[] source)
+    {
+        var dict = new Dictionary<int, KnownHeaderField>();
+        foreach (var header in source)
+        {
+            if (header.Name != ":status")
+                continue;
+            var value = int.Parse(header.Value);
+            dict[value] = header;
+        }
+        return dict.ToFrozenDictionary();
+    }
+
+    private static readonly FrozenDictionary<int, KnownHeaderField> _statusCodesEncoderTable = BuildStatusCodeEndoderTable(QPackStaticTable.Instance);
+
+    private static readonly FrozenDictionary<string, KnownHeaderField[]> _staticEncoderTable = BuildEndoderTable(QPackStaticTable.Instance);
+
+    private static FrozenDictionary<string, KnownHeaderField[]> BuildEndoderTable(KnownHeaderField[] source)
+    {
+        var dict = new Dictionary<string, List<KnownHeaderField>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in source)
+        {
+            if (!dict.TryGetValue(header.Name, out var current))
+            {
+                current = [];
+                dict[header.Name] = current;
+            }
+            current.Add(header);
+        }
+        return dict.ToFrozenDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Encodes a header dictionary into a response stream.
@@ -418,11 +452,11 @@ internal sealed class QPackDecoder
     {
         EncodeFieldSectionPrefix(destinationWriter);
         if (_statusCodesEncoderTable.TryGetValue(statusCode, out var knownHeader))
-            EncodeFieldLine(knownHeader, destinationWriter);
+            EncodeIndexedFieldLine(knownHeader, destinationWriter);
         else
-            EncodeFieldLine((":status", statusCode.ToString()), destinationWriter);
+            EncodeLiteralFieldWithLiteralValue(":status", statusCode.ToString(), destinationWriter);
 
-        Encode(headers, destinationWriter);
+        EncodeFieldLines(headers, destinationWriter);
     }
 
     internal void Encode(Http3ResponseHeaderCollection headers, PipeWriter destinationWriter)
@@ -433,27 +467,40 @@ internal sealed class QPackDecoder
 
     private void EncodeFieldLines(Http3ResponseHeaderCollection headers, PipeWriter destinationWriter)
     {
-        // length?
-        // iterate headers, match _staticEncoderTable
-        // write, wire format
-        foreach (var header in headers)
+        foreach (var (headerName, headerValue) in headers)
         {
+            if (!_staticEncoderTable.TryGetValue(headerName, out var knownHeaderFields))
+            {
+                // Not known header, encode liternal name and literal values
+                EncodeLiteralFieldWithLiteralValue(headerName, headerValue.ToString(), destinationWriter);
+            }
+            else
+            {
+                var rawHeaderValue = headerValue.Count > 0 ? headerValue.ToString() : string.Empty;
+                if (!TryEncodeIndexedFieldAndValue(knownHeaderFields, rawHeaderValue, destinationWriter))
+                {
+                    EncodeIndexedFieldWithLiteralValue(knownHeaderFields[0], rawHeaderValue, destinationWriter);
+                }
+            }
         }
     }
 
-    private void EncodeFieldLine(KnownHeaderField header, PipeWriter destinationWriter)
+    private static bool TryEncodeIndexedFieldAndValue(KnownHeaderField[] knownHeaderFields, string rawHeaderValue, PipeWriter destinationWriter)
     {
-        if (header.Value != string.Empty)
-            EncodeIndexedFieldLine(header, destinationWriter);
-
-        //...
+        if (string.IsNullOrEmpty(rawHeaderValue))
+            return false;
+        foreach (var item in knownHeaderFields)
+        {
+            if (item.Value == rawHeaderValue)
+            {
+                EncodeIndexedFieldLine(item, destinationWriter);
+                return true;
+            }
+        }
+        return false;
     }
 
-    private void EncodeFieldLine((string Name, string Value) header, PipeWriter destinationWriter)
-    {
-    }
-
-    private void EncodeFieldSectionPrefix(PipeWriter destinationWriter)
+    private static void EncodeFieldSectionPrefix(PipeWriter destinationWriter)
     {
         //   0   1   2   3   4   5   6   7
         // +---+---+---+---+---+---+---+---+
@@ -469,153 +516,59 @@ internal sealed class QPackDecoder
         destinationWriter.Advance(2);
     }
 
-    private void EncodeIndexedFieldLine(KnownHeaderField header, PipeWriter destinationWriter)
+    internal static void EncodeIndexedFieldLine(KnownHeaderField header, PipeWriter destinationWriter)
     {
         //   0   1   2   3   4   5   6   7
         // +---+---+---+---+---+---+---+---+
         // | 1 | T | Index(6 +)            |
         // +---+---+-----------------------+
         var buffer = destinationWriter.GetSpan(2);
-        QPackIntegerEncoder.TryEncode(buffer, header.StaticTableIndex, 6, out var writtenLength);
-        buffer[0] |= 0b1100000;
+        var writtenLength = QPackIntegerEncoder.Encode(buffer, header.StaticTableIndex, 6);
+        buffer[0] |= 0b1100_0000;
         destinationWriter.Advance(writtenLength);
     }
 
-    private static readonly KnownHeaderField[] _staticDecoderTable =
-    [
-        CreateHeaderField(0, ":authority", ""),
-        CreateHeaderField(1, ":path", "/"),
-        CreateHeaderField(2, "age", "0"),
-        CreateHeaderField(3, "content-disposition", ""),
-        CreateHeaderField(4, "content-length", "0"),
-        CreateHeaderField(5, "cookie", ""),
-        CreateHeaderField(6, "date", ""),
-        CreateHeaderField(7, "etag", ""),
-        CreateHeaderField(8, "if-modified-since", ""),
-        CreateHeaderField(9, "if-none-match", ""),
-        CreateHeaderField(10, "last-modified", ""),
-        CreateHeaderField(11, "link", ""),
-        CreateHeaderField(12, "location", ""),
-        CreateHeaderField(13, "referer", ""),
-        CreateHeaderField(14, "set-cookie", ""),
-        CreateHeaderField(15, ":method", "CONNECT"),
-        CreateHeaderField(16, ":method", "DELETE"),
-        CreateHeaderField(17, ":method", "GET"),
-        CreateHeaderField(18, ":method", "HEAD"),
-        CreateHeaderField(19, ":method", "OPTIONS"),
-        CreateHeaderField(20, ":method", "POST"),
-        CreateHeaderField(21, ":method", "PUT"),
-        CreateHeaderField(22, ":scheme", "http"),
-        CreateHeaderField(23, ":scheme", "https"),
-        CreateHeaderField(24, ":status", "103"),
-        CreateHeaderField(25, ":status", "200"),
-        CreateHeaderField(26, ":status", "304"),
-        CreateHeaderField(27, ":status", "404"),
-        CreateHeaderField(28, ":status", "503"),
-        CreateHeaderField(29, "accept", "*/*"),
-        CreateHeaderField(30, "accept", "application/dns-message"),
-        CreateHeaderField(31, "accept-encoding", "gzip, deflate, br"),
-        CreateHeaderField(32, "accept-ranges", "bytes"),
-        CreateHeaderField(33, "access-control-allow-headers", "cache-control"),
-        CreateHeaderField(34, "access-control-allow-headers", "content-type"),
-        CreateHeaderField(35, "access-control-allow-origin", "*"),
-        CreateHeaderField(36, "cache-control", "max-age=0"),
-        CreateHeaderField(37, "cache-control", "max-age=2592000"),
-        CreateHeaderField(38, "cache-control", "max-age=604800"),
-        CreateHeaderField(39, "cache-control", "no-cache"),
-        CreateHeaderField(40, "cache-control", "no-store"),
-        CreateHeaderField(41, "cache-control", "public, max-age=31536000"),
-        CreateHeaderField(42, "content-encoding", "br"),
-        CreateHeaderField(43, "content-encoding", "gzip"),
-        CreateHeaderField(44, "content-type", "application/dns-message"),
-        CreateHeaderField(45, "content-type", "application/javascript"),
-        CreateHeaderField(46, "content-type", "application/json"),
-        CreateHeaderField(47, "content-type", "application/x-www-form-urlencoded"),
-        CreateHeaderField(48, "content-type", "image/gif"),
-        CreateHeaderField(49, "content-type", "image/jpeg"),
-        CreateHeaderField(50, "content-type", "image/png"),
-        CreateHeaderField(51, "content-type", "text/css"),
-        CreateHeaderField(52, "content-type", "text/html; charset=utf-8"),
-        CreateHeaderField(53, "content-type", "text/plain"),
-        CreateHeaderField(54, "content-type", "text/plain;charset=utf-8"),
-        CreateHeaderField(55, "range", "bytes=0-"),
-        CreateHeaderField(56, "strict-transport-security", "max-age=31536000"),
-        CreateHeaderField(57, "strict-transport-security", "max-age=31536000; includesubdomains"),
-        CreateHeaderField(58, "strict-transport-security", "max-age=31536000; includesubdomains; preload"),
-        CreateHeaderField(59, "vary", "accept-encoding"),
-        CreateHeaderField(60, "vary", "origin"),
-        CreateHeaderField(61, "x-content-type-options", "nosniff"),
-        CreateHeaderField(62, "x-xss-protection", "1; mode=block"),
-        CreateHeaderField(63, ":status", "100"),
-        CreateHeaderField(64, ":status", "204"),
-        CreateHeaderField(65, ":status", "206"),
-        CreateHeaderField(66, ":status", "302"),
-        CreateHeaderField(67, ":status", "400"),
-        CreateHeaderField(68, ":status", "403"),
-        CreateHeaderField(69, ":status", "421"),
-        CreateHeaderField(70, ":status", "425"),
-        CreateHeaderField(71, ":status", "500"),
-        CreateHeaderField(72, "accept-language", ""),
-        CreateHeaderField(73, "access-control-allow-credentials", "FALSE"),
-        CreateHeaderField(74, "access-control-allow-credentials", "TRUE"),
-        CreateHeaderField(75, "access-control-allow-headers", "*"),
-        CreateHeaderField(76, "access-control-allow-methods", "get"),
-        CreateHeaderField(77, "access-control-allow-methods", "get, post, options"),
-        CreateHeaderField(78, "access-control-allow-methods", "options"),
-        CreateHeaderField(79, "access-control-expose-headers", "content-length"),
-        CreateHeaderField(80, "access-control-request-headers", "content-type"),
-        CreateHeaderField(81, "access-control-request-method", "get"),
-        CreateHeaderField(82, "access-control-request-method", "post"),
-        CreateHeaderField(83, "alt-svc", ""),
-        CreateHeaderField(84, "authorization", ""),
-        CreateHeaderField(85, "content-security-policy", "script-src 'none'; object-src 'none'; base-uri 'none'"),
-        CreateHeaderField(86, "early-data", "1"),
-        CreateHeaderField(87, "expect-ct", ""),
-        CreateHeaderField(88, "forwarded", ""),
-        CreateHeaderField(89, "if-range", ""),
-        CreateHeaderField(90, "origin", ""),
-        CreateHeaderField(91, "purpose", "prefetch"),
-        CreateHeaderField(92, "server", ""),
-        CreateHeaderField(93, "timing-allow-origin", ""),
-        CreateHeaderField(94, "upgrade-insecure-requests", "1"),
-        CreateHeaderField(95, "user-agent", ""),
-        CreateHeaderField(96, "x-forwarded-for", ""),
-        CreateHeaderField(97, "x-frame-options", "deny"),
-        CreateHeaderField(98, "x-frame-options", "sameorigin")
-    ];
-
-    private static readonly FrozenDictionary<string, KnownHeaderField[]> _staticEncoderTable = BuildEndoderTable(_staticDecoderTable);
-
-    private static readonly FrozenDictionary<int, KnownHeaderField> _statusCodesEncoderTable = BuildStatusCodeEndoderTable(_staticDecoderTable);
-
-    private static FrozenDictionary<int, KnownHeaderField> BuildStatusCodeEndoderTable(KnownHeaderField[] source)
+    internal static void EncodeIndexedFieldWithLiteralValue(KnownHeaderField header, string value, PipeWriter writer)
     {
-        var dict = new Dictionary<int, KnownHeaderField>();
-        foreach (var header in source)
-        {
-            if (header.Name != ":status")
-                continue;
-            var value = int.Parse(header.Value);
-            dict[value] = header;
-        }
-        return dict.ToFrozenDictionary();
+        //   0   1   2   3   4   5   6   7
+        // +---+---+---+---+---+---+---+---+
+        // | 0 | 1 | N | T |Name Index (4+)|
+        // +---+---+---+---+---------------+
+        // | H |     Value Length (7+)     |
+        // +---+---------------------------+
+        // |  Value String (Length bytes)  |
+        // +-------------------------------+
+        var valueLength = Encoding.Latin1.GetByteCount(value);
+
+        var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + valueLength);
+        var writtenLength = QPackIntegerEncoder.Encode(buffer, header.StaticTableIndex, 4);
+        buffer[0] |= 0b01110000; // Intermediates always pass string value, static table.
+        writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
+        writtenLength += Encoding.Latin1.GetBytes(value, buffer[writtenLength..]);
+        writer.Advance(writtenLength);
     }
 
-    private static KnownHeaderField CreateHeaderField(int index, string name, string value) =>
-        new(index, name, Encoding.ASCII.GetBytes(name), value, Encoding.ASCII.GetBytes(value));
-
-    private static FrozenDictionary<string, KnownHeaderField[]> BuildEndoderTable(KnownHeaderField[] source)
+    internal static void EncodeLiteralFieldWithLiteralValue(string name, string value, PipeWriter writer)
     {
-        var dict = new Dictionary<string, List<KnownHeaderField>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var header in source)
-        {
-            if (!dict.TryGetValue(header.Name, out var current))
-            {
-                current = [];
-                dict[header.Name] = current;
-            }
-            current.Add(header);
-        }
-        return dict.ToFrozenDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
+        //   0   1   2   3   4   5   6   7
+        // +---+---+---+---+---+---+---+---+
+        // | 0 | 0 | 1 | N | H |NameLen(3+)|
+        // +---+---+---+---+---+-----------+
+        // |  Name String (Length bytes)   |
+        // +---+---------------------------+
+        // | H |     Value Length (7+)     |
+        // +---+---------------------------+
+        // |  Value String (Length bytes)  |
+        // +-------------------------------+
+        var nameLength = Encoding.Latin1.GetByteCount(name);
+        var valueLength = Encoding.Latin1.GetByteCount(value);
+
+        var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + nameLength + QPackIntegerEncoder.MaxLength + valueLength);
+        var writtenLength = QPackIntegerEncoder.Encode(buffer[0..], nameLength, 3);
+        buffer[0] |= 0b00100000;
+        writtenLength += Encoding.Latin1.GetBytes(name, buffer[writtenLength..]);
+        writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
+        writtenLength += Encoding.Latin1.GetBytes(value, buffer[writtenLength..]);
+        writer.Advance(writtenLength);
     }
 }

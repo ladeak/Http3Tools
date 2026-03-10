@@ -241,7 +241,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
             await StartAsync(token);
 
             // Write trailers
-            await WriteHeadersAsync(null); // todo trailers features
+            //await WriteHeadersAsync(null); // todo trailers features
         }
         catch (Exception)
         {

@@ -8,6 +8,8 @@ namespace CHttpServer.Http3;
 
 internal struct QPackIntegerEncoder
 {
+    internal const int MaxLength = 9;
+
     public static bool TryEncode(Span<byte> destination, long number, byte prefixLength, out int writtenCount)
     {
         //if I < 2 ^ N - 1, encode I on N bits
@@ -36,7 +38,10 @@ internal struct QPackIntegerEncoder
         number -= prefixLimit;
 
         if (Avx2.IsSupported && number >= 2097183 && destination.Length >= Vector128<byte>.Count + 2) // Measured for AVX2
-            return TryEncodeSimdLargeOnly(destination, number, prefixLength, out writtenCount);
+        {
+            writtenCount = TryEncodeSimdLargeOnly(destination, number, prefixLength);
+            return true;
+        }
 
         writtenCount = 1;
         while (number >= 128)
@@ -53,6 +58,15 @@ internal struct QPackIntegerEncoder
         writtenCount++;
         return true;
     }
+
+    public static int Encode(Span<byte> destination, long number, byte prefixLength)
+    {
+        if(!TryEncode(destination, number, prefixLength, out var writtenCount))
+            ThrowDestinationTooSmall();
+        return writtenCount;
+    }
+
+    private static void ThrowDestinationTooSmall() => throw new ArgumentOutOfRangeException();
 
     private static Vector256<uint> Divisor = Vector256.Create([0u, 7u, 14u, 21u, 28u, 32u, 32u, 32u]);
     private static Vector256<int> Add128 = Vector256.Create(128);
@@ -143,7 +157,7 @@ internal struct QPackIntegerEncoder
         Vector128<short> packedShort = Avx2.PackSignedSaturate(vRemainder.GetLower().AsInt32(), vRemainder.GetUpper().AsInt32());
         Vector128<byte> narrowBytes = Avx2.PackUnsignedSaturate(packedShort, packedShort);
         narrowBytes.StoreUnsafe(ref destination[1]);
-        
+
         var vLength = Avx2.CompareEqual(vNumber, Vector256<uint>.Zero).AsByte();
         writtenCount = 1 + (int.TrailingZeroCount(Avx2.MoveMask(vLength)) >> 2);
         if (writtenCount == 1 || writtenCount == 9)
@@ -154,7 +168,7 @@ internal struct QPackIntegerEncoder
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryEncodeSimdLargeOnly(Span<byte> destination, long number, byte prefixLength, out int writtenCount)
+    private static int TryEncodeSimdLargeOnly(Span<byte> destination, long number, byte prefixLength)
     {
         //if I < 2 ^ N - 1, encode I on N bits
         //else
@@ -167,7 +181,7 @@ internal struct QPackIntegerEncoder
         Debug.Assert(1 <= prefixLength && prefixLength <= 8);
         Debug.Assert(number >= 2097183);
         Debug.Assert(destination.Length >= Vector128<byte>.Count + 2);
-
+        int writtenCount = 0;
         var upperLane = (uint)(number >> 28);
         var lowerLane = (uint)(number & uint.MaxValue);
         var vNumber = Avx2.ShiftRightLogicalVariable(Vector256.Create(Vector128.Create(lowerLane), Vector128.Create(upperLane)), DivisorLong);
@@ -184,6 +198,6 @@ internal struct QPackIntegerEncoder
             destination[writtenCount] = (byte)(number >> 56);
         else
             destination[writtenCount - 1] -= 128;
-        return true;
+        return writtenCount;
     }
 }

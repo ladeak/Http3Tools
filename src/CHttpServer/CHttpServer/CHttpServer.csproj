@@ -11,7 +11,7 @@
     <DebugType>full</DebugType>
     <LangVersion>preview</LangVersion>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
-    <Features>$(Features);runtime-async=on</Features>
+    <Features>$(Features);runtime-async=off</Features>
   </PropertyGroup>
 
   <ItemGroup>

@@ -308,4 +308,13 @@ public class QPackIntegerEncoderTests
         Assert.True(decoder.TryDecode62Bits(buffer, ref offset, out long result));
         Assert.Equal(input, result);
     }
+
+    [Fact]
+    public void LongMaxValue()
+    {
+        long input = long.MaxValue;
+        Span<byte> buffer = stackalloc byte[128];
+        Assert.True(QPackIntegerEncoder.TryEncode(buffer, input, 1, out var length));
+        Assert.Equal(QPackIntegerEncoder.MaxLength, length);
+    }
 }
