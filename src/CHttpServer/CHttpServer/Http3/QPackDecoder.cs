@@ -6,6 +6,7 @@ using System.Net.Quic;
 using System.Runtime.Versioning;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
+using Microsoft.Extensions.Primitives;
 
 namespace CHttpServer.Http3;
 
@@ -469,26 +470,22 @@ internal sealed partial class QPackDecoder
     {
         foreach (var (headerName, headerValue) in headers)
         {
+            // Not known header, encode liternal name and literal values
             if (!_staticEncoderTable.TryGetValue(headerName, out var knownHeaderFields))
-            {
-                // Not known header, encode liternal name and literal values
                 EncodeLiteralFieldWithLiteralValue(headerName, headerValue.ToString(), destinationWriter);
-            }
             else
             {
-                var rawHeaderValue = headerValue.Count > 0 ? headerValue.ToString() : string.Empty;
-                if (!TryEncodeIndexedFieldAndValue(knownHeaderFields, rawHeaderValue, destinationWriter))
-                {
-                    EncodeIndexedFieldWithLiteralValue(knownHeaderFields[0], rawHeaderValue, destinationWriter);
-                }
+                if (!TryEncodeIndexedFieldAndValue(knownHeaderFields, headerValue, destinationWriter))
+                    EncodeIndexedFieldWithLiteralValue(knownHeaderFields[0], headerValue, destinationWriter);
             }
         }
     }
 
-    private static bool TryEncodeIndexedFieldAndValue(KnownHeaderField[] knownHeaderFields, string rawHeaderValue, PipeWriter destinationWriter)
+    private static bool TryEncodeIndexedFieldAndValue(KnownHeaderField[] knownHeaderFields, StringValues headerValues, PipeWriter destinationWriter)
     {
-        if (string.IsNullOrEmpty(rawHeaderValue))
+        if (headerValues.Count == 0 || (headerValues.Count == 1 && headerValues[0] == string.Empty))
             return false;
+        var rawHeaderValue = headerValues.ToString();
         foreach (var item in knownHeaderFields)
         {
             if (item.Value == rawHeaderValue)
@@ -528,7 +525,7 @@ internal sealed partial class QPackDecoder
         destinationWriter.Advance(writtenLength);
     }
 
-    internal static void EncodeIndexedFieldWithLiteralValue(KnownHeaderField header, string value, PipeWriter writer)
+    internal static void EncodeIndexedFieldWithLiteralValue(KnownHeaderField header, StringValues headerValue, PipeWriter writer)
     {
         //   0   1   2   3   4   5   6   7
         // +---+---+---+---+---+---+---+---+
@@ -538,13 +535,14 @@ internal sealed partial class QPackDecoder
         // +---+---------------------------+
         // |  Value String (Length bytes)  |
         // +-------------------------------+
-        var valueLength = Encoding.Latin1.GetByteCount(value);
+        var rawHeaderValue = headerValue.Count > 0 ? headerValue.ToString() : string.Empty;
+        var valueLength = Encoding.Latin1.GetByteCount(rawHeaderValue);
 
         var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + valueLength);
         var writtenLength = QPackIntegerEncoder.Encode(buffer, header.StaticTableIndex, 4);
         buffer[0] |= 0b01110000; // Intermediates always pass string value, static table.
         writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
-        writtenLength += Encoding.Latin1.GetBytes(value, buffer[writtenLength..]);
+        writtenLength += Encoding.Latin1.GetBytes(rawHeaderValue, buffer[writtenLength..]);
         writer.Advance(writtenLength);
     }
 

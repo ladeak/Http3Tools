@@ -1,10 +1,12 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using CHttpServer;
 using CHttpServer.Http3;
+using Microsoft.Extensions.Primitives;
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
 
@@ -390,5 +392,40 @@ public class FeatureCollectionBenchmarks
             }
         }
         return hasAll;
+    }
+}
+
+[SimpleJob, MemoryDiagnoser]
+public class StringValuesEqualityBenchmarks
+{
+    private StringValues _cacheControl = "cache-control";
+    private StringValues _contentType = "text/html; charset=utf-8";
+
+    [Benchmark]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public bool CacheControl_ToStringCompare()
+    {
+        return _cacheControl.ToString() == "cache-control";
+    }
+
+    [Benchmark]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public bool CacheControl_CompareStringValues()
+    {
+        return _cacheControl == "cache-control";
+    }
+
+    [Benchmark]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public bool ContentType_ToStringCompare()
+    {
+        return _contentType.ToString() == "text/html; charset=utf-8";
+    }
+
+    [Benchmark]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public bool ContentType_CompareStringValues()
+    {
+        return _contentType == "text/html; charset=utf-8";
     }
 }
