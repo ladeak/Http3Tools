@@ -121,10 +121,11 @@ internal sealed class CHttp3Connection<TContext> : CHttpConnection where TContex
 
     public override async Task StopAsync(CancellationToken token)
     {
-        if (_connection == null || !QuicConnection.IsSupported)
+        var connection = _connection;
+        _connection = null;
+        if (connection == null || !QuicConnection.IsSupported)
             return;
-        _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-        await _connection.StopAsync(token);
+        await connection.StopAsync(token);
         var execution = _execution ?? Task.CompletedTask;
         await execution.AllowCancellation();
     }

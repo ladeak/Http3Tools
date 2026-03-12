@@ -116,9 +116,24 @@ internal sealed partial class Http3Connection
             if (controlStreamProcessing != null)
                 await controlStreamProcessing.AllowCancellation();
             _serverControlStream?.Close();
-            await _context.Transport.CloseAsync(_closingErrorCode);
+            await TryCloseConnection();
             _context.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
             _processingCompleted.TrySetResult();
+        }
+    }
+
+    private async Task TryCloseConnection()
+    {
+        try
+        {
+            await _context.Transport.CloseAsync(_closingErrorCode);
+        }
+        catch (QuicException ex) when (
+           ex.QuicError == QuicError.ConnectionAborted
+        || ex.QuicError == QuicError.StreamAborted
+        || ex.QuicError == QuicError.ConnectionTimeout)
+        {
+            // Connection already aborted by the client.
         }
     }
 
@@ -145,7 +160,10 @@ internal sealed partial class Http3Connection
                 await _serverControlStreamWriter.FlushAsync();
             }
         }
-        catch (QuicException ex) when (ex.QuicError == QuicError.ConnectionAborted || ex.QuicError == QuicError.StreamAborted)
+        catch (QuicException ex) when (
+           ex.QuicError == QuicError.ConnectionAborted
+        || ex.QuicError == QuicError.StreamAborted
+        || ex.QuicError == QuicError.ConnectionTimeout)
         {
             // Connection already aborted by the client.
         }

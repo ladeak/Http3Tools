@@ -125,7 +125,7 @@ public class TestServer : IAsyncDisposable, IDisposable
             ctx.Features.Get<IPriority9218Feature>()?.SetPriority(new Priority9218(1, true));
             return TypedResults.NoContent();
         });
-        return _app.RunAsync();
+        return _app.StartAsync(); //.RunAsync();
     }
 
     public async ValueTask DisposeAsync()
