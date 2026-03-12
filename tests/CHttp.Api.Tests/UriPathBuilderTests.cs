@@ -23,6 +23,26 @@ public class UriPathBuilderTests
     }
 
     [Fact]
+    public void StringEmptyOrNull()
+    {
+        string? segment = null;
+        Assert.Equal($"{BaseUrl}/a/b", UriPathBuilder.Create($"{BaseUrl}/a/{segment}/b"));
+        Assert.Equal($"{BaseUrl}/a/", UriPathBuilder.Create($"{BaseUrl}/a/{segment}"));
+        Assert.Equal($"{BaseUrl}/a/", UriPathBuilder.Create($"{BaseUrl}/a/{segment}/"));
+        segment = string.Empty;
+        Assert.Equal($"{BaseUrl}/a/b", UriPathBuilder.Create($"{BaseUrl}/a/{segment}/b"));
+    }
+
+    [Fact]
+    public void NullableInt()
+    {
+        int? number = null;
+        Assert.Equal($"{BaseUrl}/a/b", UriPathBuilder.Create($"{BaseUrl}/a/{number}/b"));
+        Assert.Equal($"{BaseUrl}/a/", UriPathBuilder.Create($"{BaseUrl}/a/{number}"));
+        Assert.Equal($"{BaseUrl}/a/", UriPathBuilder.Create($"{BaseUrl}/a/{number}/"));
+    }
+
+    [Fact]
     public void SlashString()
     {
         string segment = "/1";
