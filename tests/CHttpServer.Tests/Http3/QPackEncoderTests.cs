@@ -7,6 +7,31 @@ namespace CHttpServer.Tests.Http3;
 public class QPackEncoderTests
 {
     [Fact]
+    public async Task EncodeStatusCode200()
+    {
+        var stream = new MemoryStream();
+        var writer = new Http3FramingStreamWriter(stream, 1);
+        var sut = new QPackDecoder();
+        sut.Encode(200, new Http3ResponseHeaderCollection(), writer);
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        byte[] expected = [1, 3, 0, 0, 25 | 0b1100_0000];
+        Assert.True(expected.SequenceEqual(stream.ToArray()));
+    }
+
+    [Fact]
+    public async Task EncodeStatusCode103()
+    {
+        var stream = new MemoryStream();
+        var writer = new Http3FramingStreamWriter(stream, 2);
+        var sut = new QPackDecoder();
+        sut.Encode(103, new Http3ResponseHeaderCollection(), writer);
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+        byte[] expected = [2, 3, 0, 0, 24 | 0b1100_0000];
+        Assert.True(expected.SequenceEqual(stream.ToArray()));
+    }
+
+    [Fact]
     public async Task EncodeLiteralFieldWithLiteralValue()
     {
         var stream = new MemoryStream();
@@ -62,7 +87,7 @@ public class QPackEncoderTests
     }
 
     [Fact]
-    public async Task EncodeStatusCode()
+    public async Task EncodeStatusCodeRaw200()
     {
         var stream = new MemoryStream();
         var pipe = PipeWriter.Create(stream);
@@ -70,6 +95,17 @@ public class QPackEncoderTests
         sut.Encode(200, [], pipe);
         await pipe.FlushAsync(TestContext.Current.CancellationToken);
         Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x00, 0x00, 0xD9 }));
+    }
+
+    [Fact]
+    public async Task EncodeStatusCodeRaw8()
+    {
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        QPackDecoder sut = new();
+        sut.Encode(8, [], pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x00, 0x00, 0x7F, 0x37, 0x01, 0x38 }));
     }
 
     [Fact]

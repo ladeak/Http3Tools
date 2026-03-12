@@ -50,7 +50,7 @@ internal sealed partial class QPackDecoder
         if (_statusCodesEncoderTable.TryGetValue(statusCode, out var knownHeader))
             EncodeIndexedFieldLine(knownHeader, destinationWriter);
         else
-            EncodeLiteralFieldWithLiteralValue(":status", statusCode.ToString(), destinationWriter);
+            EncodeIndexedFieldWithLiteralValue(_statusCodesEncoderTable.First().Value, statusCode.ToString(), destinationWriter);
 
         EncodeFieldLines(headers, destinationWriter);
     }
