@@ -1,5 +1,5 @@
 #@host = raspberrypi:5001
-@host = localhost:7297
+@host = 127.0.0.1:7297
 
 GET https://{{host}}/ HTTP/2
 
@@ -10,10 +10,9 @@ GET https://{{host}}/ HTTP/2
 GET https://{{host}}/direct HTTP/2
 
 ###
-GET https://{{host}}/direct HTTP/3
+GET https://{{host}} HTTP/3
 
 ###
-
 GET https://{{host}}/delay HTTP/2
 
 ###

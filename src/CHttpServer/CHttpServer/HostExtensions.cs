@@ -65,7 +65,7 @@ public class CHttpServerOptions
                 throw new PlatformNotSupportedException("HTTP/3 is not supported on this platform.");
             field = value;
             if (value)
-                AltService = "h3=\":443\"";
+                AltService = "h3=\":443\"; ma=86400";
         }
     }
 
@@ -100,6 +100,7 @@ public class CHttpServerOptions
                   && x.Extensions.Any(ext => ext.Oid != null
                   && string.Equals(ext.Oid.Value, AspNetHttpsOid, StringComparison.OrdinalIgnoreCase)
                   && x.NotBefore <= now && x.NotAfter >= now))
+                .OrderByDescending(x => x.NotAfter)
                 .ToList();
 
             return certs.Count > 0 ? certs[0] : null;

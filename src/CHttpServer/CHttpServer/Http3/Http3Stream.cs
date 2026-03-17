@@ -144,7 +144,6 @@ internal sealed partial class Http3Stream
 
     private async Task CloseStreamAsync()
     {
-        _quicStream?.Abort(QuicAbortDirection.Both, ErrorCodes.H3NoError);
         await _dataReader.CompleteAsync();
         await _responseDataWriter.CompleteAsync();
         _quicStream?.Dispose();
@@ -187,8 +186,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
 {
     private readonly Http3ResponseHeaderCollection _responseHeaders;
     public IHeaderDictionary ResponseHeaders { get => _responseHeaders; set => throw new PlatformNotSupportedException(); }
-    private Http3FramingStreamWriter _responseHeaderWriter;
-
+    private readonly Http3FramingStreamWriter _responseHeaderWriter;
     private readonly Http3FramingStreamWriter _responseDataWriter;
 
     public Stream Stream => throw new PlatformNotSupportedException();
@@ -213,6 +211,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     {
         if (Interlocked.CompareExchange(ref _hasStarted, 1, 0) != 0)
             return;
+        _requestHeaders.SetReadOnly();
         if (_onStartingCallback.HasValue)
             await _onStartingCallback.Value.Callback(_onStartingCallback.Value.State);
         _responseHeaders.SetReadOnly();
@@ -227,13 +226,12 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     {
         try
         {
-            _requestHeaders.SetReadOnly();
             var context = application.CreateContext(_features);
             if (_features is IHostContextContainer<TContext> contextAwareFeatureCollection)
                 contextAwareFeatureCollection.HostContext = context;
-            var applicationPrcessing = application.ProcessRequestAsync(context);
+            var applicationProcessing = application.ProcessRequestAsync(context);
 
-            await applicationPrcessing;
+            await applicationProcessing;
             await _responseDataWriter.CompleteAsync();
 
             // Invoke start to make sure headers written when no DATA in the response.
@@ -242,6 +240,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
 
             // Write trailers
             //await WriteHeadersAsync(null); // todo trailers features
+            _quicStream?.CompleteWrites();
         }
         catch (Exception)
         {

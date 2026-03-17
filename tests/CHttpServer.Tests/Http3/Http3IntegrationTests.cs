@@ -31,5 +31,27 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);        
     }
+
+    [Fact]
+    public async Task Get_NoStatusCode()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/nostatuscode") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("TypedResults.NoContent()", content);
+    }
+
+    [Fact]
+    public async Task Get_LargeResponse()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/getlargeresponse") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(10_000_000, content.Length);
+    }
 }
 

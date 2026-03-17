@@ -337,7 +337,8 @@ internal sealed partial class Http3Connection
             if (data.Length - bytesRead <= 0)
                 return false;
 
-            if (!VariableLenghtIntegerDecoder.TryRead(data.Slice(bytesRead), out ulong value, out bytesRead))
+            data = data.Slice(bytesRead);
+            if (!VariableLenghtIntegerDecoder.TryRead(data, out ulong value, out bytesRead))
                 return false;
             consumed += bytesRead;
 
@@ -351,7 +352,7 @@ internal sealed partial class Http3Connection
             // Only negative values are invalid (otherwise it can be end of stream)
             if (data.Length - bytesRead < 0)
                 return false;
-            data = data.Slice(consumed);
+            data = data.Slice(bytesRead);
         }
         return true;
     }

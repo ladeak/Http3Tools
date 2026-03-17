@@ -42,7 +42,7 @@ public class CHttpServerImpl : IServer
         if (httpsAddress != null && !Uri.TryCreate(httpsAddress, UriKind.Absolute, out uri))
             throw new ArgumentNullException("Valid https address required");
         var ip = _options.Host;
-        if (ip == null)
+       if (ip == null)
         {
             if (!IPAddress.TryParse(uri?.Host, out ip))
             {
