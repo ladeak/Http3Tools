@@ -257,8 +257,13 @@ internal sealed partial class Http3Connection
                 var buffer = readResult.Buffer;
 
                 if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong frameType, out int bytesRead))
-                    Abort(ErrorCodes.H3FrameError);
+                {
+                    // Not enough data.
+                    _clientControlStreamReader.AdvanceTo(buffer.Start, buffer.End);
+                    continue;
+                }
 
+                long processed = bytesRead;
                 if (!VariableLenghtIntegerDecoder.TryRead(buffer.Slice(bytesRead), out ulong payloadLength, out bytesRead))
                 {
                     // Not enough data.
@@ -266,7 +271,7 @@ internal sealed partial class Http3Connection
                     continue;
                 }
 
-                long processed = 1 + bytesRead; // 1 for the frame type. Should be always one byte by spec.
+                processed += bytesRead;
                 switch (frameType)
                 {
                     case 0x03: // CANCEL_PUSH
@@ -299,14 +304,19 @@ internal sealed partial class Http3Connection
                         processed += checked((long)payloadLength);
                         break;
                     default:
-                        // Reserved frame types
-                        if ((frameType - 32) % 31 == 0)
+                        if (frameType < 3 || frameType == 5 || frameType == 6 || frameType == 8 || frameType == 9)
                         {
-                            processed += checked((long)payloadLength);
+                            // HTTP/2 frame types that are not supported in HTTP/3 must return error.
+                            Abort(ErrorCodes.H3FrameUnexpected);
                             break;
                         }
-                        Abort(ErrorCodes.H3FrameUnexpected);
-                        break;
+                        else
+                        {
+                            // Reserved frame types, and unknown frame types ignored.
+                            processed += checked((long)payloadLength);
+                            break;
+
+                        }
                 }
 
                 _clientControlStreamReader.AdvanceTo(readResult.Buffer.GetPosition(processed));

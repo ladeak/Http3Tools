@@ -110,8 +110,15 @@ public class Http3ConnectionTests
         await processing;
     }
 
-    [Fact]
-    public async Task InvalidFrameTypeOnControlStream_Aborts()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(8)]
+    [InlineData(9)]
+    public async Task InvalidFrameTypeOnControlStream_Aborts(int frameType)
     {
         await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
@@ -125,8 +132,43 @@ public class Http3ConnectionTests
         }, TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
 
-        // StreamType: 0-control, FrameType: 4-Headers, Length: 0
-        byte[] data = [0, 1, 0];
+        // StreamType: 0-control, FrameType: 1-Invalid, Length: 0
+        byte[] data = [0, (byte)frameType, 0];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        await readServerControlStream;
+        await processing;
+    }
+
+    [Theory]
+    [InlineData(1 * 31 + 33)]
+    [InlineData(2 * 31 + 33)]
+    [InlineData(0x0f0700)]
+    public async Task UnknownFrameType_OnControlStream_ISgnored(int frameType)
+    {
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(async () =>
+        {
+            var controlStream = await fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken);
+            await AssertReadSettigsAsync(controlStream);
+            await AssertGoAwayAsync(controlStream, 2);
+        }, TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+
+        // StreamType: 0-control, FrameType, Length: 0
+        Span<byte> buffer = stackalloc byte[8];
+        VariableLenghtIntegerDecoder.TryWrite(buffer, frameType, out var length);
+
+        byte[] data = [0, .. buffer[..length], 0];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        // Write GOAWAY FrameType: 7, Length: 1, StreamId: 0
+        data = [7, 1, 0];
         await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
 
