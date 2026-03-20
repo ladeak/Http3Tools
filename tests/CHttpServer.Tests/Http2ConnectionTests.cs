@@ -718,7 +718,7 @@ public class Http2ConnectionTests
 
         // Assert response
         var (frame, headers) = await AssertResponseHeaders(pipe);
-        Assert.True(headers.TryGetValue("alt-svc", out var altSvc) && altSvc == "h3=\":443\"");
+        Assert.True(headers.TryGetValue("alt-svc", out var altSvc) && altSvc == "h3=\":443\"; ma=86400");
         Assert.True(frame.EndHeaders);
         await AssertEmptyEndStream(pipe);
 

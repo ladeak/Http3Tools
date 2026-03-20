@@ -131,6 +131,7 @@ public class Http3ConnectionTests
             await AssertGoAwayAsync(controlStream, 2);
         }, TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
         // StreamType: 0-control, FrameType: 1-Invalid, Length: 0
         byte[] data = [0, (byte)frameType, 0];
@@ -158,20 +159,16 @@ public class Http3ConnectionTests
             await AssertGoAwayAsync(controlStream, 2);
         }, TestContext.Current.CancellationToken);
         var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+        await WriteSettings(clientControlStream);
 
         // StreamType: 0-control, FrameType, Length: 0
         Span<byte> buffer = stackalloc byte[8];
         VariableLenghtIntegerDecoder.TryWrite(buffer, frameType, out var length);
-
         byte[] data = [0, .. buffer[..length], 0];
         await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
 
-        // Write GOAWAY FrameType: 7, Length: 1, StreamId: 0
-        data = [7, 1, 0];
-        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
-
+        await WriteGoAway(clientControlStream);
         await readServerControlStream;
         await processing;
     }
@@ -305,6 +302,32 @@ public class Http3ConnectionTests
         await readServerControlStream;
     }
 
+    [Fact]
+    public async Task ChromiumProcessFrames()
+    {
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(async () =>
+        {
+            var controlStream = await fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken);
+            await AssertReadSettigsAsync(controlStream);
+            await AssertGoAwayAsync(controlStream, 2);
+        }, TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+
+        // Chromium control stream data: Settings Frame, Grease, Priorty Frames (Unknown)
+        byte[] data = [0, 4, 27, 1, 128, 1, 0, 0, 6, 128, 4, 0, 0, 7, 64, 100, 51, 1, 192, 0, 0, 30, 67, 87, 179, 56, 154, 124, 38, 21, 192, 0, 0, 20, 86, 88, 150, 239, 2, 240, 76, 128, 15, 7, 0, 7, 0, 117, 61, 48, 44, 32, 105];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        await WriteGoAway(clientControlStream);
+        await readServerControlStream;
+        await processing;
+        Assert.Equal(262144ul, sut.ClientMaxFieldSectionSize);
+    }
+
     private static Http3Connection CreateHttp3Connection(QuicConnection serverConnection, CHttpServerOptions? options = null, CancellationTokenSource? connectionCancellation = null)
     {
         var connectionContext = new CHttp3ConnectionContext()
@@ -343,10 +366,47 @@ public class Http3ConnectionTests
         encodedValue.SequenceEqual(buffer[4..]);
     }
 
+    private static async Task<IEnumerable<KeyValuePair<long, long>>> ReadSettigsAsync(Stream stream, CancellationToken token = default)
+    {
+        var headerBuffer = new byte[10];
+        int readCount = await stream.ReadAtLeastAsync(headerBuffer, headerBuffer.Length, true, token);
+        Assert.Equal(0x00, headerBuffer[0]); // Control Stream Type
+        Assert.Equal(0x04, headerBuffer[1]); // Frame Type: SETTINGS
+        if (!VariableLenghtIntegerDecoder.TryRead(headerBuffer[2..readCount], out var payloadLength, out var bytesCount))
+            Assert.Fail();
+
+        var payloadBuffer = new byte[payloadLength];
+        headerBuffer.AsSpan()[(2 + bytesCount)..readCount].CopyTo(payloadBuffer);
+        var remainingPayloadLength = readCount - 2 - bytesCount;
+        await stream.ReadExactlyAsync(payloadBuffer.AsMemory(remainingPayloadLength));
+
+        var data = payloadBuffer.AsSpan();
+        List<KeyValuePair<long, long>> result = [];
+        while (!data.IsEmpty)
+        {
+            if (!VariableLenghtIntegerDecoder.TryRead(data, out var settingIdentifier, out bytesCount))
+                Assert.Fail();
+            data = data.Slice(bytesCount);
+            if (!VariableLenghtIntegerDecoder.TryRead(data, out var settingValue, out bytesCount))
+                Assert.Fail();
+            data = data.Slice(bytesCount);
+            result.Add(new((long)settingIdentifier, (long)settingValue));
+        }
+        return result;
+    }
+
     private static async Task WriteSettings(QuicStream clientControlStream)
     {
         // StreamType: 0-control, FrameType: 4-Settings, Length: 2, Setting Identifier: 33-Reserved, Value: 0
         byte[] data = [0, 4, 2, 33, 0];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task WriteGoAway(QuicStream clientControlStream)
+    {
+        // Write GOAWAY FrameType: 7, Length: 1, StreamId: 0
+        byte[] data = [7, 1, 0];
         await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
     }
