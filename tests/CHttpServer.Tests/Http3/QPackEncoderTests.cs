@@ -52,6 +52,15 @@ public class QPackEncoderTests
     }
 
     [Fact]
+    public async Task WritingIntoReusedMemory_EncodeLiteralFieldWithLiteralValue()
+    {
+        var pipe = new MemoryReusingPipeWriter();
+        QPackDecoder.EncodeLiteralFieldWithLiteralValue("ab", "ba", pipe);
+        pipe.Complete();
+        Assert.True(pipe.WrittenData.ToArray().SequenceEqual(new byte[] { 0x22, 0x61, 0x62, 0x02, 0x62, 0x61 }));
+    }
+
+    [Fact]
     public async Task EncodeIndexedFieldWithLiteralValue()
     {
         var stream = new MemoryStream();
@@ -71,6 +80,24 @@ public class QPackEncoderTests
         QPackDecoder.EncodeIndexedFieldWithLiteralValue(header, "ab", pipe);
         await pipe.FlushAsync(TestContext.Current.CancellationToken);
         Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x71, 0x02, 0x61, 0x62 }));
+    }
+
+    [Fact]
+    public async Task WritingIntoReusedMemory_EncodeIndexedFieldWithLiteralValue()
+    {
+        // Test 1
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        var header = new EncodingKnownHeaderField(99, "a"); // 99 is important to be on 2 bytes
+        QPackDecoder.EncodeIndexedFieldWithLiteralValue(header, "ab", pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x7F, 0x54, 0x02, 0x61, 0x62 }));
+
+        // Test 2
+        var reusingPipe = new MemoryReusingPipeWriter();
+        QPackDecoder.EncodeIndexedFieldWithLiteralValue(header, "ab", reusingPipe);
+        reusingPipe.Complete();
+        Assert.True(reusingPipe.WrittenData.ToArray().SequenceEqual(new byte[] { 0x7F, 0x54, 0x02, 0x61, 0x62 }));
     }
 
     [Theory]
@@ -163,5 +190,46 @@ public class QPackEncoderTests
           // referer,  len,  cache-control, content-encoding, a-len, a
              0x7D,     0x00, 0xE7,          0x7F, 0x1B,      0x01,  0x61
         }));
+    }
+
+    // A PipeWriter that does not clear the underlying buffer.
+    private class MemoryReusingPipeWriter : PipeWriter
+    {
+        private byte[] _buffer = new byte[4096];
+        private int _bufferLength = 0;
+
+        public MemoryStream WrittenData { get; } = new MemoryStream();
+
+        public override void Advance(int bytes)
+        {
+            WrittenData.Write(_buffer.AsSpan(0, bytes));
+            _bufferLength = 0;
+        }
+
+        public override void CancelPendingFlush()
+        {
+        }
+
+        public override void Complete(Exception? exception = null)
+        {
+            WrittenData.Seek(0, SeekOrigin.Begin);
+        }
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(new FlushResult());
+        }
+
+        public override Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            if (sizeHint > _buffer.Length - _bufferLength)
+            {
+                Array.Resize(ref _buffer, _bufferLength + sizeHint);
+            }
+            _buffer.AsSpan()[_bufferLength..].Fill(255);
+            return _buffer.AsMemory(_bufferLength..);
+        }
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
     }
 }

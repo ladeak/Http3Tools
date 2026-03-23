@@ -130,9 +130,9 @@ internal sealed partial class QPackDecoder
         // +-------------------------------+
         var rawHeaderValue = headerValue.Count > 0 ? headerValue.ToString() : string.Empty;
         var valueLength = Encoding.Latin1.GetByteCount(rawHeaderValue);
-
         var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + valueLength);
         var writtenLength = header.CopyFourBitTo(buffer);
+        buffer[writtenLength] = 0;
         writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
         writtenLength += Encoding.Latin1.GetBytes(rawHeaderValue, buffer[writtenLength..]);
         writer.Advance(writtenLength);
@@ -154,9 +154,10 @@ internal sealed partial class QPackDecoder
         var valueLength = Encoding.Latin1.GetByteCount(value);
 
         var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + nameLength + QPackIntegerEncoder.MaxLength + valueLength);
+        buffer[0] = 0b00100000;
         var writtenLength = QPackIntegerEncoder.Encode(buffer[0..], nameLength, 3);
-        buffer[0] |= 0b00100000;
         writtenLength += Encoding.Latin1.GetBytes(name, buffer[writtenLength..]);
+        buffer[writtenLength] = 0;
         writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
         writtenLength += Encoding.Latin1.GetBytes(value, buffer[writtenLength..]);
         writer.Advance(writtenLength);

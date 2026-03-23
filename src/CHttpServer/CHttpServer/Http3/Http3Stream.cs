@@ -145,6 +145,7 @@ internal sealed partial class Http3Stream
     private async Task CloseStreamAsync()
     {
         await _dataReader.CompleteAsync();
+        await _responseHeaderWriter.CompleteAsync();
         await _responseDataWriter.CompleteAsync();
         _quicStream?.Dispose();
         _streamCompletion.TrySetResult();
@@ -176,6 +177,8 @@ internal partial class Http3Stream : IHttpResponseFeature
 
     public byte _hasStarted = 0;
     public bool HasStarted => _hasStarted == 0;
+
+    IHeaderDictionary IHttpResponseFeature.Headers { get => ResponseHeaders; set => throw new PlatformNotSupportedException(); }
 
     public void OnStarting(Func<object, Task> callback, object state) => _onStartingCallback = (callback, state);
 

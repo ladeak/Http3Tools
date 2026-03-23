@@ -328,6 +328,34 @@ public class Http3ConnectionTests
         Assert.Equal(262144ul, sut.ClientMaxFieldSectionSize);
     }
 
+    [Fact]
+    public async Task FirefoxProcessFrames()
+    {
+        await using var fixture = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        Http3Connection sut = CreateHttp3Connection(fixture.ServerConnection);
+        var processing = sut.ProcessConnectionAsync(new TestBase.TestApplication(_ => Task.CompletedTask))
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var readServerControlStream = Task.Run(async () =>
+        {
+            var controlStream = await fixture.ClientConnection.AcceptInboundStreamAsync(TestContext.Current.CancellationToken);
+            await AssertReadSettigsAsync(controlStream);
+            await AssertGoAwayAsync(controlStream, 2);
+        }, TestContext.Current.CancellationToken);
+        var clientControlStream = await fixture.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, TestContext.Current.CancellationToken);
+
+        // Chromium control stream data: Settings Frame, Grease, Priorty Frames (Unknown)
+        byte[] data = [0, 4, 21, 1, 128, 1, 0, 0, 7, 20, 171, 96, 55, 66, 0, 128, 255, 210, 119, 1, 51, 1, 8, 1, 204, 152, 88, 54, 97, 42, 121, 101, 5, 199, 123, 140, 153, 87];
+        await clientControlStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientControlStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        await WriteGoAway(clientControlStream);
+        await readServerControlStream;
+        await processing;
+        Assert.Null(sut.ClientMaxFieldSectionSize);
+    }
+
+    // TODO test headers from a browser
+
     private static Http3Connection CreateHttp3Connection(QuicConnection serverConnection, CHttpServerOptions? options = null, CancellationTokenSource? connectionCancellation = null)
     {
         var connectionContext = new CHttp3ConnectionContext()
