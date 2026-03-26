@@ -3,28 +3,20 @@ using CHttp.Http;
 
 namespace CHttp.Binders;
 
-internal sealed class HttpBehaviorBinder
+internal sealed class HttpBehaviorBinder(
+    Option<bool> redirectBinder,
+    Option<bool> enableCertificateValidationBinder,
+    Option<double> timeout,
+    Option<FileInfo?> cookieContainerOption,
+    Option<bool> kerberosAuthOption,
+    Option<bool> decompressResponse)
 {
-    private readonly Option<bool> _redirectBinder;
-    private readonly Option<bool> _enableCertificateValidationBinder;
-    private readonly Option<double> _timeoutOption;
-    private readonly Option<FileInfo?> _cookieContainerOption;
-    private readonly Option<bool> _kerberosAuthOption;
-
-    public HttpBehaviorBinder(
-        Option<bool> redirectBinder,
-        Option<bool> enableCertificateValidationBinder,
-        Option<double> timeout,
-        Option<FileInfo?> cookieContainerOption,
-        Option<bool> kerberosAuthOption)
-    {
-        _redirectBinder = redirectBinder;
-        _enableCertificateValidationBinder = enableCertificateValidationBinder;
-        _timeoutOption = timeout;
-        _cookieContainerOption = cookieContainerOption;
-        _kerberosAuthOption = kerberosAuthOption;
-
-    }
+    private readonly Option<bool> _redirectBinder = redirectBinder;
+    private readonly Option<bool> _enableCertificateValidationBinder = enableCertificateValidationBinder;
+    private readonly Option<double> _timeoutOption = timeout;
+    private readonly Option<FileInfo?> _cookieContainerOption = cookieContainerOption;
+    private readonly Option<bool> _kerberosAuthOption = kerberosAuthOption;
+    private readonly Option<bool> _decompressResponse = decompressResponse;
 
     internal HttpBehavior Bind(ParseResult parseResult)
     {
@@ -33,6 +25,7 @@ internal sealed class HttpBehaviorBinder
         var timeout = parseResult.GetValue(_timeoutOption);
         var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.FullName ?? string.Empty;
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
-        return new HttpBehavior(timeout, ToUtf8: true, cookieContainer, new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1));
+        var decompressResponse = parseResult.GetValue(_decompressResponse);
+        return new HttpBehavior(timeout, ToUtf8: true, cookieContainer, new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse));
     }
 }

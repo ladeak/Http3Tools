@@ -25,6 +25,8 @@ internal abstract class BaseSocketsHandlerProvider
             messageHandler.DefaultProxyCredentials = CredentialCache.DefaultNetworkCredentials;
             messageHandler.Credentials = CredentialCache.DefaultCredentials;
         }
+        if (behavior.AutomaticDecompression)
+            messageHandler.AutomaticDecompression = DecompressionMethods.All;
 
         messageHandler.UseCookies = true;
         messageHandler.CookieContainer = cookieContainer.Load();

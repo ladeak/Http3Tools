@@ -67,7 +67,7 @@ public static class CHttpExt
         string body
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1));
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -143,7 +143,7 @@ public static class CHttpExt
         Action<string> callback
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1));
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {

@@ -20,7 +20,7 @@ internal sealed class PerformanceTool()
         [Description("The number of requests")] int requestCount = 100)
     {
         var console = new StringConsole();
-        var httpBehavior = new HttpBehavior(10, false, string.Empty, new SocketBehavior(EnableRedirects: true, EnableCertificateValidation: false, UseKerberosAuth: false, MaxConnectionPerServer: 1));
+        var httpBehavior = new HttpBehavior(10, false, string.Empty, new SocketBehavior(EnableRedirects: true, EnableCertificateValidation: false, UseKerberosAuth: false, MaxConnectionPerServer: 1, AutomaticDecompression: false));
         var parsedHeaders = new List<KeyValueDescriptor>();
         var requestDetails = new HttpRequestDetails(
             new HttpMethod("GET"),

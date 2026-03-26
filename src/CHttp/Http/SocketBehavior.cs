@@ -4,4 +4,5 @@ internal record SocketBehavior(
     bool EnableRedirects,
     bool EnableCertificateValidation,
     bool UseKerberosAuth,
-    int MaxConnectionPerServer);
+    int MaxConnectionPerServer,
+    bool AutomaticDecompression);

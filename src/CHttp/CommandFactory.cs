@@ -207,6 +207,14 @@ internal static class CommandFactory
         };
         kerberosAuthOption.Aliases.Add("-k");
 
+        var decompressResponseOption = new Option<bool>(
+            name: "--decompressResponse")
+        {
+            DefaultValueFactory = _ => false,
+            Description = "Automatically decompress response.",
+            Required = false,
+        };
+
         var shareSocketsHandlerOption = new Option<bool>(
             name: "--shared-sockethandler")
         {
@@ -239,11 +247,11 @@ internal static class CommandFactory
         //rootCommand.Options.Add(uploadThrottleOption);
         //rootCommand.Options.Add(kerberosAuthOption);
 
-        CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, kerberosAuthOption, rootCommand);
+        CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, kerberosAuthOption, decompressResponseOption, rootCommand);
 
-        CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, kerberosAuthOption, rootCommand);
+        CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, kerberosAuthOption, decompressResponseOption, rootCommand);
 
-        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, kerberosAuthOption, shareSocketsHandlerOption, rootCommand);
+        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, kerberosAuthOption, shareSocketsHandlerOption, decompressResponseOption, rootCommand);
 
         CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
@@ -264,6 +272,7 @@ internal static class CommandFactory
         Option<FileInfo?> outputFileOption,
         Option<FileInfo?> cookieContainerOption,
         Option<bool> kerberosAuthOption,
+        Option<bool> decompressResponseOption,
         RootCommand rootCommand)
     {
         var formsCommand = new Command("forms", "Forms request");
@@ -286,7 +295,7 @@ internal static class CommandFactory
         formsCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var outputBehavior = new OutputBehaviorBinder(logOption, outputFileOption).Bind(parseResult);
-            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption).Bind(parseResult);
+            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption, decompressResponseOption).Bind(parseResult);
             writer ??= new WriterStrategy(outputBehavior);
             var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
             var client = new HttpMessageSender(writer, cookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
@@ -315,6 +324,7 @@ internal static class CommandFactory
         Option<FileInfo?> cookieContainerOption,
         Option<int?> uploadThrottleOption,
         Option<bool> kerberosAuthOption,
+        Option<bool> decompressResponseOption,
         RootCommand rootCommand)
     {
         // Shared options
@@ -333,10 +343,11 @@ internal static class CommandFactory
         rootCommand.Options.Add(uriOption);
         rootCommand.Options.Add(uploadThrottleOption);
         rootCommand.Options.Add(kerberosAuthOption);
+        rootCommand.Options.Add(decompressResponseOption);
         rootCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var outputBehavior = new OutputBehaviorBinder(logOption, outputFileOption).Bind(parseResult);
-            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption).Bind(parseResult);
+            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption, decompressResponseOption).Bind(parseResult);
             var requestDetails = new HttpRequestDetailsBinder(methodOptions, uriOption, versionOptions, headerOptions).Bind(parseResult);
             var body = parseResult.GetValue(bodyOptions);
             var uploadThrottle = parseResult.GetValue(uploadThrottleOption);
@@ -371,6 +382,7 @@ internal static class CommandFactory
         Option<string> metricsOption,
         Option<FileInfo?> cookieContainerOption,
         Option<bool> kerberosAuthOption,
+        Option<bool> decompressResponseOption,
         Option<bool> shareSocketsHandlerOption,
         RootCommand rootCommand)
     {
@@ -397,7 +409,7 @@ internal static class CommandFactory
         rootCommand.Add(perfCommand);
         perfCommand.SetAction(async (parseResult, cancellationToken) =>
         {
-            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption).Bind(parseResult);
+            var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, kerberosAuthOption, decompressResponseOption).Bind(parseResult);
             var requestDetails = new HttpRequestDetailsBinder(methodOptions, uriOption, versionOptions, headerOptions).Bind(parseResult);
             var performanceBehavior = new PerformanceBehaviorBinder(nOption, cOption, shareSocketsHandlerOption).Bind(parseResult);
             var body = parseResult.GetValue(bodyOptions);
