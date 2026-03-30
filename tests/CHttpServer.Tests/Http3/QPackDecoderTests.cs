@@ -275,6 +275,115 @@ public class QPackDecoderTests
         Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
     }
 
+    [Fact]
+    public void Decode_ETag()
+    {
+        // 0, 0 - prefix, 0x07 - ETag, 0x40 - field line and name reference, 0x10 - static table, 0x01 - length, 0x61 - 'a'
+        byte[] data = [0x00, 0x00, 0x07 + 0x40 + 0x10, 0x01, 0x61];
+        for (int i = 1; i < data.Length - 1; i++)
+        {
+            QPackDecoder decoder = new();
+            TestQPackHeaderHandler testHandler = new();
+            var success = decoder.DecodeHeader(new ReadOnlySequence<byte>(data.AsMemory(0, i)), testHandler, out long consumed);
+            success = decoder.DecodeHeader(new ReadOnlySequence<byte>(data.AsMemory(checked((int)consumed))), testHandler, out long finalConsumed);
+            Assert.True(success);
+            Assert.Equal(data.Length, consumed + finalConsumed);
+            Assert.Single(testHandler.Headers);
+            Assert.Equal("a", testHandler.Headers[HeaderNames.ETag]);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(KnownAspNetHeaders))]
+    public void Decode_AspNetHeaders(string headerName, byte staticTableIndex)
+    {
+        // 0, 0 - prefix, table index, 0x40 - field line and name reference, 0x10 - static table, 0x01 - length, 0x61 - 'a'
+        Span<byte> encodedIndex = new byte[8];
+        int length = QPackIntegerEncoder.Encode(encodedIndex, staticTableIndex, 4);
+        encodedIndex[0] += 0x40 + 0x10;
+
+        byte[] data = [0x00, 0x00, .. encodedIndex[..length], 0x01, 0x61];
+        QPackDecoder decoder = new();
+        TestQPackHeaderHandler testHandler = new();
+        var success = decoder.DecodeHeader(new ReadOnlySequence<byte>(data), testHandler, out long consumed);
+        Assert.True(success);
+        Assert.Single(testHandler.Headers);
+        Assert.Equal("a", testHandler.Headers[headerName]);
+    }
+
+    public static IEnumerable<TheoryDataRow<string, byte>> KnownAspNetHeaders =>
+    [
+        new(HeaderNames.Age, 2),
+        new(HeaderNames.ContentDisposition, 3),
+        new(HeaderNames.ContentLength, 4),
+        new(HeaderNames.Cookie, 5),
+        new(HeaderNames.Date, 6),
+        new(HeaderNames.ETag, 7),
+        new(HeaderNames.IfModifiedSince, 8),
+        new(HeaderNames.IfNoneMatch, 9),
+        new(HeaderNames.LastModified, 10),
+        new(HeaderNames.Link, 11),
+        new(HeaderNames.Location, 12),
+        new(HeaderNames.Referer, 13),
+        new(HeaderNames.SetCookie, 14),
+        new(HeaderNames.Accept, 29),
+        new(HeaderNames.Accept, 30),
+        new(HeaderNames.AcceptEncoding, 31),
+        new(HeaderNames.AcceptRanges, 32),
+        new(HeaderNames.AccessControlAllowHeaders, 33),
+        new(HeaderNames.AccessControlAllowHeaders, 34),
+        new(HeaderNames.AccessControlAllowOrigin, 35),
+        new(HeaderNames.CacheControl, 36),
+        new(HeaderNames.CacheControl, 37),
+        new(HeaderNames.CacheControl, 38),
+        new(HeaderNames.CacheControl, 39),
+        new(HeaderNames.CacheControl, 40),
+        new(HeaderNames.CacheControl, 41),
+        new(HeaderNames.ContentEncoding, 42),
+        new(HeaderNames.ContentEncoding, 43),
+        new(HeaderNames.ContentType, 44),
+        new(HeaderNames.ContentType, 45),
+        new(HeaderNames.ContentType, 46),
+        new(HeaderNames.ContentType, 47),
+        new(HeaderNames.ContentType, 48),
+        new(HeaderNames.ContentType, 49),
+        new(HeaderNames.ContentType, 50),
+        new(HeaderNames.ContentType, 51),
+        new(HeaderNames.ContentType, 52),
+        new(HeaderNames.ContentType, 53),
+        new(HeaderNames.ContentType, 54),
+        new(HeaderNames.Range, 55),
+        new(HeaderNames.StrictTransportSecurity, 56),
+        new(HeaderNames.StrictTransportSecurity, 57),
+        new(HeaderNames.StrictTransportSecurity, 58),
+        new(HeaderNames.Vary, 59),
+        new(HeaderNames.Vary, 60),
+        new(HeaderNames.XContentTypeOptions, 61),
+        new(HeaderNames.XXSSProtection, 62),
+        new(HeaderNames.AcceptLanguage, 72),
+        new(HeaderNames.AccessControlAllowCredentials, 73),
+        new(HeaderNames.AccessControlAllowCredentials, 74),
+        new(HeaderNames.AccessControlAllowHeaders, 75),
+        new(HeaderNames.AccessControlAllowMethods, 76),
+        new(HeaderNames.AccessControlAllowMethods, 77),
+        new(HeaderNames.AccessControlAllowMethods, 78),
+        new(HeaderNames.AccessControlExposeHeaders, 79),
+        new(HeaderNames.AccessControlRequestHeaders, 80),
+        new(HeaderNames.AccessControlRequestMethod, 81),
+        new(HeaderNames.AccessControlRequestMethod, 82),
+        new(HeaderNames.AltSvc, 83),
+        new(HeaderNames.Authorization, 84),
+        new(HeaderNames.ContentSecurityPolicy, 85),
+        new(HeaderNames.IfRange, 89),
+        new(HeaderNames.Origin, 90),
+        new(HeaderNames.Server, 92),
+        new(HeaderNames.UpgradeInsecureRequests, 94),
+        new(HeaderNames.UserAgent, 95),
+        new(HeaderNames.XFrameOptions, 97),
+        new(HeaderNames.XFrameOptions, 98),
+    ];
+
+
     private class TestQPackHeaderHandler : IQPackHeaderHandler
     {
         internal Dictionary<string, string> Headers { get; } = new();

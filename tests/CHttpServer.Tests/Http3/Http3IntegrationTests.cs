@@ -95,7 +95,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.True(response.Headers.TryGetValues(headerName1, out var values1) && values1.Single() == headerValue1);
     }
 
-    [Fact(Skip = "WIP")]
+    [Fact]
     public async Task Header_And_Trailers()
     {
         var client = CreateClient();

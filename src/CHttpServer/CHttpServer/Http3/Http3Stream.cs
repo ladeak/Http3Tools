@@ -39,13 +39,14 @@ internal sealed partial class Http3Stream
         _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _requestHeaders = [];
         _responseHeaders = [];
+        _responseTrailers = [];
 
         _features = features;
         _features.AddRange(
             (typeof(IHttpRequestFeature), this),
             (typeof(IHttpResponseFeature), this),
-            (typeof(IHttpResponseBodyFeature), this));
-        //_features.Add<IHttpResponseTrailersFeature>(this);
+            (typeof(IHttpResponseBodyFeature), this),
+            (typeof(IHttpResponseTrailersFeature), this));
         //_features.Add<IHttpRequestBodyDetectionFeature>(this);
         //_features.Add<IHttpRequestLifetimeFeature>(this);
         //_features.Add<IPriority9218Feature>(this);
@@ -71,6 +72,7 @@ internal sealed partial class Http3Stream
         _features.ResetCheckpoint();
         _requestHeaders.ResetHeaderCollection();
         _responseHeaders.ResetHeaderCollection();
+        _responseTrailers.ResetHeaderCollection();
         StatusCode = 200;
         _hasStarted = 0;
         _onStartingCallback = null;
@@ -242,12 +244,14 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
             await StartAsync(token);
 
             // Write trailers
-            //await WriteHeadersAsync(null); // todo trailers features
+            _responseTrailers.SetReadOnly();
+            await WriteHeadersAsync(_responseTrailers); // todo trailers features
             _quicStream?.CompleteWrites();
         }
         catch (Exception)
         {
-            // TODO, close stream, ...
+            _quicStream?.Dispose();
+            _quicStream = null;
         }
     }
 
@@ -262,5 +266,10 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
         _qpackDecoder.Encode(headers, _responseHeaderWriter);
         await _responseHeaderWriter.FlushAsync();
     }
+}
 
+internal partial class Http3Stream : IHttpResponseTrailersFeature
+{
+    private readonly Http3ResponseHeaderCollection _responseTrailers;
+    public IHeaderDictionary Trailers { get => _responseTrailers; set => throw new PlatformNotSupportedException(); }
 }
