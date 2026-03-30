@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Text;
 using CHttpServer.Http3;
+using Microsoft.Net.Http.Headers;
 
 namespace CHttpServer.Tests.Http3;
 
@@ -70,7 +71,7 @@ public class QPackDecoderTests
         Assert.Equal("GET", testHandler.Headers[":method"]);
         Assert.Equal("https", testHandler.Headers[":scheme"]);
         Assert.Equal("200", testHandler.Headers[":status"]);
-        Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+        Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
     }
 
     [Fact]
@@ -88,7 +89,7 @@ public class QPackDecoderTests
         Assert.Equal("GET", testHandler.Headers[":method"]);
         Assert.Equal("https", testHandler.Headers[":scheme"]);
         Assert.Equal("200", testHandler.Headers[":status"]);
-        Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+        Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public class QPackDecoderTests
             Assert.Equal("GET", testHandler.Headers[":method"]);
             Assert.Equal("https", testHandler.Headers[":scheme"]);
             Assert.Equal("200", testHandler.Headers[":status"]);
-            Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+            Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
         }
     }
 
@@ -199,7 +200,7 @@ public class QPackDecoderTests
         Assert.Equal("GET", testHandler.Headers[":method"]);
         Assert.Equal("https", testHandler.Headers[":scheme"]);
         Assert.Equal("200", testHandler.Headers[":status"]);
-        Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+        Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
         Assert.Equal("ok", testHandler.Headers["test"]);
         Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
     }
@@ -223,7 +224,7 @@ public class QPackDecoderTests
         Assert.Equal("GET", testHandler.Headers[":method"]);
         Assert.Equal("https", testHandler.Headers[":scheme"]);
         Assert.Equal("200", testHandler.Headers[":status"]);
-        Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+        Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
         Assert.Equal("ok", testHandler.Headers["test"]);
         Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
     }
@@ -247,7 +248,7 @@ public class QPackDecoderTests
             Assert.Equal("GET", testHandler.Headers[":method"]);
             Assert.Equal("https", testHandler.Headers[":scheme"]);
             Assert.Equal("200", testHandler.Headers[":status"]);
-            Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+            Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
             Assert.Equal("ok", testHandler.Headers["test"]);
             Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
         }
@@ -269,7 +270,7 @@ public class QPackDecoderTests
         Assert.Equal("GET", testHandler.Headers[":method"]);
         Assert.Equal("https", testHandler.Headers[":scheme"]);
         Assert.Equal("200", testHandler.Headers[":status"]);
-        Assert.Equal("sameorigin", testHandler.Headers["x-frame-options"]);
+        Assert.Equal("sameorigin", testHandler.Headers[HeaderNames.XFrameOptions]);
         Assert.Equal("ok", testHandler.Headers["test"]);
         Assert.Equal("longervalue", testHandler.Headers["longerheader"]);
     }
