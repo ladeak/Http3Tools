@@ -15,6 +15,12 @@ namespace CHttpServer.Http3;
 [SupportedOSPlatform("macos")]
 internal sealed partial class Http3Stream
 {
+    private enum StreamReadingStatus
+    {
+        ReadingFrameHeader,
+        ReadingPayload,
+    }
+
     private QuicStream? _quicStream;
     private PipeReader _dataReader;
     private QPackDecoder _qpackDecoder;
@@ -87,48 +93,78 @@ internal sealed partial class Http3Stream
     public async Task ProcessStreamAsync<TContext>(IHttpApplication<TContext> application, CancellationToken token)
         where TContext : notnull
     {
+        ulong frameType = 0;
+        long payloadRemainingLength = 0;
+        Task? applicationProcessing = null;
+        var streamReadingState = StreamReadingStatus.ReadingFrameHeader;
         try
         {
             while (!token.IsCancellationRequested)
             {
                 var readResult = await _dataReader.ReadAsync(token);
-                if (readResult.IsCanceled || readResult.IsCompleted)
+                if (readResult.IsCanceled || (readResult.IsCompleted && readResult.Buffer.IsEmpty))
                     break;
-
                 var buffer = readResult.Buffer;
+                long bufferConsumed = 0;
 
-                // FrameType is a single byte.
-                if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out ulong frameType, out int bytesRead))
-                    throw new Http3ConnectionException(ErrorCodes.H3FrameError);
-
-                buffer = buffer.Slice(bytesRead);
-                if (!VariableLenghtIntegerDecoder.TryRead(buffer, out ulong payloadLength, out bytesRead))
+                if (streamReadingState == StreamReadingStatus.ReadingFrameHeader)
                 {
-                    // Not enough data to read payload length.
-                    _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
-                    continue;
-                }
-                buffer = buffer.Slice(bytesRead);
-                long processed = 1 + bytesRead; // 1 for the frame type. Should be always one byte by spec.
-                switch (frameType)
-                {
-                    case 0x0: // DATA
-                        processed += ProcessDataFrame(buffer);
-                        break;
-                    case 0x1: // HEADERS
-                        if (payloadLength > (ulong)buffer.Length)
-                        {
-                            // Not enough data to read payload length.
-                            _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
-                            continue;
-                        }
-                        processed += ProcessHeaderFrame(buffer);
-                        await StartApplicationProcessing(application, token);
-                        break;
+                    // FrameType is a single byte.
+                    if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out frameType, out int bytesReadFrameType))
+                    {
+                        // Not enough data to read payload length.
+                        _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
+                        continue;
+                    }
+                    buffer = buffer.Slice(bytesReadFrameType);
+                    if (!VariableLenghtIntegerDecoder.TryRead(buffer, out var payloadLength, out int bytesReadPayloadLength))
+                    {
+                        // Not enough data to read payload length.
+                        _dataReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
+                        continue;
+                    }
+                    payloadRemainingLength = checked((long)payloadLength);
+                    streamReadingState = StreamReadingStatus.ReadingPayload;
+                    buffer = buffer.Slice(bytesReadPayloadLength);
+                    bufferConsumed += bytesReadFrameType + bytesReadPayloadLength;
                 }
 
-                _dataReader.AdvanceTo(readResult.Buffer.GetPosition(processed), readResult.Buffer.End);
+                if (streamReadingState == StreamReadingStatus.ReadingPayload)
+                {
+                    switch (frameType)
+                    {
+                        case 0x0: // DATA
+                            bufferConsumed += ProcessDataFrame(buffer);
+                            break;
+                        case 0x1: // HEADERS
+                            if (payloadRemainingLength < buffer.Length)
+                                buffer = buffer.Slice(0, checked((long)payloadRemainingLength));
+                            var headerConsumed = ProcessHeaderFrame(buffer);
+                            payloadRemainingLength -= headerConsumed;
+                            bufferConsumed += headerConsumed;
+                            if (payloadRemainingLength == 0)
+                                applicationProcessing = StartApplicationProcessing(application, token);
+                            break;
+                        default:
+                            if ((frameType - 0x21) % 0x1f != 0)
+                            {
+                                _connection?.StreamError(ErrorCodes.H3FrameUnexpected);
+                                return;
+                            }
+
+                            // Read the complete reserved frame.
+                            bufferConsumed = payloadRemainingLength > buffer.Length ? buffer.Length : payloadRemainingLength;
+                            payloadRemainingLength -= bufferConsumed;
+                            break;
+                    }
+                    if (payloadRemainingLength == 0)
+                        streamReadingState = StreamReadingStatus.ReadingFrameHeader;
+                }
+
+                _dataReader.AdvanceTo(readResult.Buffer.GetPosition(bufferConsumed), readResult.Buffer.End);
             }
+            if (applicationProcessing != null)
+                await applicationProcessing;
         }
         catch (OperationCanceledException)
         {
@@ -156,8 +192,9 @@ internal sealed partial class Http3Stream
 
     private long ProcessDataFrame(ReadOnlySequence<byte> buffer)
     {
-        // TODO: send to application
+        // 'Copy' to Body
         return 0;
+
     }
 
     private long ProcessHeaderFrame(ReadOnlySequence<byte> buffer)

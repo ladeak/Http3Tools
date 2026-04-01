@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 
 namespace CHttpServer.Tests.Http3;
 
@@ -107,6 +108,26 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.True(response.Headers.TryGetValues("x-custom-response", out var values) && values.First() == "custom-header-value");
         Assert.Equal("application/json", response.Content.Headers.ContentType!.MediaType);
         Assert.True(response.TrailingHeaders.TryGetValues("x-trailer", out values) && values.First() == "mytrailer");
+    }
+
+    [Fact]
+    public async Task HttpContext_WritesResponse()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/httpcontext") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("some content", content);
+    }
+
+    [Fact(Skip = "WIP")]
+    public async Task TestPost()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Post, $"https://127.0.0.1:{_port}/post") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact, Content = JsonContent.Create(new WeatherForecast(new DateOnly(2026, 03, 30), 22, "sunny")) };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
     }
 }
 

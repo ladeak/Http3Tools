@@ -150,6 +150,8 @@ internal sealed partial class Http3Connection
         _streams.TryRemove(stream.Id, out _);
     }
 
+    internal void StreamError(int errorCode) => Abort(errorCode);
+
     private async Task TryWriteGoAwayAsync()
     {
         try
