@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Net.Http.Headers;
 
 namespace CHttpServer.Tests.Http3;
 
@@ -94,6 +95,19 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.True(response.IsSuccessStatusCode);
         Assert.True(response.Headers.TryGetValues(headerName0, out var values0) && values0.Single() == headerValue0);
         Assert.True(response.Headers.TryGetValues(headerName1, out var values1) && values1.Single() == headerValue1);
+    }
+
+    [Fact]
+    public async Task ManyLargeHeaderRequestResponse()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/headersack") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        for (int i = 0; i < 10; i++)
+            request.Headers.Add($"x-custom-header-{i}", new string('a', i * 10000 + 1000));
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        for (int i = 0; i < 10; i++)
+            Assert.True(response.Headers.TryGetValues($"x-custom-header-{i}", out var values));
     }
 
     [Fact]

@@ -354,8 +354,6 @@ public class Http3ConnectionTests
         Assert.Null(sut.ClientMaxFieldSectionSize);
     }
 
-    // TODO test headers from a browser
-
     private static Http3Connection CreateHttp3Connection(QuicConnection serverConnection, CHttpServerOptions? options = null, CancellationTokenSource? connectionCancellation = null)
     {
         var connectionContext = new CHttp3ConnectionContext()

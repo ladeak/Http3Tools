@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace CHttpServer.Http3;
@@ -151,5 +152,17 @@ public class VariableLenghtIntegerDecoder
         where T : IBinaryInteger<T>
     {
         return TryWrite(destination, ulong.CreateChecked(value), out bytesWritten);
+    }
+
+    /// <summary>
+    /// Used by tests.
+    /// </summary>
+    public static Memory<byte> Write<T>(T value)
+        where T : IBinaryInteger<T>
+    {
+        Memory<byte> destination = new byte[8];
+        var result = TryWrite(destination.Span, ulong.CreateChecked(value), out var bytesWritten);
+        Debug.Assert(result);
+        return destination[..bytesWritten];
     }
 }

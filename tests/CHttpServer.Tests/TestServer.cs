@@ -99,6 +99,15 @@ public class TestServer : IAsyncDisposable, IDisposable
             await ctx.Response.WriteAsync("some content");
 
         });
+        _app.MapGet("/headersack", async (HttpContext ctx) =>
+        {
+            foreach (var header in ctx.Request.Headers)
+                if (header.Key.StartsWith("x-custom"))
+                    ctx.Response.Headers.TryAdd(header.Key, "ack");
+            ctx.Response.StatusCode = 200;
+            await ctx.Response.WriteAsync("some content");
+
+        });
         _app.MapPost("/readallrequest", async (HttpContext ctx) =>
         {
             var ms = new MemoryStream();

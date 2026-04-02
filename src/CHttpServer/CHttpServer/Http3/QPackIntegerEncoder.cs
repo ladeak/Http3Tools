@@ -61,9 +61,20 @@ internal struct QPackIntegerEncoder
 
     public static int Encode(Span<byte> destination, long number, byte prefixLength)
     {
-        if(!TryEncode(destination, number, prefixLength, out var writtenCount))
+        if (!TryEncode(destination, number, prefixLength, out var writtenCount))
             ThrowDestinationTooSmall();
         return writtenCount;
+    }
+
+    /// <summary>
+    /// Used by tests.
+    /// </summary>
+    public static Memory<byte> Encode(long number, byte prefixLength)
+    {
+        Memory<byte> destination = new byte[MaxLength];
+        if (!TryEncode(destination.Span, number, prefixLength, out var writtenCount))
+            ThrowDestinationTooSmall();
+        return destination[..writtenCount];
     }
 
     private static void ThrowDestinationTooSmall() => throw new ArgumentOutOfRangeException();

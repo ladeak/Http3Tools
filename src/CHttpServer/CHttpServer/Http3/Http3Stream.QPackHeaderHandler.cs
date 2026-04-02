@@ -11,6 +11,10 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     private byte[] _pathEncoded;
     private bool _isPathSet;
 
+    private string _hostDecoded;
+    private byte[] _hostEncoded;
+    private bool _isHostSet;
+
     public string Protocol { get => "HTTP/3"; set => throw new PlatformNotSupportedException(); }
     public string PathBase { get => string.Empty; set => throw new PlatformNotSupportedException(); }
     public string RawTarget { get => string.Empty; set => throw new PlatformNotSupportedException(); }
@@ -29,6 +33,12 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     {
         switch (staticHeader.StaticTableIndex)
         {
+            case 0:
+                if (!value.IsSingleSegment || !value.FirstSpan.SequenceEqual(_hostEncoded))
+                    _hostDecoded = Encoding.Latin1.GetString(value);
+                _requestHeaders.Add("Host", _hostDecoded);
+                _isHostSet = true;
+                break;
             case 1:
                 var queryStringSeparatorIndex = value.PositionOf(QueryStringSeparator);
                 ReadOnlySequence<byte> pathPart = value;
@@ -73,7 +83,11 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     {
         switch (staticHeader.StaticTableIndex)
         {
+            case 0:
+                _requestHeaders.Add("Host", staticHeader.Value);
+                break;
             case 1:
+                _isPathSet = true;
                 Path = staticHeader.Value;
                 break;
             case 15:
