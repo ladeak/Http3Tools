@@ -56,7 +56,9 @@ internal sealed partial class Http3Stream
             (typeof(IHttpRequestFeature), this),
             (typeof(IHttpResponseFeature), this),
             (typeof(IHttpResponseBodyFeature), this),
-            (typeof(IHttpResponseTrailersFeature), this));
+            (typeof(IHttpResponseTrailersFeature), this),
+            (typeof(IRequestBodyPipeFeature), this));
+
         //_features.Add<IHttpRequestBodyDetectionFeature>(this);
         //_features.Add<IHttpRequestLifetimeFeature>(this);
         //_features.Add<IPriority9218Feature>(this);

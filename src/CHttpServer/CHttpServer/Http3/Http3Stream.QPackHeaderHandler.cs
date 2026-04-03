@@ -1,11 +1,12 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer.Http3;
 
-internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFeature
+internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFeature, IRequestBodyPipeFeature
 {
     private const byte QueryStringSeparator = (byte)'?';
     private byte[] _pathEncoded;
@@ -13,7 +14,6 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
 
     private string _hostDecoded;
     private byte[] _hostEncoded;
-    private bool _isHostSet;
 
     public string Protocol { get => "HTTP/3"; set => throw new PlatformNotSupportedException(); }
     public string PathBase { get => string.Empty; set => throw new PlatformNotSupportedException(); }
@@ -23,9 +23,11 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     public string Method { get; set; }
     public string Path { get => _isPathSet ? field : string.Empty; set => field = value; }
     public string QueryString { get; set; }
-    public Stream Body { get => Stream.Null; set => throw new PlatformNotSupportedException(); }
+    public Stream Body { get => Reader.AsStream(); set => throw new PlatformNotSupportedException(); }
     IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new PlatformNotSupportedException(); }
 #pragma warning restore CS9266 // Property accessor should use 'field' because the other accessor is using it.
+
+    public PipeReader Reader => PipeReader.Create(Stream.Null);
 
     private readonly Http3RequestHeaderCollection _requestHeaders;
 
@@ -37,7 +39,6 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
                 if (!value.IsSingleSegment || !value.FirstSpan.SequenceEqual(_hostEncoded))
                     _hostDecoded = Encoding.Latin1.GetString(value);
                 _requestHeaders.Add("Host", _hostDecoded);
-                _isHostSet = true;
                 break;
             case 1:
                 var queryStringSeparatorIndex = value.PositionOf(QueryStringSeparator);
