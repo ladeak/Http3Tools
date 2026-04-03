@@ -37,6 +37,8 @@ internal sealed partial class Http3Stream
         _responseHeaderWriter = new(Stream.Null, frameType: 1);
         _qpackDecoder = new QPackDecoder();
         _pathEncoded = [];
+        _hostDecoded = "";
+        _hostEncoded = [];
         Scheme = string.Empty;
         Method = string.Empty;
         Path = string.Empty;
@@ -113,7 +115,7 @@ internal sealed partial class Http3Stream
                     long bufferConsumed = ProcessStreamAsync(application, ref frameType, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
 
                     // Could not further process. Break the inner loop to read more data
-                    if (bufferConsumed == 0) 
+                    if (bufferConsumed == 0)
                         break;
 
                     totalBufferConsumed += bufferConsumed;
@@ -174,7 +176,10 @@ internal sealed partial class Http3Stream
             switch (frameType)
             {
                 case 0x0: // DATA
+                    if (payloadRemainingLength < buffer.Length)
+                        buffer = buffer.Slice(0, payloadRemainingLength);
                     bufferConsumed = ProcessDataFrame(buffer);
+                    payloadRemainingLength -= bufferConsumed;
                     break;
                 case 0x1: // HEADERS
                     if (payloadRemainingLength < buffer.Length)
