@@ -18,7 +18,9 @@ internal sealed partial class Http3Stream
     private enum StreamReadingStatus
     {
         ReadingFrameHeader,
-        ReadingPayload,
+        ReadingPayloadHeader,
+        ReadingPayloadData,
+        ReadingPayloadReserved,
     }
 
     private QuicStream? _quicStream;
@@ -96,7 +98,6 @@ internal sealed partial class Http3Stream
     public async Task ProcessStreamAsync<TContext>(IHttpApplication<TContext> application, CancellationToken token)
         where TContext : notnull
     {
-        ulong frameType = 0;
         long payloadRemainingLength = 0;
         Task? applicationProcessing = null;
         var streamReadingState = StreamReadingStatus.ReadingFrameHeader;
@@ -112,7 +113,7 @@ internal sealed partial class Http3Stream
 
                 while (!buffer.IsEmpty)
                 {
-                    long bufferConsumed = ProcessStreamAsync(application, ref frameType, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
+                    long bufferConsumed = ProcessStreamAsync(application, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
 
                     // Could not further process. Break the inner loop to read more data
                     if (bufferConsumed == 0)
@@ -130,6 +131,11 @@ internal sealed partial class Http3Stream
         {
             // Ignore
         }
+        catch (Http3ConnectionException connectionError)
+        {
+            _connection?.StreamError(connectionError.ErrorCode);
+            throw;
+        }
         catch (Exception ex)
         {
             Debug.WriteLine(ex);
@@ -141,7 +147,6 @@ internal sealed partial class Http3Stream
     }
 
     private long ProcessStreamAsync<TContext>(IHttpApplication<TContext> application,
-        ref ulong frameType,
         ref long payloadRemainingLength,
         ref Task? applicationProcessing,
         ref StreamReadingStatus streamReadingState,
@@ -153,7 +158,7 @@ internal sealed partial class Http3Stream
         if (streamReadingState == StreamReadingStatus.ReadingFrameHeader)
         {
             // FrameType is a single byte.
-            if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out frameType, out int bytesReadFrameType))
+            if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out var frameType, out int bytesReadFrameType))
             {
                 // Not enough data to read payload length.
                 return 0;
@@ -165,47 +170,57 @@ internal sealed partial class Http3Stream
                 return 0;
             }
             payloadRemainingLength = checked((long)payloadLength);
-            streamReadingState = StreamReadingStatus.ReadingPayload;
+            streamReadingState = NextRequestReadingState(applicationProcessing, frameType);
             buffer = buffer.Slice(bytesReadPayloadLength);
             bufferConsumed += bytesReadFrameType + bytesReadPayloadLength;
             return bufferConsumed;
         }
 
-        if (streamReadingState == StreamReadingStatus.ReadingPayload)
-        {
-            switch (frameType)
-            {
-                case 0x0: // DATA
-                    if (payloadRemainingLength < buffer.Length)
-                        buffer = buffer.Slice(0, payloadRemainingLength);
-                    bufferConsumed = ProcessDataFrame(buffer);
-                    payloadRemainingLength -= bufferConsumed;
-                    break;
-                case 0x1: // HEADERS
-                    if (payloadRemainingLength < buffer.Length)
-                        buffer = buffer.Slice(0, payloadRemainingLength);
-                    bufferConsumed = ProcessHeaderFrame(buffer);
-                    payloadRemainingLength -= bufferConsumed;
-                    if (payloadRemainingLength == 0)
-                        applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
-                    break;
-                default:
-                    if ((frameType - 0x21) % 0x1f != 0)
-                    {
-                        _connection?.StreamError(ErrorCodes.H3FrameUnexpected);
-                        throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
-                    }
+        if (payloadRemainingLength < buffer.Length)
+            buffer = buffer.Slice(0, payloadRemainingLength);
 
-                    // Read the complete reserved frame.
-                    bufferConsumed = payloadRemainingLength > buffer.Length ? buffer.Length : payloadRemainingLength;
-                    payloadRemainingLength -= bufferConsumed;
-                    break;
-            }
-            if (payloadRemainingLength == 0)
-                streamReadingState = StreamReadingStatus.ReadingFrameHeader;
+        if (streamReadingState == StreamReadingStatus.ReadingPayloadHeader)
+        {
+            bufferConsumed = ProcessHeaderFrame(buffer);
+            if (payloadRemainingLength == bufferConsumed)
+                applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
         }
 
+        if (streamReadingState == StreamReadingStatus.ReadingPayloadData)
+            bufferConsumed = ProcessDataFrame(buffer);
+
+        if (streamReadingState == StreamReadingStatus.ReadingPayloadReserved)
+            bufferConsumed = buffer.Length; // Read the complete reserved frame.
+
+        payloadRemainingLength -= bufferConsumed;
+        if (payloadRemainingLength == 0)
+            streamReadingState = StreamReadingStatus.ReadingFrameHeader;
         return bufferConsumed;
+    }
+
+    private StreamReadingStatus NextRequestReadingState(Task? applicationProcessing, ulong frameType)
+    {
+        StreamReadingStatus streamReadingState;
+        switch (frameType)
+        {
+            case 0x0: // DATA
+                if (applicationProcessing == null)
+                    throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
+                streamReadingState = StreamReadingStatus.ReadingPayloadData;
+                break;
+            case 0x1: // HEADERS
+                if (applicationProcessing != null)
+                    throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
+                streamReadingState = StreamReadingStatus.ReadingPayloadHeader;
+                break;
+            default:
+                if ((frameType - 0x21) % 0x1f != 0)
+                    throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
+                streamReadingState = StreamReadingStatus.ReadingPayloadReserved;
+                break;
+        }
+
+        return streamReadingState;
     }
 
     private async Task CloseStreamAsync()
@@ -221,7 +236,7 @@ internal sealed partial class Http3Stream
     private long ProcessDataFrame(ReadOnlySequence<byte> buffer)
     {
         // 'Copy' to Body
-        return 0;
+        return buffer.Length;
 
     }
 

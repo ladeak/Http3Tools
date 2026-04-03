@@ -178,6 +178,25 @@ public class Http3StreamTests
         await quicConnection.DisposeAsync();
     }
 
+    [Fact]
+    public async Task SingleWrite_InOrderFrames_Throw()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var sut = new Http3Stream([]);
+
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        byte[] data = [.. GetData(30), .. await GetHeadersFrame()]; //DATA before HEADERS is in-order
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+        await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+
+        sut.Initialize(null, await serverStreamTask);
+        var testApp = new TestBase.TestApplication(ctx => Task.CompletedTask);
+        var processing = await Assert.ThrowsAsync<Http3ConnectionException>(() => sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken));
+        clientStream.Close();
+        await quicConnection.DisposeAsync();
+    }
+
     private static async Task<byte[]> GetHeadersFrame()
     {
         var encoder = new QPackDecoder();
