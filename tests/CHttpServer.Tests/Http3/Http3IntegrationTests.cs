@@ -135,7 +135,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.Equal("some content", content);
     }
 
-    [Fact(Skip = "WIP")]
+    [Fact]
     public async Task TestPost()
     {
         var client = CreateClient();

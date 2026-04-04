@@ -60,7 +60,8 @@ internal sealed partial class Http3Stream
             (typeof(IHttpResponseFeature), this),
             (typeof(IHttpResponseBodyFeature), this),
             (typeof(IHttpResponseTrailersFeature), this),
-            (typeof(IRequestBodyPipeFeature), this));
+            (typeof(IRequestBodyPipeFeature), this),
+            (typeof(IHttpRequestBodyDetectionFeature), this));
 
         //_features.Add<IHttpRequestBodyDetectionFeature>(this);
         //_features.Add<IHttpRequestLifetimeFeature>(this);
@@ -137,6 +138,7 @@ internal sealed partial class Http3Stream
                 }
                 _dataReader.AdvanceTo(readResult.Buffer.GetPosition(totalBufferConsumed), readResult.Buffer.End);
             }
+            await _requestDataToAppPipe.Writer.CompleteAsync();
             if (applicationProcessing != null)
                 await applicationProcessing;
         }
@@ -238,6 +240,7 @@ internal sealed partial class Http3Stream
             case 0x0: // DATA
                 if (applicationProcessing == null)
                     throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
+                CanHaveBody = true;
                 streamReadingState = StreamReadingStatus.ReadingPayloadData;
                 break;
             case 0x1: // HEADERS
@@ -257,7 +260,6 @@ internal sealed partial class Http3Stream
 
     private async Task CloseStreamAsync()
     {
-        await _requestDataToAppPipe.Writer.CompleteAsync();
         await _requestDataToAppPipe.Reader.CompleteAsync();
         await _dataReader.CompleteAsync();
         await _responseHeaderWriter.CompleteAsync();
@@ -379,4 +381,9 @@ internal partial class Http3Stream : IHttpResponseTrailersFeature
 {
     private readonly Http3ResponseHeaderCollection _responseTrailers;
     public IHeaderDictionary Trailers { get => _responseTrailers; set => throw new PlatformNotSupportedException(); }
+}
+
+internal partial class Http3Stream : IHttpRequestBodyDetectionFeature
+{
+    public bool CanHaveBody { get; set; }
 }
