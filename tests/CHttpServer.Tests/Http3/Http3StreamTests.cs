@@ -7,7 +7,7 @@ namespace CHttpServer.Tests.Http3;
 
 public class Http3StreamTests
 {
-    private const int Port = 6001;
+    private const int Port = 6010;
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
 
     [Fact]
