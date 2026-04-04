@@ -35,6 +35,9 @@ internal sealed partial class Http3Stream
         Id = 0;
         _quicStream = null;
         _dataReader = PipeReader.Create(new ReadOnlySequence<byte>());
+        _requestDataToAppPipe = new(new PipeOptions(pauseWriterThreshold: 1024 * 1024));
+        _requestDataToAppPipe.Writer.Complete();
+        _requestDataToAppPipe.Reader.Complete();
         _responseDataWriter = new(Stream.Null, frameType: 0);
         _responseHeaderWriter = new(Stream.Null, frameType: 1);
         _qpackDecoder = new QPackDecoder();
@@ -75,13 +78,13 @@ internal sealed partial class Http3Stream
         _connection = connection;
         _quicStream = quicStream;
         _dataReader = PipeReader.Create(quicStream);
+        _requestDataToAppPipe.Reset();
         _responseDataWriter.Reset(quicStream, StartAsync);
         _responseHeaderWriter.Reset(quicStream);
         Scheme = string.Empty;
         Method = string.Empty;
         QueryString = string.Empty;
         _isPathSet = false; // The actual Path is not reset.
-        _isHostSet = false; // The actual Host is not reset.
         _features.ResetCheckpoint();
         _requestHeaders.ResetHeaderCollection();
         _responseHeaders.ResetHeaderCollection();
@@ -115,7 +118,15 @@ internal sealed partial class Http3Stream
 
                 while (!buffer.IsEmpty)
                 {
-                    long bufferConsumed = ProcessStreamAsync(application, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
+                    long bufferConsumed = 0;
+                    if (streamReadingState == StreamReadingStatus.ReadingFrameHeader)
+                        bufferConsumed = ReadFrameHeader(ref payloadRemainingLength, ref streamReadingState, applicationProcessing, buffer);
+                    else if (streamReadingState == StreamReadingStatus.ReadingPayloadData)
+                        (bufferConsumed, payloadRemainingLength, streamReadingState) = await ProcessDataFrameAsync(payloadRemainingLength, streamReadingState, buffer);
+                    else if (streamReadingState == StreamReadingStatus.ReadingPayloadHeader)
+                        bufferConsumed = ReadHeaderFrame(application, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
+                    else if (streamReadingState == StreamReadingStatus.ReadingPayloadReserved)
+                        bufferConsumed = ReadReservedFrame(ref payloadRemainingLength, ref streamReadingState, buffer);
 
                     // Could not further process. Break the inner loop to read more data
                     if (bufferConsumed == 0)
@@ -148,56 +159,75 @@ internal sealed partial class Http3Stream
         }
     }
 
-    private long ProcessStreamAsync<TContext>(IHttpApplication<TContext> application,
+    private long ReadFrameHeader(
+        ref long payloadRemainingLength,
+        ref StreamReadingStatus streamReadingState,
+        Task? applicationProcessing,
+        ReadOnlySequence<byte> buffer)
+    {
+        if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out var frameType, out int bytesReadFrameType))
+            return 0; // Not enough data to read payload length.
+
+        buffer = buffer.Slice(bytesReadFrameType);
+        if (!VariableLenghtIntegerDecoder.TryRead(buffer, out var payloadLength, out int bytesReadPayloadLength))
+            return 0; // Not enough data to read payload length.
+
+        payloadRemainingLength = checked((long)payloadLength);
+        streamReadingState = NextRequestReadingState(applicationProcessing, frameType);
+        buffer = buffer.Slice(bytesReadPayloadLength);
+        var bufferConsumed = bytesReadFrameType + bytesReadPayloadLength;
+        return bufferConsumed;
+    }
+
+    private long ReadReservedFrame(
+        ref long payloadRemainingLength,
+        ref StreamReadingStatus streamReadingState,
+        ReadOnlySequence<byte> buffer)
+    {
+        if (payloadRemainingLength < buffer.Length)
+            buffer = buffer.Slice(0, payloadRemainingLength);
+        var bufferConsumed = buffer.Length; // Read the complete reserved frame.
+        payloadRemainingLength -= bufferConsumed;
+        if (payloadRemainingLength == 0)
+            streamReadingState = StreamReadingStatus.ReadingFrameHeader;
+        return bufferConsumed;
+    }
+
+    private long ReadHeaderFrame<TContext>(IHttpApplication<TContext> application,
         ref long payloadRemainingLength,
         ref Task? applicationProcessing,
         ref StreamReadingStatus streamReadingState,
         ReadOnlySequence<byte> buffer,
         CancellationToken token) where TContext : notnull
     {
-        long bufferConsumed = 0;
-
-        if (streamReadingState == StreamReadingStatus.ReadingFrameHeader)
+        if (payloadRemainingLength < buffer.Length)
+            buffer = buffer.Slice(0, payloadRemainingLength);
+        var bufferConsumed = ProcessHeaderFrame(buffer);
+        payloadRemainingLength -= bufferConsumed;
+        if (payloadRemainingLength == 0)
         {
-            // FrameType is a single byte.
-            if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out var frameType, out int bytesReadFrameType))
-            {
-                // Not enough data to read payload length.
-                return 0;
-            }
-            buffer = buffer.Slice(bytesReadFrameType);
-            if (!VariableLenghtIntegerDecoder.TryRead(buffer, out var payloadLength, out int bytesReadPayloadLength))
-            {
-                // Not enough data to read payload length.
-                return 0;
-            }
-            payloadRemainingLength = checked((long)payloadLength);
-            streamReadingState = NextRequestReadingState(applicationProcessing, frameType);
-            buffer = buffer.Slice(bytesReadPayloadLength);
-            bufferConsumed += bytesReadFrameType + bytesReadPayloadLength;
-            return bufferConsumed;
+            streamReadingState = StreamReadingStatus.ReadingFrameHeader;
+            applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
         }
+        return bufferConsumed;
+    }
 
+    private async Task<(long Consumed, long PayloadRemaining, StreamReadingStatus Status)> ProcessDataFrameAsync(
+        long payloadRemainingLength,
+        StreamReadingStatus streamReadingState,
+        ReadOnlySequence<byte> buffer)
+    {
         if (payloadRemainingLength < buffer.Length)
             buffer = buffer.Slice(0, payloadRemainingLength);
 
-        if (streamReadingState == StreamReadingStatus.ReadingPayloadHeader)
-        {
-            bufferConsumed = ProcessHeaderFrame(buffer);
-            if (payloadRemainingLength == bufferConsumed)
-                applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
-        }
-
-        if (streamReadingState == StreamReadingStatus.ReadingPayloadData)
-            bufferConsumed = ProcessDataFrame(buffer);
-
-        if (streamReadingState == StreamReadingStatus.ReadingPayloadReserved)
-            bufferConsumed = buffer.Length; // Read the complete reserved frame.
+        foreach (var segment in buffer)
+            await _requestDataToAppPipe.Writer.WriteAsync(segment);
+        var bufferConsumed = buffer.Length;
 
         payloadRemainingLength -= bufferConsumed;
         if (payloadRemainingLength == 0)
             streamReadingState = StreamReadingStatus.ReadingFrameHeader;
-        return bufferConsumed;
+        return (bufferConsumed, payloadRemainingLength, streamReadingState);
     }
 
     private StreamReadingStatus NextRequestReadingState(Task? applicationProcessing, ulong frameType)
@@ -227,19 +257,14 @@ internal sealed partial class Http3Stream
 
     private async Task CloseStreamAsync()
     {
+        await _requestDataToAppPipe.Writer.CompleteAsync();
+        await _requestDataToAppPipe.Reader.CompleteAsync();
         await _dataReader.CompleteAsync();
         await _responseHeaderWriter.CompleteAsync();
         await _responseDataWriter.CompleteAsync();
         _quicStream?.Dispose();
         _streamCompletion.TrySetResult();
         _connection?.StreamClosed(this);
-    }
-
-    private long ProcessDataFrame(ReadOnlySequence<byte> buffer)
-    {
-        // 'Copy' to Body
-        return buffer.Length;
-
     }
 
     private long ProcessHeaderFrame(ReadOnlySequence<byte> buffer)
