@@ -167,7 +167,7 @@ internal sealed partial class Http3Stream
         Task? applicationProcessing,
         ReadOnlySequence<byte> buffer)
     {
-        if (!VariableLenghtIntegerDecoder.TryRead(buffer.FirstSpan, out var frameType, out int bytesReadFrameType))
+        if (!VariableLenghtIntegerDecoder.TryRead(buffer, out var frameType, out int bytesReadFrameType))
             return 0; // Not enough data to read payload length.
 
         buffer = buffer.Slice(bytesReadFrameType);
@@ -176,7 +176,6 @@ internal sealed partial class Http3Stream
 
         payloadRemainingLength = checked((long)payloadLength);
         streamReadingState = NextRequestReadingState(applicationProcessing, frameType);
-        buffer = buffer.Slice(bytesReadPayloadLength);
         var bufferConsumed = bytesReadFrameType + bytesReadPayloadLength;
         return bufferConsumed;
     }
@@ -186,9 +185,7 @@ internal sealed partial class Http3Stream
         ref StreamReadingStatus streamReadingState,
         ReadOnlySequence<byte> buffer)
     {
-        if (payloadRemainingLength < buffer.Length)
-            buffer = buffer.Slice(0, payloadRemainingLength);
-        var bufferConsumed = buffer.Length; // Read the complete reserved frame.
+        var bufferConsumed = payloadRemainingLength < buffer.Length ? payloadRemainingLength : buffer.Length; // Read the complete reserved frame.
         payloadRemainingLength -= bufferConsumed;
         if (payloadRemainingLength == 0)
             streamReadingState = StreamReadingStatus.ReadingFrameHeader;
