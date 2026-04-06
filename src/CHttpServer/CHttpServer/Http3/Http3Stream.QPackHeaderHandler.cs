@@ -15,6 +15,7 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     private string _hostDecoded;
     private byte[] _hostEncoded;
     private Pipe _requestDataToAppPipe;
+    private PipeReader _requestDataToAppPipeReader;
 
 
     public string Protocol { get => "HTTP/3"; set => throw new PlatformNotSupportedException(); }
@@ -29,7 +30,7 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
     IHeaderDictionary IHttpRequestFeature.Headers { get => _requestHeaders; set => throw new PlatformNotSupportedException(); }
 #pragma warning restore CS9266 // Property accessor should use 'field' because the other accessor is using it.
 
-    public PipeReader Reader => _requestDataToAppPipe.Reader;
+    public PipeReader Reader => _requestDataToAppPipeReader;
 
     private readonly Http3RequestHeaderCollection _requestHeaders;
 

@@ -150,33 +150,43 @@ public class Http3StreamTests
     public async Task SingleWrite_HeaderFrame_ReservedFrame_DataFrame()
     {
         var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
-        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
-        var sut = new Http3Stream([]);
-
-        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-        byte[] data = [.. await GetHeadersFrame(), .. GetData(30), .. GetReservedFrame(750), ..GetData(30)];
-        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
-        await clientStream.FlushAsync(TestContext.Current.CancellationToken);
-
-        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        sut.Initialize(null, await serverStreamTask);
-        var testApp = new TestBase.TestApplication(async ctx =>
+        for (int i = 0; i < 100; i++)
         {
-            Assert.Equal("/", ctx.Request.Path);
-            Assert.Equal("https", ctx.Request.Scheme);
-            Assert.Equal("localhost", ctx.Request.Host.ToString());
-            Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
-            var content = new MemoryStream();
-            await ctx.Request.BodyReader.CopyToAsync(content);
-            Assert.Equal(60, content.Length);
-            tcs.SetResult();
-        });
-        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+            var sut = new Http3Stream([]);
+            var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+            var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+            byte[] data = [.. await GetHeadersFrame(), .. GetData(30), .. GetReservedFrame(20), .. GetData(30), .. GetReservedFrame(20), .. GetData(1)];
+            await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+            await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
-        clientStream.Close();
-        await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+            TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            sut.Initialize(null, await serverStreamTask);
+            var testApp = new TestBase.TestApplication(async ctx =>
+            {
+                Assert.Equal("/", ctx.Request.Path);
+                Assert.Equal("https", ctx.Request.Scheme);
+                Assert.Equal("localhost", ctx.Request.Host.ToString());
+                Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
+                var content = new MemoryStream();
+                long totalLength = 0;
+                while (true)
+                {
+                    var readResult = await ctx.Request.BodyReader.ReadAsync();
+                    totalLength += readResult.Buffer.Length;
+                    ctx.Request.BodyReader.AdvanceTo(readResult.Buffer.End);
+                    if (readResult.IsCanceled || readResult.IsCompleted)
+                        break;
+                }
+                Assert.Equal(61L, totalLength);
+                tcs.SetResult();
+            });
+            var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
 
-        await processing;
+            clientStream.Close();
+            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+            await processing;
+        }
         await quicConnection.DisposeAsync();
     }
 

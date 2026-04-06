@@ -21,11 +21,14 @@ GET https://{{host}}/jsonresponse HTTP/2
 
 ###
 
-POST https://{{host}}/jsonrequest HTTP/2
+# @clientsCount 1
+# @requestCount 100
+# @shared-socketHandler true
+POST https://{{host}}/jsonrequest HTTP/3
 Content-Type: application/json
 
 {
-    "message": "Hello CHttp!"
+    "message": "Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp! Hello CHttp!"
 }
 
 ###

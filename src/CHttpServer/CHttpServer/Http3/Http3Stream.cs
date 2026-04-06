@@ -125,7 +125,19 @@ internal sealed partial class Http3Stream
                     else if (streamReadingState == StreamReadingStatus.ReadingPayloadData)
                         (bufferConsumed, payloadRemainingLength, streamReadingState) = await ProcessDataFrameAsync(payloadRemainingLength, streamReadingState, buffer);
                     else if (streamReadingState == StreamReadingStatus.ReadingPayloadHeader)
+                    {
                         bufferConsumed = ReadHeaderFrame(application, ref payloadRemainingLength, ref applicationProcessing, ref streamReadingState, buffer, token);
+                        if (payloadRemainingLength == 0)
+                        {
+                            totalBufferConsumed += bufferConsumed;
+                            _dataReader.AdvanceTo(readResult.Buffer.GetPosition(totalBufferConsumed), readResult.Buffer.GetPosition(totalBufferConsumed));
+                            if (!readResult.IsCompleted)
+                                CanHaveBody = true;
+                            _requestDataToAppPipeReader = new WrappingPipeReader(_dataReader);
+                            await StartApplicationProcessing(application, token);
+                            return;
+                        }
+                    }
                     else if (streamReadingState == StreamReadingStatus.ReadingPayloadReserved)
                         bufferConsumed = ReadReservedFrame(ref payloadRemainingLength, ref streamReadingState, buffer);
 
@@ -206,7 +218,7 @@ internal sealed partial class Http3Stream
         if (payloadRemainingLength == 0)
         {
             streamReadingState = StreamReadingStatus.ReadingFrameHeader;
-            applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
+            //applicationProcessing = Task.Run(() => StartApplicationProcessing(application, token), token);
         }
         return bufferConsumed;
     }
@@ -354,10 +366,10 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
             await WriteHeadersAsync(_responseTrailers); // todo trailers features
             _quicStream?.CompleteWrites();
         }
-        catch (Exception)
+        catch (Exception e)
         {
             _quicStream?.Dispose();
-            _quicStream = null;
+            //_quicStream = null;
         }
     }
 
