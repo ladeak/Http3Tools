@@ -615,18 +615,20 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
 {
     private readonly PipeReader _reader = reader;
     private readonly Action<int> _onReadCallback = onReadCallback;
-    private SequencePosition _lastReadStart;
+    private ReadOnlySequence<byte> _lastReadStart;
 
     public override void AdvanceTo(SequencePosition consumed)
     {
+        var consumedLength = _lastReadStart.Slice(_lastReadStart.Start, consumed).Length;
         _reader.AdvanceTo(consumed);
-        _onReadCallback(consumed.GetInteger() - _lastReadStart.GetInteger());
+        _onReadCallback(checked((int)consumedLength));
     }
 
     public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
     {
+        var consumedLength = _lastReadStart.Slice(_lastReadStart.Start, consumed).Length;
         _reader.AdvanceTo(consumed, examined);
-        _onReadCallback(consumed.GetInteger());
+        _onReadCallback(checked((int)consumedLength));
     }
 
     public override void CancelPendingRead()
@@ -643,7 +645,7 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
     {
         var result = await _reader.ReadAsync(cancellationToken);
         if (!result.IsCanceled)
-            _lastReadStart = result.Buffer.Start;
+            _lastReadStart = result.Buffer;
         return result;
     }
 
@@ -651,7 +653,7 @@ internal class Http2StreamPipeReader(PipeReader reader, Action<int> onReadCallba
     {
         var hasRead = _reader.TryRead(out result);
         if (!result.IsCanceled)
-            _lastReadStart = result.Buffer.Start;
+            _lastReadStart = result.Buffer;
         return hasRead;
     }
 
