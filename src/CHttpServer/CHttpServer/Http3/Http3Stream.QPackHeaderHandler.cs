@@ -14,8 +14,7 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
 
     private string _hostDecoded;
     private byte[] _hostEncoded;
-    private Pipe _requestDataToAppPipe;
-    private PipeReader _requestDataToAppPipeReader;
+    private Http3DeframingPipeReader _requestDataToAppPipeReader;
 
 
     public string Protocol { get => "HTTP/3"; set => throw new PlatformNotSupportedException(); }
