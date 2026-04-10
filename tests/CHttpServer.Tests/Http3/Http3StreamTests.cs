@@ -1,6 +1,5 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Quic;
-using System.Runtime.InteropServices;
 using CHttpServer.Http3;
 
 namespace CHttpServer.Tests.Http3;

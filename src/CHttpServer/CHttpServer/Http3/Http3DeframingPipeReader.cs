@@ -1,10 +1,8 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using CHttpServer.Http3;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 // TODO buffer segments
-
 
 internal sealed class Http3DeframingPipeReader : PipeReader
 {
