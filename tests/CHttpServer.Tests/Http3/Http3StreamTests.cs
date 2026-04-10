@@ -304,6 +304,96 @@ public class Http3StreamTests
         await quicConnection.DisposeAsync();
     }
 
+    [Theory]
+    [InlineData(31)]
+    [InlineData(100)]
+    [InlineData(1000)]
+    [InlineData(1024)]
+    public async Task ReadLargeHeaderLargeDataFrames_Split(int chunkSize)
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. await GetLargeHeadersFrame(), .. GetData(20000)];
+        for (int i = 1; i < data.Length / chunkSize; i++)
+        {
+            var sut = new Http3Stream([]);
+            var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+            var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+            await clientStream.WriteAsync(data.AsMemory(0, i * chunkSize), TestContext.Current.CancellationToken);
+            await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+
+            TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            sut.Initialize(null, await serverStreamTask);
+            var testApp = new TestBase.TestApplication(async ctx =>
+            {
+                Assert.Equal("/", ctx.Request.Path);
+                Assert.Equal("https", ctx.Request.Scheme);
+                Assert.Equal("localhost", ctx.Request.Host.ToString());
+                Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
+                long totalLength = 0;
+                while (true)
+                {
+                    var readResult = await ctx.Request.BodyReader.ReadAsync();
+                    ctx.Request.BodyReader.AdvanceTo(readResult.Buffer.End);
+                    totalLength += readResult.Buffer.Length;
+                    if (readResult.IsCanceled || readResult.IsCompleted)
+                        break;
+                }
+                Assert.Equal(20000, totalLength);
+                tcs.SetResult();
+            });
+            var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+
+            await clientStream.WriteAsync(data.AsMemory(i * chunkSize), TestContext.Current.CancellationToken);
+            await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+
+            clientStream.Close();
+            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+            await processing;
+        }
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Application_CopyTo()
+    {
+        int chunks = 512;
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. await GetLargeHeadersFrame(), .. GetData(10000)];
+        for (int i = 1; i < data.Length / chunks; i++)
+        {
+            var sut = new Http3Stream([]);
+            var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+            var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+            await clientStream.WriteAsync(data.AsMemory(0, i * chunks), TestContext.Current.CancellationToken);
+            await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+
+            TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            sut.Initialize(null, await serverStreamTask);
+            var testApp = new TestBase.TestApplication(async ctx =>
+            {
+                Assert.Equal("/", ctx.Request.Path);
+                Assert.Equal("https", ctx.Request.Scheme);
+                Assert.Equal("localhost", ctx.Request.Host.ToString());
+                Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
+                var ms = new MemoryStream();
+                await ctx.Request.BodyReader.CopyToAsync(ms);
+                Assert.Equal(10000, ms.Length);
+                tcs.SetResult();
+            });
+            var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+
+            await clientStream.WriteAsync(data.AsMemory(i * chunks), TestContext.Current.CancellationToken);
+            await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+
+            clientStream.Close();
+            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+            await processing;
+        }
+        await quicConnection.DisposeAsync();
+    }
+
     private static async Task<byte[]> GetHeadersFrame()
     {
         var encoder = new QPackDecoder();
@@ -313,6 +403,27 @@ public class Http3StreamTests
             { ":authority", "localhost" },
             { ":method", "GET" },
             { ":scheme", "https" }
+        };
+        MemoryStream ms = new();
+        var writer = PipeWriter.Create(ms);
+        encoder.Encode(headers, writer);
+        await writer.FlushAsync();
+        var payloadLength = VariableLenghtIntegerDecoder.Write(ms.Length);
+
+        return [1, .. payloadLength.Span, .. ms.GetBuffer().AsSpan(0, (int)ms.Length)];
+    }
+
+
+    private static async Task<byte[]> GetLargeHeadersFrame()
+    {
+        var encoder = new QPackDecoder();
+        var headers = new Http3ResponseHeaderCollection
+        {
+            { ":path", "/" },
+            { ":authority", "localhost" },
+            { ":method", "GET" },
+            { ":scheme", "https" },
+            { "x-custom-header", new string('a', 4096*2) }
         };
         MemoryStream ms = new();
         var writer = PipeWriter.Create(ms);

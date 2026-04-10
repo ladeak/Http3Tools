@@ -1,6 +1,10 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using CHttpServer.Http3;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
+// TODO buffer segments
+
 
 internal sealed class Http3DeframingPipeReader : PipeReader
 {
@@ -217,7 +221,7 @@ internal sealed class Http3DeframingPipeReader : PipeReader
         }
     }
 
-    private long ReadFrameHeader(ref long payloadRemainingLength, ref StreamReadingStatus streamReadingState, ReadOnlySequence<byte> buffer)
+    private static long ReadFrameHeader(ref long payloadRemainingLength, ref StreamReadingStatus streamReadingState, ReadOnlySequence<byte> buffer)
     {
         if (!VariableLenghtIntegerDecoder.TryRead(buffer, out var frameType, out int bytesReadFrameType))
             return 0; // Not enough data to read payload length.
@@ -232,13 +236,13 @@ internal sealed class Http3DeframingPipeReader : PipeReader
         return bufferConsumed;
     }
 
-    private long ReadFramePayload(long payloadRemainingLength, ReadOnlySequence<byte> buffer)
+    private static long ReadFramePayload(long payloadRemainingLength, ReadOnlySequence<byte> buffer)
     {
         var bufferConsumed = payloadRemainingLength < buffer.Length ? payloadRemainingLength : buffer.Length; // Read the complete reserved frame.
         return bufferConsumed;
     }
 
-    private StreamReadingStatus NextRequestReadingState(ulong frameType)
+    private static StreamReadingStatus NextRequestReadingState(ulong frameType)
     {
         StreamReadingStatus streamReadingState;
         switch (frameType)
@@ -257,15 +261,101 @@ internal sealed class Http3DeframingPipeReader : PipeReader
         return streamReadingState;
     }
 
-    public override Task CopyToAsync(PipeWriter destination, CancellationToken cancellationToken = default)
+    public override async Task CopyToAsync(PipeWriter destination, CancellationToken cancellationToken = default)
     {
-        // TODO
-        throw new PlatformNotSupportedException();
+        StreamReadingStatus streamState = StreamReadingStatus.ReadingFrameHeader;
+        long payloadRemainingLength = 0;
+        while (true)
+        {
+            var readResult = await _pipeReader.ReadAsync(cancellationToken);
+            var buffer = readResult.Buffer;
+            if (readResult.IsCanceled)
+            {
+                await destination.CompleteAsync(new OperationCanceledException());
+                return;
+            }
+            if (readResult.IsCompleted && readResult.Buffer.IsEmpty)
+            {
+                await destination.CompleteAsync();
+                return;
+            }
+            (payloadRemainingLength, streamState) = await CopyReadResultAsync(buffer, destination, CopyToPipe, streamState, payloadRemainingLength, cancellationToken);
+            _pipeReader.AdvanceTo(readResult.Buffer.End);
+            if (readResult.IsCompleted && payloadRemainingLength == 0)
+            {
+                await destination.CompleteAsync();
+                return;
+            }
+        }
+
+        static ValueTask CopyToPipe(ReadOnlyMemory<byte> data, PipeWriter dest, CancellationToken token)
+        {
+            var copy = dest.WriteAsync(data, token);
+            if (copy.IsCompletedSuccessfully)
+            {
+                copy.GetAwaiter().GetResult();
+                return ValueTask.CompletedTask;
+            }
+            return AwaitCopy(copy);
+
+            static async ValueTask AwaitCopy(ValueTask<FlushResult> copyTask)
+            {
+                await copyTask;
+            }
+        }
     }
 
-    public override Task CopyToAsync(Stream destination, CancellationToken cancellationToken = default)
+    public override async Task CopyToAsync(Stream destination, CancellationToken cancellationToken = default)
     {
-        // TODO
-        throw new PlatformNotSupportedException();
+        StreamReadingStatus streamState = StreamReadingStatus.ReadingFrameHeader;
+        long payloadRemainingLength = 0;
+        while (true)
+        {
+            var readResult = await _pipeReader.ReadAsync(cancellationToken);
+            var buffer = readResult.Buffer;
+            if (readResult.IsCanceled || (readResult.IsCompleted && readResult.Buffer.IsEmpty))
+                return;
+            (payloadRemainingLength, streamState) = await CopyReadResultAsync(buffer, destination, static (data, dest, token) => dest.WriteAsync(data, token), streamState, payloadRemainingLength, cancellationToken);
+            _pipeReader.AdvanceTo(readResult.Buffer.End);
+            if (readResult.IsCompleted && payloadRemainingLength == 0)
+                return;
+        }
+    }
+
+    private static async ValueTask<(long, StreamReadingStatus)> CopyReadResultAsync<TDestination>(
+        ReadOnlySequence<byte> buffer,
+        TDestination destination,
+        Func<ReadOnlyMemory<byte>, TDestination, CancellationToken, ValueTask> write,
+        StreamReadingStatus state,
+        long payloadRemainingLength,
+        CancellationToken token)
+    {
+        while (!buffer.IsEmpty)
+        {
+            long bufferConsumed = 0;
+            if (state == StreamReadingStatus.ReadingFrameHeader)
+            {
+                bufferConsumed = ReadFrameHeader(ref payloadRemainingLength, ref state, buffer);
+            }
+            else if (state == StreamReadingStatus.ReadingPayloadData)
+            {
+                bufferConsumed = ReadFramePayload(payloadRemainingLength, buffer);
+                payloadRemainingLength -= bufferConsumed;
+                var dataPayload = buffer.Slice(0, bufferConsumed);
+                foreach (var s in dataPayload)
+                    await write(s, destination, token);
+            }
+            else if (state == StreamReadingStatus.ReadingPayloadReserved)
+            {
+                bufferConsumed = ReadFramePayload(payloadRemainingLength, buffer);
+                payloadRemainingLength -= bufferConsumed;
+            }
+
+            buffer = buffer.Slice(bufferConsumed);
+            if (payloadRemainingLength == 0)
+                state = StreamReadingStatus.ReadingFrameHeader;
+        }
+
+        return (payloadRemainingLength, state);
     }
 }
