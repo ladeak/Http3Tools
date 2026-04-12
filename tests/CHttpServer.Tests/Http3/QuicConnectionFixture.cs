@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Quic;
 using System.Net.Security;
 using System.Security.Authentication;
@@ -37,14 +38,15 @@ internal static class QuicConnectionFixture
                 ServerCertificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"),
                 ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())],
                 EnabledSslProtocols = SslProtocols.Tls13
-            }
+            },
+            IdleTimeout = Debugger.IsAttached ? TimeSpan.MaxValue : TimeSpan.Zero,
         };
         var listener = await QuicListener.ListenAsync(new QuicListenerOptions
         {
             ListenEndPoint = new IPEndPoint(IPAddress.Loopback, port),
             ListenBacklog = 1,
             ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())],
-            ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(serverConnectionOptions)
+            ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(serverConnectionOptions),
         }, token);
         var quicServerConnecting = listener.AcceptConnectionAsync(token);
         return (quicServerConnecting, listener);
@@ -58,7 +60,8 @@ internal static class QuicConnectionFixture
             DefaultCloseErrorCode = 0x0100,
             DefaultStreamErrorCode = 0x010C,
             MaxInboundUnidirectionalStreams = 1,
-            ClientAuthenticationOptions = new SslClientAuthenticationOptions() { RemoteCertificateValidationCallback = (_, _, _, _) => true, ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())] }
+            ClientAuthenticationOptions = new SslClientAuthenticationOptions() { RemoteCertificateValidationCallback = (_, _, _, _) => true, ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())] },
+            IdleTimeout = Debugger.IsAttached ? TimeSpan.MaxValue : TimeSpan.Zero,
         }, token);
     }
 }

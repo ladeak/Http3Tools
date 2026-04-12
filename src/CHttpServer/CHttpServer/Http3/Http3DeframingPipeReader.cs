@@ -2,8 +2,6 @@
 using System.IO.Pipelines;
 using CHttpServer.Http3;
 
-// TODO buffer segments
-
 internal sealed class Http3DeframingPipeReader : PipeReader
 {
     private enum StreamReadingStatus
@@ -15,7 +13,7 @@ internal sealed class Http3DeframingPipeReader : PipeReader
 
     private class Segment : ReadOnlySequenceSegment<byte>
     {
-        public Segment(ReadOnlyMemory<byte> data, object? source, int sourceOffset, long framePayloadRemaining)
+        public void Initialize(ReadOnlyMemory<byte> data, object? source, int sourceOffset, long framePayloadRemaining)
         {
             base.Memory = data;
             Source = source;
@@ -23,9 +21,9 @@ internal sealed class Http3DeframingPipeReader : PipeReader
             FramePayloadRemaining = framePayloadRemaining;
         }
 
-        public object? Source { get; }
-        public int SourceOffset { get; }
-        public long FramePayloadRemaining { get; }
+        public object? Source { get; private set; }
+        public int SourceOffset { get; private set; }
+        public long FramePayloadRemaining { get; private set; }
 
         public Segment SetNext(Segment s)
         {
@@ -54,6 +52,15 @@ internal sealed class Http3DeframingPipeReader : PipeReader
             throw new InvalidOperationException("Not a Segment");
         }
 
+        public void Reset()
+        {
+            Memory = ReadOnlyMemory<byte>.Empty;
+            Source = null;
+            SourceOffset = 0; FramePayloadRemaining = 0;
+            RunningIndex = 0;
+            Next = null;
+        }
+
         public SequencePosition End => new SequencePosition(this, Memory.Length);
     }
 
@@ -62,10 +69,12 @@ internal sealed class Http3DeframingPipeReader : PipeReader
     private long _payloadRemainingLength = 0;
     private Segment? _head;
     private Segment? _tail;
+    private Stack<Segment> _segmentsBuffer;
 
     public Http3DeframingPipeReader(PipeReader pipeReader)
     {
         _pipeReader = pipeReader;
+        _segmentsBuffer = new Stack<Segment>(capacity: 10);
     }
 
     public void Reset(PipeReader pipeReader)
@@ -77,7 +86,7 @@ internal sealed class Http3DeframingPipeReader : PipeReader
         _streamReadingState = StreamReadingStatus.ReadingFrameHeader;
     }
 
-    private void AddSegment(Segment s)
+    private void AppendDataSegment(Segment s)
     {
         if (_tail == null)
             _head = _tail = s;
@@ -109,6 +118,9 @@ internal sealed class Http3DeframingPipeReader : PipeReader
         sourceOffset = segmentExamined.SourceOffset + examined.GetInteger();
         sourceObject = segmentExamined.Source;
         examined = new SequencePosition(sourceObject, sourceOffset);
+
+        while (_head != segmentConsumed && _head != null)
+            _head = ReturnSegment(_head);
 
         _payloadRemainingLength = segmentConsumed.FramePayloadRemaining - segmentOffset;
         if (_payloadRemainingLength == 0)
@@ -155,6 +167,8 @@ internal sealed class Http3DeframingPipeReader : PipeReader
     // at the beginning of the segment.
     private bool ProcessReadResult(ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> sequence)
     {
+        while (_head != null)
+            _head = ReturnSegment(_head);
         _head = _tail = null;
         sequence = ReadOnlySequence<byte>.Empty;
         long bufferConsumed = 0;
@@ -173,9 +187,10 @@ internal sealed class Http3DeframingPipeReader : PipeReader
                 foreach (var s in dataPayload)
                 {
                     var position = buffer.GetPosition(currentPosition);
-                    var segment = new Segment(s, position.GetObject(), position.GetInteger(), currentPayloadRemainingLength);
+                    var segment = RentSegment();
+                    segment.Initialize(s, position.GetObject(), position.GetInteger(), currentPayloadRemainingLength);
                     currentPayloadRemainingLength -= s.Length;
-                    AddSegment(segment);
+                    AppendDataSegment(segment);
                     currentPosition += s.Length;
                 }
             }
@@ -257,6 +272,21 @@ internal sealed class Http3DeframingPipeReader : PipeReader
                 break;
         }
         return streamReadingState;
+    }
+
+    private Segment RentSegment()
+    {
+        if (!_segmentsBuffer.TryPop(out var segment))
+            segment = new Segment();
+        return segment;
+    }
+
+    private Segment? ReturnSegment(Segment segment)
+    {
+        var next = segment.Next;
+        segment.Reset();
+        _segmentsBuffer.Push(segment);
+        return next as Segment;
     }
 
     public override async Task CopyToAsync(PipeWriter destination, CancellationToken cancellationToken = default)
