@@ -111,9 +111,9 @@ public class Http3StreamTests
     public async Task MultipleWrites_HeaderFrame_ReservedFrame()
     {
         byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetReservedFrame(10)];
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         for (int i = 1; i < data.Length; i++)
         {
-            var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
             var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
             var sut = new Http3Stream([]);
 
@@ -140,8 +140,8 @@ public class Http3StreamTests
             await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
             clientStream.Close();
             await processing;
-            await quicConnection.DisposeAsync();
         }
+        await quicConnection.DisposeAsync();
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class Http3StreamTests
             var sut = new Http3Stream([]);
             var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
             var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(1)];
+            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(1)];
             await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -196,7 +196,7 @@ public class Http3StreamTests
         var sut = new Http3Stream([]);
 
         var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-        byte[] data = [.. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetHeadersFrame()]; // DATA before HEADERS is in-order
+        byte[] data = [.. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetHeadersFrame()]; // DATA before HEADERS is in-order
         await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
         await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -216,7 +216,7 @@ public class Http3StreamTests
             var sut = new Http3Stream([]);
             var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
             var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(1)];
+            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(1)];
             await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -260,7 +260,7 @@ public class Http3StreamTests
             var sut = new Http3Stream([]);
             var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
             var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
-            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetData(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(33300), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetData(3)];
+            byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(30), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(33300), .. Http3FrameFixture.GetReservedFrame(20), .. Http3FrameFixture.GetDataFrame(3)];
             await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -310,7 +310,7 @@ public class Http3StreamTests
     public async Task ReadLargeHeaderLargeDataFrames_Split(int chunkSize)
     {
         var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
-        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame(), .. Http3FrameFixture.GetData(20000)];
+        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame(), .. Http3FrameFixture.GetDataFrame(20000)];
         for (int i = 1; i < data.Length / chunkSize; i++)
         {
             var sut = new Http3Stream([]);
@@ -357,7 +357,7 @@ public class Http3StreamTests
     {
         int chunks = 512;
         var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
-        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame(), .. Http3FrameFixture.GetData(10000)];
+        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame(), .. Http3FrameFixture.GetDataFrame(10000)];
         for (int i = 1; i < data.Length / chunks; i++)
         {
             var sut = new Http3Stream([]);

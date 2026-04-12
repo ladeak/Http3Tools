@@ -84,18 +84,18 @@ internal class Http3FrameFixture
         return [1, .. payloadLength.Span, .. writer.WrittenData];
     }
 
-    public static byte[] GetData(int length)
-    {
-        var payloadLength = VariableLenghtIntegerDecoder.Write(length);
-        var payload = Enumerable.Sequence(0, length - 1, 1).Select(x => (byte)x);
-        return [0, .. payloadLength.Span, .. payload];
-    }
-
     public static byte[] GetReservedFrame(int length, int seed = 2)
     {
         var frameType = VariableLenghtIntegerDecoder.Write(seed * 0x1f + 0x21);
         var payloadLength = VariableLenghtIntegerDecoder.Write(length);
         var payload = Enumerable.Sequence(0, length - 1, 1).Select(x => (byte)x);
         return [.. frameType.Span, .. payloadLength.Span, .. payload];
+    }
+
+    public static byte[] GetDataFrame(int length)
+    {
+        var payloadLength = VariableLenghtIntegerDecoder.Write(length);
+        var payload = Enumerable.Sequence(0, length - 1, 1).Select(x => (byte)x);
+        return [0, .. payloadLength.Span, .. payload];
     }
 }
