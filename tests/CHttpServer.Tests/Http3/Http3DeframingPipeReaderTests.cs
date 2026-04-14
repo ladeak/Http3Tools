@@ -1,4 +1,5 @@
-﻿using System.IO.Pipelines;
+﻿using System.ComponentModel.DataAnnotations;
+using System.IO.Pipelines;
 using CHttpServer.Http3;
 
 namespace CHttpServer.Tests.Http3;
@@ -180,27 +181,24 @@ public class Http3DeframingPipeReaderTests
     public async Task Reset(int frameSize)
     {
         var sut = new Http3DeframingPipeReader(PipeReader.Create(Stream.Null));
-        for (int i = 0; i < 32; i++)
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
+        sut.Reset(pipe.Reader);
+        var readingTask = ReadToStreamAsync(sut);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4097), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4095), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+
+        pipe.Writer.Complete();
+        long totalDataLength = await readingTask;
+        Assert.Equal(frameSize * 2, totalDataLength);
+
+        static async Task<long> ReadToStreamAsync(Http3DeframingPipeReader sut)
         {
-            var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
-            sut.Reset(pipe.Reader);
-            var readingTask = ReadToStreamAsync(sut);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4097), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4095), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
-
-            pipe.Writer.Complete();
-            long totalDataLength = await readingTask;
-            Assert.Equal(frameSize * 2, totalDataLength);
-
-            static async Task<long> ReadToStreamAsync(Http3DeframingPipeReader sut)
-            {
-                var ms = new MemoryStream();
-                await sut.CopyToAsync(ms);
-                return ms.Length;
-            }
+            var ms = new MemoryStream();
+            await sut.CopyToAsync(ms);
+            return ms.Length;
         }
     }
 
@@ -213,35 +211,95 @@ public class Http3DeframingPipeReaderTests
     public async Task AdvanceTo_Small(int frameSize)
     {
         var sut = new Http3DeframingPipeReader(PipeReader.Create(Stream.Null));
-        for (int i = 0; i < 32; i++)
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
+        sut.Reset(pipe.Reader);
+        var readingTask = ReadAsync(sut);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4097), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4095), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+
+        pipe.Writer.Complete();
+        long totalDataLength = await readingTask;
+        Assert.Equal(frameSize * 2, totalDataLength);
+
+        static async Task<long> ReadAsync(Http3DeframingPipeReader sut)
         {
-            var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
-            sut.Reset(pipe.Reader);
-            var readingTask = ReadAsync(sut);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4097), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4095), TestContext.Current.CancellationToken);
-            await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
-
-            pipe.Writer.Complete();
-            long totalDataLength = await readingTask;
-            Assert.Equal(frameSize * 2, totalDataLength);
-
-            static async Task<long> ReadAsync(Http3DeframingPipeReader sut)
+            long totalLength = 0;
+            while (true)
             {
-                long totalLength = 0;
-                while (true)
-                {
-                    var result = await sut.ReadAsync(TestContext.Current.CancellationToken);
-                    var offset = result.Buffer.Length > 128 ? 128 : result.Buffer.Length;
-                    sut.AdvanceTo(result.Buffer.GetPosition(offset));
-                    totalLength += offset;
-                    if ((result.IsCompleted && result.Buffer.IsEmpty) || result.IsCanceled)
-                        break;
-                }
-                return totalLength;
+                var result = await sut.ReadAsync(TestContext.Current.CancellationToken);
+                var offset = result.Buffer.Length > 128 ? 128 : result.Buffer.Length;
+                sut.AdvanceTo(result.Buffer.GetPosition(offset));
+                totalLength += offset;
+                if ((result.IsCompleted && result.Buffer.IsEmpty) || result.IsCanceled)
+                    break;
             }
+            return totalLength;
         }
+    }
+
+    [Theory]
+    [InlineData(16001)]
+    [InlineData(32022)]
+    [InlineData(64500)]
+    public async Task AdvanceTo_Large(int frameSize)
+    {
+        var sut = new Http3DeframingPipeReader(PipeReader.Create(Stream.Null));
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
+        sut.Reset(pipe.Reader);
+        var readingTask = ReadAsync(sut);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4097), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4095), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+
+        pipe.Writer.Complete();
+        long totalDataLength = await readingTask;
+        Assert.Equal(frameSize * 2, totalDataLength);
+
+        static async Task<long> ReadAsync(Http3DeframingPipeReader sut)
+        {
+            long totalLength = 0;
+            while (true)
+            {
+                var result = await sut.ReadAsync(TestContext.Current.CancellationToken);
+                var offset = result.Buffer.Length > 8192 ? 8192 : result.Buffer.Length;
+                sut.AdvanceTo(result.Buffer.GetPosition(offset));
+                totalLength += offset;
+                if ((result.IsCompleted && result.Buffer.IsEmpty) || result.IsCanceled)
+                    break;
+            }
+            return totalLength;
+        }
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(32)]
+    [InlineData(40)]
+    [InlineData(16192)]
+    [InlineData(32385)]
+    public async Task MixedFrames_Write_TryRead(int frameSize)
+    {
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 0));
+        var sut = new Http3DeframingPipeReader(pipe.Reader);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4096), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetDataFrame(frameSize), TestContext.Current.CancellationToken);
+        await pipe.Writer.WriteAsync(Http3FrameFixture.GetReservedFrame(4096), TestContext.Current.CancellationToken);
+        pipe.Writer.Complete();
+        long totalDataLength = 0;
+        while (sut.TryRead(out var result))
+        {
+            totalDataLength += result.Buffer.Length;
+            sut.AdvanceTo(result.Buffer.End);
+            if ((result.IsCompleted && result.Buffer.IsEmpty) || result.IsCanceled)
+                break;
+        }
+        Assert.Equal(frameSize * 2, totalDataLength);
     }
 }
