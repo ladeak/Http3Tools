@@ -70,7 +70,7 @@ internal class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
             return false;
 
         ReadOnlySpan<char> Size = "";
-        ReadOnlySpan<char> Format = "###0";
+        ReadOnlySpan<char> Format = "###0.00";
         bool result = false;
         var absValue = T.Abs(value);
         if (absValue >= TeraByte)
@@ -78,27 +78,27 @@ internal class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
             result = (value / TeraByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "TB";
         }
-        if (absValue >= GigaByte)
+        else if (absValue >= GigaByte)
         {
             result = (value / GigaByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "GB";
         }
-        if (absValue >= MegaByte)
+        else if (absValue >= MegaByte)
         {
             result = (value / MegaByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "MB";
         }
-        if (absValue >= KiloByte)
+        else if (absValue >= KiloByte)
         {
             result = (value / KiloByte).TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = "KB";
         }
-        if (absValue < KiloByte)
+        else if (absValue < KiloByte)
         {
             result = value.TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
             Size = " B";
         }
-        if (count > 4 || !result)
+        if (count > 7 || !result)
             return false;
 
         result = Size.TryCopyTo(destination.Slice(count));

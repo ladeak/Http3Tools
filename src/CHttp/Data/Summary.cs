@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using CHttp.Abstractions;
 
@@ -6,6 +7,7 @@ namespace CHttp.Data;
 
 public record struct Summary
 {
+    [SetsRequiredMembers]
     public Summary(string url)
     {
         Error = string.Empty;
@@ -13,6 +15,7 @@ public record struct Summary
         StartTime = Stopwatch.GetTimestamp();
     }
 
+    [SetsRequiredMembers]
     internal Summary(string url, DateTime startTime, TimeSpan duration)
     {
         Error = string.Empty;
@@ -23,7 +26,7 @@ public record struct Summary
         EndTime = StartTime + duration.Ticks;
     }
 
-    public string Url { get; init; }
+    public required string Url { get; init; }
 
     public string Error { get; init; }
 
@@ -61,18 +64,19 @@ public record struct Summary
         if (!string.IsNullOrEmpty(Error))
             return Error;
 
-        return string.Create(Url.Length + 7 + 16 + 3, (Length, Url, Duration), static (buffer, inputs) =>
+        return string.Create(Url.Length + 10 + 16 + 3, (Length, Url, Duration), static (buffer, inputs) =>
         {
             inputs.Url.CopyTo(buffer);
             buffer = buffer.Slice(inputs.Url.Length);
             buffer[0] = ' ';
             buffer = buffer.Slice(1);
             var responseSize = inputs.Length;
-            if (!SizeFormatter<long>.TryFormatSize(responseSize, buffer, out var count))
-                ThrowInvalidOperationException();
-            buffer = buffer.Slice(count);
-            buffer[0] = ' ';
-            buffer = buffer.Slice(1);
+            if (SizeFormatter<double>.TryFormatSize(responseSize, buffer, out var count))
+            {
+                buffer = buffer.Slice(count);
+                buffer[0] = ' ';
+                buffer = buffer.Slice(1);
+            }
             if (!inputs.Duration.TryFormat(buffer, out count, "c"))
                 ThrowInvalidOperationException();
             buffer = buffer.Slice(count);
