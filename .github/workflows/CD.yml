@@ -69,7 +69,7 @@ jobs:
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
         # CHttp Aot Linux
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION} -p:PublishAot=true --runtime linux-x64
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION} -p:PublishAot=true --runtime linux-x64 --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
         # CHttpExecutor
         dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
