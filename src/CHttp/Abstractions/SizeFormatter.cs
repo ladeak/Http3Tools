@@ -71,6 +71,7 @@ internal class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
 
         ReadOnlySpan<char> Size = "";
         ReadOnlySpan<char> Format = "###0.00";
+        ReadOnlySpan<char> ByteFormat = "###0";
         bool result = false;
         var absValue = T.Abs(value);
         if (absValue >= TeraByte)
@@ -95,7 +96,7 @@ internal class SizeFormatter<T> : INumberFormatter<T> where T : IBinaryNumber<T>
         }
         else if (absValue < KiloByte)
         {
-            result = value.TryFormat(destination, out count, Format, CultureInfo.InvariantCulture);
+            result = value.TryFormat(destination, out count, ByteFormat, CultureInfo.InvariantCulture);
             Size = " B";
         }
         if (count > 7 || !result)
