@@ -91,6 +91,6 @@
   "dependencies": {
     "mime-types": "^2.1.35",
     "jsonpath-plus": "^8.1.0",
-    "node-api-dotnet": "^0.7.9"
+    "node-api-dotnet": "^0.9.19"
   }
 }

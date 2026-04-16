@@ -299,9 +299,11 @@ await session.PrintStatsAsync();
 
 Run the following commands to publish the native dependencis of the VS Code Extension and to copy them to the extension's dependencies:
 
+For this use that latest .NET major version:
+
 ```$
-dotnet publish src/CHttpExtension -r win-x64
-cp ./src/CHttpExtension/bin/Release/net11.0/win-x64/publish/* ./src/VSCodeExt/src/chttp-win-x64
+dotnet publish src/CHttpExtension -r win-x64 -f net10.0
+cp ./src/CHttpExtension/bin/Release/net10.0/win-x64/publish/* ./src/VSCodeExt/src/chttp-win-x64
 ```
 
 ### Cleanup NPM
