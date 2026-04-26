@@ -82,7 +82,8 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         _isCompleted = true;
         try
         {
-            Flush();
+            if (_unflushedBytes != 0)
+                Flush();
         }
         finally
         {
@@ -100,7 +101,8 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         _isCompleted = true;
         try
         {
-            await FlushAsync();
+            if (_unflushedBytes != 0)
+                await FlushAsync();
         }
         finally
         {
@@ -253,7 +255,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         return new FlushResult(isCanceled: false, isCompleted: false);
     }
 
-    private void Flush()
+    public void Flush()
     {
         if (_unflushedBytes == 0)
             return;

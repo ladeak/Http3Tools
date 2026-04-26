@@ -67,9 +67,14 @@ internal sealed partial class QPackDecoder
         }
     }
 
-    public async Task Reset()
+    public void Reset()
     {
         _status = DecoderState.ReadRequiredInsertionCount;
+        //_huffmanEncoding = false;
+        //_fieldNameIndex = 0;
+        //_fieldNameLength = 0;
+        //_fieldName = ReadOnlySequence<byte>.Empty;
+        //_fieldValueLength = 0;
     }
 
     public async Task Close()

@@ -60,8 +60,6 @@ internal sealed partial class Http3Stream
             (typeof(IHttpResponseTrailersFeature), this),
             (typeof(IRequestBodyPipeFeature), this),
             (typeof(IHttpRequestBodyDetectionFeature), this));
-
-        //_features.Add<IHttpRequestBodyDetectionFeature>(this);
         //_features.Add<IHttpRequestLifetimeFeature>(this);
         //_features.Add<IPriority9218Feature>(this);
         _features.Checkpoint();
@@ -73,26 +71,31 @@ internal sealed partial class Http3Stream
 
     public void Initialize(Http3Connection? connection, QuicStream quicStream)
     {
-        Id = quicStream.Id;
         _connection = connection;
-        _quicStream = quicStream;
+        Id = quicStream.Id;
         _dataReader = PipeReader.Create(quicStream);
-        _responseDataWriter.Reset(quicStream, StartAsync);
+        _responseDataWriter.Reset(quicStream, async ct => await StartImplAsync(ct));
         _responseHeaderWriter.Reset(quicStream);
         Scheme = string.Empty;
         Method = string.Empty;
         QueryString = string.Empty;
         _isPathSet = false; // The actual Path is not reset.
+        StatusCode = 200;
+        _hasStarted = 0;
+        _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private void ReleaseState()
+    {
+        _quicStream = null;
         _features.ResetCheckpoint();
         _requestHeaders.ResetHeaderCollection();
         _responseHeaders.ResetHeaderCollection();
         _responseTrailers.ResetHeaderCollection();
-        StatusCode = 200;
-        _hasStarted = 0;
         _onStartingCallback = null;
         _onCompletedCallback = null;
+        _qpackDecoder.Reset();
         _streamCompletion.TrySetResult(); // Complete previous instance.
-        _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     public async void ProcessStream<TContext>(IHttpApplication<TContext> application, CancellationToken token)
@@ -201,10 +204,11 @@ internal sealed partial class Http3Stream
     {
         await _requestDataToAppPipeReader.CompleteAsync();
         await _dataReader.CompleteAsync();
-        await _responseHeaderWriter.CompleteAsync();
-        await _responseDataWriter.CompleteAsync();
+        _responseHeaderWriter.Complete();
+        _responseDataWriter.Complete();
         _quicStream?.Dispose();
         _streamCompletion.TrySetResult();
+        ReleaseState();
         _connection?.StreamClosed(this);
     }
 
@@ -260,15 +264,32 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
         throw new PlatformNotSupportedException();
 
     // Called by Http3DataFramingStreamWriter before the first write or the application
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public Task StartAsync(CancellationToken cancellationToken = default) => StartImplAsync(cancellationToken).AsTask();
+
+    private ValueTask<FlushResult> StartImplAsync(CancellationToken cancellationToken = default)
     {
         if (Interlocked.CompareExchange(ref _hasStarted, 1, 0) != 0)
-            return;
+            return ValueTask.FromResult(new FlushResult(false, true));
         _requestHeaders.SetReadOnly();
+
         if (_onStartingCallback.HasValue)
-            await _onStartingCallback.Value.Callback(_onStartingCallback.Value.State);
-        _responseHeaders.SetReadOnly();
-        await WriteHeadersAsync(StatusCode, _responseHeaders);
+            return StatingCallbackWithWriteHeaders();
+        else
+            return WriteHeaders();
+
+        async ValueTask<FlushResult> StatingCallbackWithWriteHeaders()
+        {
+            if (_onStartingCallback.HasValue)
+                await _onStartingCallback.Value.Callback(_onStartingCallback.Value.State);
+            _responseHeaders.SetReadOnly();
+            return await WriteHeadersAsync(StatusCode, _responseHeaders);
+        }
+
+        ValueTask<FlushResult> WriteHeaders()
+        {
+            _responseHeaders.SetReadOnly();
+            return WriteHeadersAsync(StatusCode, _responseHeaders);
+        }
     }
 
     // StartApplicationProcessing start application processing
@@ -289,11 +310,15 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
 
             // Invoke start to make sure headers written when no DATA in the response.
             // When DATA frames are written, the DATA writer invokes it before the first write.
-            await StartAsync(token);
+            if (_hasStarted == 0)
+                await StartImplAsync(token);
 
             // Write trailers
-            _responseTrailers.SetReadOnly();
-            await WriteHeadersAsync(_responseTrailers); // todo trailers features
+            if (_responseTrailers.Count > 0)
+            {
+                _responseTrailers.SetReadOnly();
+                await WriteHeadersAsync(_responseTrailers);
+            }
             _quicStream?.CompleteWrites();
         }
         catch (Exception e)
@@ -303,16 +328,16 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
         }
     }
 
-    private async Task WriteHeadersAsync(int statusCode, Http3ResponseHeaderCollection headers)
+    private ValueTask<FlushResult> WriteHeadersAsync(int statusCode, Http3ResponseHeaderCollection headers)
     {
         _qpackDecoder.Encode(statusCode, headers, _responseHeaderWriter);
-        await _responseHeaderWriter.FlushAsync();
+        return _responseHeaderWriter.FlushAsync();
     }
 
-    private async Task WriteHeadersAsync(Http3ResponseHeaderCollection headers)
+    private ValueTask<FlushResult> WriteHeadersAsync(Http3ResponseHeaderCollection headers)
     {
         _qpackDecoder.Encode(headers, _responseHeaderWriter);
-        await _responseHeaderWriter.FlushAsync();
+        return _responseHeaderWriter.FlushAsync();
     }
 }
 

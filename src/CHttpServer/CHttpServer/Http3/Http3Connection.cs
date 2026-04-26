@@ -35,6 +35,8 @@ internal sealed partial class Http3Connection
     private volatile bool _isAborted;
     private TaskCompletionSource _processingCompleted;
 
+    private LimitedObjectPool<Http3Stream> _streamPool;
+
     public Http3Connection(CHttp3ConnectionContext connectionContext)
     {
         _context = connectionContext;
@@ -47,6 +49,7 @@ internal sealed partial class Http3Connection
 
         _streams = new(-1, 8);
         _processingCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _streamPool = new();
     }
 
     internal async Task ProcessConnectionAsync<TContext>(
@@ -147,7 +150,9 @@ internal sealed partial class Http3Connection
 
     internal void StreamClosed(Http3Stream stream)
     {
-        _streams.TryRemove(stream.Id, out _);
+        if (_streams.TryRemove(stream.Id, out _))
+            // cleanup and release deps in stream?!
+            _streamPool.Return(stream);
     }
 
     internal void StreamError(int errorCode) => Abort(errorCode);
@@ -178,9 +183,9 @@ internal sealed partial class Http3Connection
         _maxProcessedStreamId = Math.Max(quicStream.Id, _maxProcessedStreamId);
         if (quicStream.Type == QuicStreamType.Bidirectional)
         {
-            // Create Http3Stream DATA stream 
-            // TODO pool streams
-            var http3Stream = new Http3Stream(_context.Features.Copy());
+            // Create Http3Stream DATA stream
+            // todo
+            var http3Stream = _streamPool.Get(static state => new Http3Stream(state.Features.Copy()), (_context.Features, this));
             _streams.TryAdd(quicStream.Id, http3Stream);
             http3Stream.Initialize(this, quicStream);
             ThreadPool.UnsafeQueueUserWorkItem(
