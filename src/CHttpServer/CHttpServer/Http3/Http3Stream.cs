@@ -165,7 +165,8 @@ internal sealed partial class Http3Stream
         }
         finally
         {
-            await CloseStreamAsync();
+            await _dataReader.CompleteAsync();
+            CloseStream();
         }
     }
 
@@ -200,13 +201,12 @@ internal sealed partial class Http3Stream
         throw new Http3ConnectionException(ErrorCodes.H3FrameUnexpected);
     }
 
-    private async Task CloseStreamAsync()
+    private void CloseStream()
     {
-        await _requestDataToAppPipeReader.CompleteAsync();
-        await _dataReader.CompleteAsync();
+        _quicStream?.Dispose();
+        //await _requestDataToAppPipeReader.CompleteAsync();
         _responseHeaderWriter.Complete();
         _responseDataWriter.Complete();
-        _quicStream?.Dispose();
         _streamCompletion.TrySetResult();
         ReleaseState();
         _connection?.StreamClosed(this);
