@@ -474,30 +474,6 @@ public class Http3HeaderFramingStreamWriterTests
         Assert.Equal(expected, ms.ToArray());
     }
 
-    private class WaitBeforeWriteStream(TaskCompletionSource tcs) : MemoryStream
-    {
-        public int WrittenBytes { get; private set; }
-
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await tcs.Task;
-            await base.WriteAsync(buffer, cancellationToken);
-            WrittenBytes += buffer.Length;
-        }
-    }
-
-    private class WaitAfterWriteStream(TaskCompletionSource tcs) : MemoryStream
-    {
-        public int WrittenBytes { get; private set; }
-
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await base.WriteAsync(buffer, cancellationToken);
-            WrittenBytes += buffer.Length;
-            await tcs.Task;
-        }
-    }
-
     private class TestArrayPool : ArrayPool<byte>
     {
         private readonly ArrayPool<byte> _internalPool;

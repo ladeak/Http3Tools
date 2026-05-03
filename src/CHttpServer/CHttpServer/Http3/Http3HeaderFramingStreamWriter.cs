@@ -165,8 +165,6 @@ internal class Http3HeaderFramingStreamWriter(Stream responseStream, ArrayPool<b
         {
             _isCompleted = true;
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            if (!cancellationToken.IsCancellationRequested)
-                return new FlushResult(isCanceled: true, isCompleted: false);
             throw;
         }
         catch (Exception)
