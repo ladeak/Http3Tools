@@ -37,7 +37,7 @@ internal sealed partial class Http3Stream
         _requestDataToAppPipeReader = new(PipeReader.Create(ReadOnlySequence<byte>.Empty));
         _requestDataToAppPipeReader.Complete();
         _responseDataWriter = new(Stream.Null, frameType: 0);
-        _responseHeaderWriter = new(Stream.Null, frameType: 1);
+        _responseHeaderWriter = new(Stream.Null);
         _qpackDecoder = new QPackDecoder();
         _pathEncoded = [];
         _hostDecoded = "";
@@ -243,7 +243,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
 {
     private readonly Http3ResponseHeaderCollection _responseHeaders;
     public IHeaderDictionary ResponseHeaders { get => _responseHeaders; set => throw new PlatformNotSupportedException(); }
-    private readonly Http3FramingStreamWriter _responseHeaderWriter;
+    private readonly Http3HeaderFramingStreamWriter _responseHeaderWriter;
     private readonly Http3FramingStreamWriter _responseDataWriter;
 
     public Stream Stream => throw new PlatformNotSupportedException();
@@ -300,6 +300,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     {
         try
         {
+            Debug.Assert(_quicStream != null);
             var context = application.CreateContext(_features);
             if (_features is IHostContextContainer<TContext> contextAwareFeatureCollection)
                 contextAwareFeatureCollection.HostContext = context;
@@ -319,7 +320,7 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
                 _responseTrailers.SetReadOnly();
                 await WriteHeadersAsync(_responseTrailers);
             }
-            _quicStream?.CompleteWrites();
+            _quicStream.CompleteWrites();
         }
         catch (Exception e)
         {

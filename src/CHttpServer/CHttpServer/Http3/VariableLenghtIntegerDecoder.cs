@@ -135,9 +135,7 @@ public class VariableLenghtIntegerDecoder
         }
         bytesWritten = 0;
         return false;
-
     }
-
 
     /// <summary>
     /// Writes a variable length positive integer (or zero) to the destination.
@@ -152,6 +150,72 @@ public class VariableLenghtIntegerDecoder
         where T : IBinaryInteger<T>
     {
         return TryWrite(destination, ulong.CreateChecked(value), out bytesWritten);
+    }
+
+    /// <summary>
+    /// Writes a variable length positive integer (or zero) to the end of the destination.
+    /// Returns <see langword="false" /> if destination is too small.
+    /// Returns <see langword="true" /> if the number is written successfully.
+    /// </summary>
+    /// <param name="destination">Writable memory region.</param>
+    /// <param name="value">Postitive integer or zero.</param>
+    /// <param name="bytesWritten">Number of bytes written to the <paramref name="destination"/>.</param>
+    /// <returns></returns>
+    public static bool TryWriteEndAligned(Span<byte> destination, ulong value, out int bytesWritten)
+    {
+        if (value <= 63ul)
+        {
+            if (destination.Length > 0)
+            {
+                destination[^1] = (byte)value;
+                bytesWritten = 1;
+                return true;
+            }
+        }
+        else if (value <= 16383ul)
+        {
+            if (destination.Length > 1)
+            {
+                BinaryPrimitives.WriteUInt16BigEndian(destination[^2..], (ushort)(value | 0x4000));
+                bytesWritten = 2;
+                return true;
+            }
+        }
+        else if (value <= 1073741823ul)
+        {
+            if (destination.Length > 3)
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(destination[^4..], (uint)(value | 0x80000000));
+                bytesWritten = 4;
+                return true;
+            }
+        }
+        else if (value <= 4611686018427387903ul)
+        {
+            if (destination.Length > 7)
+            {
+                BinaryPrimitives.WriteUInt64BigEndian(destination[^8..], (value | 0xC000_0000_0000_0000));
+                bytesWritten = 8;
+                return true;
+            }
+        }
+        bytesWritten = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Writes a variable length positive integer (or zero) to the end of the destination.
+    /// Returns <see langword="false" /> if destination is too small.
+    /// Returns <see langword="true" /> if the number is written successfully.
+    /// </summary>
+    /// <param name="destination">Writable memory region.</param>
+    /// <param name="value">Postitive integer or zero.</param>
+    /// <param name="bytesWritten">Number of bytes written to the <paramref name="destination"/>.</param>
+    /// <returns></returns>
+    public static bool TryWriteEndAligned<T>(Span<byte> destination, T value, out int bytesWritten)
+        where T : IBinaryInteger<T>
+    {
+        return TryWriteEndAligned(destination, ulong.CreateChecked(value), out bytesWritten);
     }
 
     /// <summary>

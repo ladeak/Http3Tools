@@ -160,9 +160,9 @@ public class FeatureCollection : IFeatureCollection
         var item = _checkpoint?.Get(key);
         if (item is not null)
             return item;
-        foreach (var (Key, Value) in _features)
-            if (Key == key)
-                return Value;
+        foreach (var featureItem in _features)
+            if (featureItem.Key == key)
+                return featureItem.Value;
         return null;
     }
 

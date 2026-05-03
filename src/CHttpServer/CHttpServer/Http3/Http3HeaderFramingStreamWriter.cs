@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace CHttpServer.Http3;
 
-internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, ArrayPool<byte>? memoryPool = null, Func<CancellationToken, Task>? onResponseStartingCallback = null) : PipeWriter
+internal class Http3HeaderFramingStreamWriter(Stream responseStream, ArrayPool<byte>? memoryPool = null) : PipeWriter
 {
     private readonly struct Segment()
     {
@@ -17,44 +17,23 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         public bool IsAllocated => Reference.Length > 0;
     }
 
-    private readonly Segment _emptySegment = new Segment();
-    private readonly byte[] _buffer = new byte[9];
-    private readonly Lock _lockObject = new();
-    private readonly List<Segment> _segments = new List<Segment>(128);
+    private const int MaxFrameHeaderLength = 9;
+    private readonly List<Segment> _segments = [with(64)];
     private readonly ArrayPool<byte> _memoryPool = memoryPool ?? ArrayPool<byte>.Shared;
     private Stream _responseStream = responseStream;
-    private readonly byte _frameType = frameType;
-    private CancellationTokenSource? _cts;
     private bool _isCompleted = false;
     private long _unflushedBytes;
     private Segment _currentSegment = new Segment() { Reference = (memoryPool ?? ArrayPool<byte>.Shared).Rent(4096) };
-    private Func<CancellationToken, Task>? _onResponseStartingCallback = onResponseStartingCallback;
 
     public override long UnflushedBytes => _unflushedBytes;
 
     public override bool CanGetUnflushedBytes => true;
 
-    private CancellationTokenSource InternalCancellation
-    {
-        get
-        {
-            lock (_lockObject)
-            {
-                return _cts ??= new CancellationTokenSource();
-            }
-        }
-    }
-
-    public void Reset(Stream responseStream, Func<CancellationToken, Task>? onResponseStartingCallback = null)
+    public void Reset(Stream responseStream)
     {
         _responseStream = responseStream;
-        ClearSegments(CollectionsMarshal.AsSpan(_segments));
-        lock (_lockObject)
-        {
-            _cts = null;
-        }
+        ClearSegments(CollectionsMarshal.AsSpan(_segments), false);
         _isCompleted = false;
-        _onResponseStartingCallback = onResponseStartingCallback;
     }
 
     public override void Advance(int bytes)
@@ -68,7 +47,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         _unflushedBytes += bytes;
     }
 
-    public override void CancelPendingFlush() => InternalCancellation.Cancel();
+    public override void CancelPendingFlush() => throw new PlatformNotSupportedException();
 
     public override void Complete(Exception? exception = null)
     {
@@ -83,8 +62,6 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         finally
         {
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            _cts?.Dispose();
-            _onResponseStartingCallback = null;
         }
     }
 
@@ -101,8 +78,6 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         finally
         {
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            _cts?.Dispose();
-            _onResponseStartingCallback = null;
         }
     }
 
@@ -110,7 +85,22 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     {
         ThrowIfCompleted();
         ArgumentOutOfRangeException.ThrowIfLessThan(sizeHint, 0);
-        var current = _currentSegment;
+        ref var current = ref _currentSegment;
+
+        // At the very first write allocate MaxFrameHeaderLength more for the header.
+        if (_unflushedBytes == 0 && current.IsEmpty)
+        {
+            if (current.Reference.Length >= MaxFrameHeaderLength)
+                current = current with { Used = current.Reference.AsMemory(0, MaxFrameHeaderLength) };
+            else
+            {
+                if (current.IsAllocated)
+                    _memoryPool.Return(current.Reference, true);
+                var slice = _memoryPool.Rent(sizeHint + MaxFrameHeaderLength);
+                current = new Segment() { Reference = slice, Used = slice.AsMemory(0, MaxFrameHeaderLength) }; // Minimum size left for ArrayPool.
+            }
+        }
+
         var available = current.Reference.Length - current.Used.Length;
         if (sizeHint <= available)
             return current.Reference.AsMemory(current.Used.Length);
@@ -121,8 +111,8 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         else if (current.IsAllocated)
             _memoryPool.Return(current.Reference, true);
 
-        _currentSegment = new Segment() { Reference = _memoryPool.Rent(sizeHint) }; // Minimum size left for ArrayPool.
-        return _currentSegment.Reference.AsMemory();
+        current = new Segment() { Reference = _memoryPool.Rent(sizeHint) }; // Minimum size left for ArrayPool.
+        return current.Reference.AsMemory();
     }
 
     public override Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
@@ -132,28 +122,19 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         ThrowIfCompleted();
         if (source.Length == 0)
             return new FlushResult(false, false);
-        var frameHeaderLength = PrepareFrameHeader(source.Length);
+        Memory<byte> buffer = new byte[9];
+        var frameHeaderLength = PrepareFrameHeader(buffer.Span, source.Length);
         try
         {
-            if (_onResponseStartingCallback != null)
-            {
-                await _onResponseStartingCallback.Invoke(cancellationToken);
-                _onResponseStartingCallback = null;
-            }
-            await _responseStream.WriteAsync(_buffer.AsMemory(0, frameHeaderLength), cancellationToken);
+            await _responseStream.WriteAsync(buffer[0..frameHeaderLength], cancellationToken);
             await _responseStream.WriteAsync(source, cancellationToken);
             _responseStream.Flush();
             return new FlushResult(isCanceled: false, isCompleted: false);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _isCompleted = true;
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            lock (_lockObject)
-            {
-                _cts = null;
-            }
-            _onResponseStartingCallback = null;
             throw;
         }
     }
@@ -164,77 +145,55 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
             return new FlushResult(false, false);
         try
         {
-            CancellationToken localToken = InternalCancellation.Token;
-            if (localToken.IsCancellationRequested)
-            {
-                lock (_lockObject)
-                {
-                    _cts = null;
-                }
-                return new FlushResult(true, false);
-            }
-            using var _ = cancellationToken.Register(static (object? state) => { ((Http3FramingStreamWriter)state!).InternalCancellation.Cancel(); }, this);
-
-            if (_onResponseStartingCallback != null)
-            {
-                await _onResponseStartingCallback.Invoke(localToken);
-                _onResponseStartingCallback = null;
-            }
-            var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
-            await _responseStream.WriteAsync(_buffer.AsMemory(0, dataFrameHeaderLength), localToken);
+            var startOffset = PrepareFrameHeader(_unflushedBytes);
 
             // Shortcut: if flushed after every write, no need to address segments
             if (_segments.Count == 0)
             {
-                if (!_currentSegment.IsEmpty)
-                    await _responseStream.WriteAsync(_currentSegment.Used, localToken);
+                Debug.Assert(!_currentSegment.IsEmpty);
+                await _responseStream.WriteAsync(_currentSegment.Used[startOffset..], cancellationToken);
                 if (_currentSegment.IsAllocated)
-                    _memoryPool.Return(_currentSegment.Reference, true);
-                _currentSegment = _emptySegment;
+                    _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
                 _unflushedBytes = 0;
                 _responseStream.Flush();
                 return new FlushResult(false, false);
             }
 
-            return await FlushAllSegmentsAsync(localToken);
+            return await FlushAllSegmentsAsync(startOffset, cancellationToken);
         }
         catch (OperationCanceledException)
         {
             _isCompleted = true;
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            lock (_lockObject)
-            {
-                _cts = null;
-            }
-            _onResponseStartingCallback = null;
             if (!cancellationToken.IsCancellationRequested)
                 return new FlushResult(isCanceled: true, isCompleted: false);
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _isCompleted = true;
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
-            lock (_lockObject)
-            {
-                _cts = null;
-            }
-            _onResponseStartingCallback = null;
             throw;
         }
     }
 
-    private async Task<FlushResult> FlushAllSegmentsAsync(CancellationToken localToken)
+    private async ValueTask<FlushResult> FlushAllSegmentsAsync(int startOffset, CancellationToken localToken)
     {
         if (!_currentSegment.IsEmpty)
             _segments.Add(_currentSegment);
         else if (_currentSegment.IsAllocated)
-            _memoryPool.Return(_currentSegment.Reference, true);
-        _currentSegment = _emptySegment;
+            _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
 
-        for (int i = 0; i < _segments.Count; i++)
+        // First segment handled with offset.
+        var memory = _segments[0];
+        Debug.Assert(!memory.IsEmpty);
+        await _responseStream.WriteAsync(memory.Used[startOffset..], localToken);
+        _memoryPool.Return(memory.Reference, true);
+
+        // Remaining segments.
+        for (int i = 1; i < _segments.Count; i++)
         {
-            var memory = _segments[i];
+            memory = _segments[i];
             if (!memory.IsEmpty)
                 await _responseStream.WriteAsync(memory.Used, localToken);
             _memoryPool.Return(memory.Reference, true);
@@ -249,41 +208,37 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     {
         if (_unflushedBytes == 0)
             return;
-
-        if (_onResponseStartingCallback != null)
-        {
-            _onResponseStartingCallback.Invoke(CancellationToken.None).GetAwaiter().GetResult();
-            _onResponseStartingCallback = null;
-        }
-        var dataFrameHeaderLength = PrepareFrameHeader(_unflushedBytes);
-        _responseStream.Write(_buffer.AsSpan(0, dataFrameHeaderLength));
+        var startOffset = PrepareFrameHeader(_unflushedBytes);
 
         // Shortcut: if flushed after every write, no need to address segments
         if (_segments.Count == 0)
         {
-            if (!_currentSegment.IsEmpty)
-                _responseStream.Write(_currentSegment.Used.Span);
+            Debug.Assert(!_currentSegment.IsEmpty);
+            _responseStream.Write(_currentSegment.Used.Span[startOffset..]);
             if (_currentSegment.IsAllocated)
-                _memoryPool.Return(_currentSegment.Reference, true);
-            _currentSegment = _emptySegment;
+                _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
             _unflushedBytes = 0;
             _responseStream.Flush();
             return;
         }
 
-        FlushAllSegments();
+        FlushAllSegments(startOffset);
     }
 
-    private void FlushAllSegments()
+    private void FlushAllSegments(int startOffset)
     {
         if (!_currentSegment.IsEmpty)
             _segments.Add(_currentSegment);
         else if (_currentSegment.IsAllocated)
-            _memoryPool.Return(_currentSegment.Reference, true);
-        _currentSegment = _emptySegment;
+            _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
 
         var source = CollectionsMarshal.AsSpan(_segments);
-        for (int i = 0; i < _segments.Count; i++)
+        ref var initialMemory = ref source[0];
+        Debug.Assert(!initialMemory.IsEmpty);
+        _responseStream.Write(initialMemory.Used.Span[startOffset..]);
+        _memoryPool.Return(initialMemory.Reference, true);
+
+        for (int i = 1; i < _segments.Count; i++)
         {
             ref var memory = ref source[i];
             if (memory.Used.Length > 0)
@@ -296,24 +251,50 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
     }
 
     /// <summary>
-    /// Write the frame header into the local <see cref="_buffer"/>
-    /// DATA/HEADER Frame {
-    /// Type(i) = 0x00,
+    /// Write the frame header into the local <paramref name="buffer"/>
+    /// HEADER Frame {
+    /// Type(i) = 0x01,
     ///   Length(i),
-    ///   Data(..),
+    ///   Payload(..),
     /// }
     /// </summary>
-    /// <param name="length">The length of the DATA frame payload.</param>
+    /// <param name="length">The length of the HEADER frame payload.</param>
     /// <returns>The length of the frame header in bytes.</returns>
-    private int PrepareFrameHeader(long length)
+    private static int PrepareFrameHeader(Span<byte> buffer, long length)
     {
-        _buffer[0] = _frameType;
-        var success = VariableLenghtIntegerDecoder.TryWrite(_buffer.AsSpan(1), length, out var writtenCount);
+        var success = VariableLenghtIntegerDecoder.TryWrite(buffer[1..], length, out var writtenCount);
         Debug.Assert(success);
+        buffer[0] = 1;
         return writtenCount + 1;
     }
 
-    private void ClearSegments(Span<Segment> source)
+    /// <summary>
+    /// Write the frame header into the local <paramref name="buffer"/>
+    /// HEADER Frame {
+    /// Type(i) = 0x01,
+    ///   Length(i),
+    ///   Payload(..),
+    /// }
+    /// </summary>
+    /// <param name="length">The length of the HEADER frame payload.</param>
+    /// <returns>The number of unused bytes in the header.</returns>
+    private int PrepareFrameHeader(long length)
+    {
+        // Shortcut: if flushed after every write, no need to address segments
+        Segment head;
+        if (_segments.Count == 0)
+            head = _currentSegment;
+        else
+            head = _segments[0];
+
+        Span<byte> buffer = head.Used.Span[0..MaxFrameHeaderLength];
+        var success = VariableLenghtIntegerDecoder.TryWriteEndAligned(buffer, length, out var writtenCount);
+        Debug.Assert(success);
+        buffer[^(writtenCount + 1)] = 1;
+        return MaxFrameHeaderLength - (writtenCount + 1);
+    }
+
+    private void ClearSegments(Span<Segment> source, bool clearCurrent = true)
     {
         for (int i = 0; i < source.Length; i++)
         {
@@ -323,9 +304,17 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         }
         _unflushedBytes = 0;
         _segments.Clear();
-        if (_currentSegment.IsAllocated)
-            _memoryPool.Return(_currentSegment.Reference);
-        _currentSegment = _emptySegment;
+        if (clearCurrent)
+        {
+            if (_currentSegment.IsAllocated)
+                _memoryPool.Return(_currentSegment.Reference);
+            _currentSegment = new Segment();
+        }
+        else
+        {
+            if (_currentSegment.IsAllocated)
+                _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
+        }
     }
 
     private void ThrowIfCompleted()

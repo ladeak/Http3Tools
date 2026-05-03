@@ -70,7 +70,6 @@ public class VariableLengthIntegerDecoderTests
         Assert.False(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
     }
 
-
     [Fact]
     public void TryWrite_Read()
     {
@@ -163,4 +162,58 @@ public class VariableLengthIntegerDecoderTests
         Assert.Throws<OverflowException>(() => VariableLenghtIntegerDecoder.TryWrite(new byte[16], (sbyte)-1, out var bytesWritten));
     }
 
+    [Theory]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWriteEndAligned_Generic_Short(string expectedValue, short input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWriteEndAligned(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[^bytesWritten..]);
+    }
+
+    [Theory]
+    [InlineData("9d7f3e7d", 494878333, 4)]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWriteEndAligned_Generic_Int(string expectedValue, int input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWriteEndAligned(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[^bytesWritten..]);
+    }
+
+    [Theory]
+    [InlineData("c2197c5eff14e88c", 151288809941952652, 8)]
+    [InlineData("9d7f3e7d", 494878333, 4)]
+    [InlineData("7bbd", 15293, 2)]
+    [InlineData("25", 37, 1)]
+    [InlineData("3F", 63, 1)]
+    [InlineData("00", 0, 1)]
+    public void TryWriteEndAligned_Generic_Long(string expectedValue, long input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[16];
+        Assert.True(VariableLenghtIntegerDecoder.TryWriteEndAligned(destination, input, out var bytesWritten));
+        Assert.Equal(expectedBytesWritten, bytesWritten);
+        Convert.FromHexString(expectedValue).SequenceEqual(destination[^bytesWritten..]);
+    }
+
+    [Theory]
+    [InlineData(151288809941952652L, 8)]
+    [InlineData(494878333L, 4)]
+    [InlineData(15293L, 2)]
+    [InlineData(37L, 1)]
+    [InlineData(63L, 1)]
+    [InlineData(0L, 1)]
+    public void TryWriteEndAligned_Generic_DestinationTooSmallEndAligned(long input, int expectedBytesWritten)
+    {
+        Span<byte> destination = stackalloc byte[expectedBytesWritten - 1];
+        Assert.False(VariableLenghtIntegerDecoder.TryWrite(destination, input, out var bytesWritten));
+    }
 }
