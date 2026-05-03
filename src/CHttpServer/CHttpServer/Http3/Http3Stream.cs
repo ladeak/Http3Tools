@@ -73,6 +73,7 @@ internal sealed partial class Http3Stream
     {
         _connection = connection;
         Id = quicStream.Id;
+        _quicStream = quicStream;
         _dataReader = PipeReader.Create(quicStream);
         _responseDataWriter.Reset(quicStream, async ct => await StartImplAsync(ct));
         _responseHeaderWriter.Reset(quicStream);

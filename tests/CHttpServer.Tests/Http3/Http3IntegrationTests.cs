@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
-using Microsoft.Net.Http.Headers;
+using System.Text;
 
 namespace CHttpServer.Tests.Http3;
 
@@ -142,6 +142,34 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         var request = new HttpRequestMessage(HttpMethod.Post, $"https://127.0.0.1:{_port}/post") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact, Content = JsonContent.Create(new WeatherForecast(new DateOnly(2026, 03, 30), 22, "sunny")) };
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task HttpContext_StreamsResponse()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/stream") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+
+        var buffer = new byte[12];
+        await content.ReadExactlyAsync(buffer.AsMemory(), TestContext.Current.CancellationToken)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+        Assert.Equal("some content", Encoding.UTF8.GetString(buffer));
+    }
+
+    [Fact]
+    public async Task HttpContext_DoubleWrite()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/stream") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("some contentsome content2", content);
     }
 }
 
