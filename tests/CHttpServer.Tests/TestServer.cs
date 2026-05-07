@@ -1,9 +1,10 @@
-﻿using System.Security.Cryptography.X509Certificates;
+﻿using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CHttpServer.Tests;
 
@@ -28,10 +29,10 @@ public class TestServer : IAsyncDisposable, IDisposable
         // Use Kestrel:
         //builder.WebHost.UseKestrel(o =>
         //{
-        //    o.Listen(IPAddress.Loopback, 7222, lo =>
+        //    o.Listen(IPAddress.Loopback, port, lo =>
         //    {
         //        lo.UseHttps();
-        //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;
+        //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3;
         //    });
         //});
         _app = builder.Build();
@@ -50,6 +51,14 @@ public class TestServer : IAsyncDisposable, IDisposable
         _app.MapPost("/post", ([FromBody] WeatherForecast body) =>
         {
             return TypedResults.NoContent();
+        });
+        _app.MapPut("/put", ([FromBody] WeatherForecast body) =>
+        {
+            return body;
+        });
+        _app.MapDelete("/delete", ([FromQuery] int i) =>
+        {
+            return i;
         });
         _app.MapGet("/httpcontext", (HttpContext ctx) =>
         {
@@ -133,6 +142,14 @@ public class TestServer : IAsyncDisposable, IDisposable
         {
             ctx.Features.Get<IPriority9218Feature>()?.SetPriority(new Priority9218(1, true));
             return TypedResults.NoContent();
+        });
+        _app.MapMethods("/cors", ["OPTIONS"], (HttpContext ctx) =>
+        {
+            if (ctx.Request.Headers.Origin == "https://localhost" &&
+                    ctx.Request.Headers.AccessControlRequestMethod == "get")
+                ctx.Response.StatusCode = 204;
+            else
+                ctx.Response.StatusCode = 400;
         });
         return _app.StartAsync(); //.RunAsync();
     }

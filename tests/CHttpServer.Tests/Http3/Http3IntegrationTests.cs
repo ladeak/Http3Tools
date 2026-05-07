@@ -17,11 +17,8 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
 
     protected HttpClient CreateClient()
     {
-        var handler = new HttpClientHandler
-        {
-            // Matching testCert.pfx
-            ServerCertificateCustomValidationCallback = (message, certificate, chain, sslPolicyErrors) => certificate?.Issuer == "CN=localhost"
-        };
+        var handler = new SocketsHttpHandler();
+        handler.SslOptions.RemoteCertificateValidationCallback = (message, certificate, chain, sslPolicyErrors) => certificate?.Issuer == "CN=localhost";
         return new HttpClient(handler);
     }
 
@@ -170,6 +167,164 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.True(response.IsSuccessStatusCode);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Equal("some contentsome content2", content);
+    }
+
+    [Fact]
+    public async Task IAsyncEnumerable()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/iasyncenumerable") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("""
+                     ["some content","some content"]
+                     """, content);
+    }
+
+    [Fact]
+    public async Task Get_Content_TwiceSerial_SameConnection()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content);
+
+        request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content);
+    }
+
+    [Fact]
+    public async Task Get_Content_TwoParallelRequests_SameConnection()
+    {
+        var client = CreateClient();
+        var request0 = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var request1 = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+
+        var response0Task = client.SendAsync(request0, TestContext.Current.CancellationToken);
+        var response1Task = client.SendAsync(request1, TestContext.Current.CancellationToken);
+        await Task.WhenAll(response0Task, response1Task);
+        var response0 = await response0Task;
+        var response1 = await response1Task;
+
+        var content0 = await response0.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response0.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content0);
+
+        var content1 = await response1.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response1.IsSuccessStatusCode);
+        Assert.Equal("\"some content\"", content1);
+    }
+
+    [Fact]
+    public async Task Get_Content_ParallelRequests_NewConnection()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            var client = CreateClient();
+            var request0 = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+            var request1 = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/content") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+
+            var response0Task = client.SendAsync(request0, TestContext.Current.CancellationToken);
+            var response1Task = client.SendAsync(request1, TestContext.Current.CancellationToken);
+            await Task.WhenAll(response0Task, response1Task);
+            var response0 = await response0Task;
+            var response1 = await response1Task;
+
+            var content0 = await response0.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.True(response0.IsSuccessStatusCode);
+            Assert.Equal("\"some content\"", content0);
+
+            var content1 = await response1.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.True(response1.IsSuccessStatusCode);
+            Assert.Equal("\"some content\"", content1);
+        }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(6)]
+    [InlineData(11)]
+    [InlineData(15)]
+    [InlineData(24)]
+    [InlineData(30)]
+    public async Task LargeInput(int multiplier)
+    {
+        int requestLength = 32768 * multiplier;
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Post, $"https://127.0.0.1:{_port}/readallrequest") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        request.Content = new ByteArrayContent(new byte[requestLength]);
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(requestLength, int.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
+    public async Task LargeOutput()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/getlargeresponse") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(10_000_000, content.Length);
+    }
+
+    [Fact]
+    public async Task LargerStreamedOutput()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/getlargestreamresponse") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(10_000_000, content.Length);
+    }
+
+    [Fact]
+    public async Task TestPut()
+    {
+        var client = CreateClient();
+        var input = new WeatherForecast(new DateOnly(2026, 03, 30), 22, "sunny");
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://127.0.0.1:{_port}/put") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact, Content = JsonContent.Create(input) };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadFromJsonAsync<WeatherForecast>(TestContext.Current.CancellationToken);
+        Assert.Equal(input, content);
+    }
+
+    [Fact]
+    public async Task TestDelete()
+    {
+        var client = CreateClient();
+        var input = 305;
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://127.0.0.1:{_port}/delete?i={input}") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(input.ToString(), content);
+    }
+
+    [Fact]
+    public async Task TestOptions()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Options, $"https://127.0.0.1:{_port}/cors") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        request.Headers.Add("access-control-request-method", "get");
+        request.Headers.Add("origin", "https://localhost");
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+
+        request = new HttpRequestMessage(HttpMethod.Options, $"https://127.0.0.1:{_port}/cors") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        request.Headers.Add("access-control-request-method", "get");
+        request.Headers.Add("origin", "https://localhost");
+        response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
     }
 }
 

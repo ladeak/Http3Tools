@@ -22,5 +22,9 @@
     <InternalsVisibleTo Include="CHttpServer.Tests" />
     <InternalsVisibleTo Include="CHttp.Benchmarks" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="11.0.0-preview.3.26207.106" />
+  </ItemGroup>
   
 </Project>

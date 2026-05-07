@@ -114,8 +114,11 @@ internal sealed partial class Http3Stream : IQPackHeaderHandler, IHttpRequestFea
 
     public void OnHeader(in ReadOnlySequence<byte> name, in ReadOnlySequence<byte> value)
     {
-        var decodedHeaderName = Encoding.Latin1.GetString(name);
         var decodedValue = Encoding.Latin1.GetString(value);
-        _requestHeaders.Add(decodedHeaderName, decodedValue);
+        if (AspNetCoreHeadnerNamesLookup.TryGetAspNetCoreHeader(name, out var aspnetDecodedHeaderName))
+            _requestHeaders.Add(aspnetDecodedHeaderName, decodedValue);
+        else
+            _requestHeaders.Add(Encoding.Latin1.GetString(name), decodedValue);
     }
+
 }
