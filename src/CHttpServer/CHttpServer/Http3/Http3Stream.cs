@@ -51,6 +51,7 @@ internal sealed partial class Http3Stream
         _requestHeaders = [];
         _responseHeaders = [];
         _responseTrailers = [];
+        _abortApplication = new();
 
         _features = features;
         _features.AddRange(
@@ -59,9 +60,9 @@ internal sealed partial class Http3Stream
             (typeof(IHttpResponseBodyFeature), this),
             (typeof(IHttpResponseTrailersFeature), this),
             (typeof(IRequestBodyPipeFeature), this),
-            (typeof(IHttpRequestBodyDetectionFeature), this));
-        //_features.Add<IHttpRequestLifetimeFeature>(this);
-        //_features.Add<IPriority9218Feature>(this);
+            (typeof(IHttpRequestBodyDetectionFeature), this),
+            (typeof(IHttpRequestLifetimeFeature), this));
+        //(typeof(IPriority9218Feature), this)); - Priotiy is not yet supported by QuicStream
         _features.Checkpoint();
     }
 
@@ -84,6 +85,10 @@ internal sealed partial class Http3Stream
         StatusCode = 200;
         _hasStarted = 0;
         _streamCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_abortApplication.TryReset())
+            _abortApplication = new();
+        _quicStream.WritesClosed.ContinueWith(x => Abort(), TaskContinuationOptions.NotOnRanToCompletion);
+        _quicStream.ReadsClosed.ContinueWith(x => Abort(), TaskContinuationOptions.NotOnRanToCompletion);
     }
 
     private void ReleaseState()
@@ -147,18 +152,29 @@ internal sealed partial class Http3Stream
                     break;
             }
 
+            token.ThrowIfCancellationRequested();
             Debug.Assert(streamReadingState == StreamReadingStatus.HeaderReadCompleted);
             _requestDataToAppPipeReader.Reset(_dataReader);
             await StartApplicationProcessing(application, token);
         }
         catch (OperationCanceledException)
         {
-            // Ignore
+            // When the server cancels a request without performing any application processing,
+            // the, server should abort the response stream with the error code H3_REQUEST_REJECTED.
+            var errorCode = streamReadingState == StreamReadingStatus.HeaderReadCompleted ?
+                ErrorCodes.H3RequestCancelled : ErrorCodes.H3RequestRejected;
+            _quicStream?.Abort(QuicAbortDirection.Both, errorCode);
         }
         catch (Http3ConnectionException connectionError)
         {
             _connection?.StreamError(connectionError.ErrorCode);
             throw;
+        }
+        catch (QuicException quicEx) when (quicEx.ApplicationErrorCode == ErrorCodes.H3RequestCancelled)
+        {
+            var errorCode = streamReadingState == StreamReadingStatus.HeaderReadCompleted ?
+                ErrorCodes.H3RequestCancelled : ErrorCodes.H3RequestRejected;
+            _quicStream?.Abort(QuicAbortDirection.Both, errorCode);
         }
         catch (Exception ex)
         {
@@ -299,35 +315,31 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     // Trailers written
     private async Task StartApplicationProcessing<TContext>(IHttpApplication<TContext> application, CancellationToken token) where TContext : notnull
     {
-        try
+        using var _ = token.Register(Abort);
+        Debug.Assert(_quicStream != null);
+        var context = application.CreateContext(_features);
+        if (_features is IHostContextContainer<TContext> contextAwareFeatureCollection)
+            contextAwareFeatureCollection.HostContext = context;
+        var applicationProcessing = application.ProcessRequestAsync(context);
+
+        await applicationProcessing;
+
+        // Throw is aborted
+        _abortApplication.Token.ThrowIfCancellationRequested();
+        await _responseDataWriter.CompleteAsync();
+
+        // Invoke start to make sure headers written when no DATA in the response.
+        // When DATA frames are written, the DATA writer invokes it before the first write.
+        if (_hasStarted == 0)
+            await StartImplAsync(token);
+
+        // Write trailers
+        if (_responseTrailers.Count > 0)
         {
-            Debug.Assert(_quicStream != null);
-            var context = application.CreateContext(_features);
-            if (_features is IHostContextContainer<TContext> contextAwareFeatureCollection)
-                contextAwareFeatureCollection.HostContext = context;
-            var applicationProcessing = application.ProcessRequestAsync(context);
-
-            await applicationProcessing;
-            await _responseDataWriter.CompleteAsync();
-
-            // Invoke start to make sure headers written when no DATA in the response.
-            // When DATA frames are written, the DATA writer invokes it before the first write.
-            if (_hasStarted == 0)
-                await StartImplAsync(token);
-
-            // Write trailers
-            if (_responseTrailers.Count > 0)
-            {
-                _responseTrailers.SetReadOnly();
-                await WriteHeadersAsync(_responseTrailers);
-            }
-            _quicStream.CompleteWrites();
+            _responseTrailers.SetReadOnly();
+            await WriteHeadersAsync(_responseTrailers);
         }
-        catch (Exception e)
-        {
-            _quicStream?.Dispose();
-            //_quicStream = null;
-        }
+        _quicStream.CompleteWrites();
     }
 
     private ValueTask<FlushResult> WriteHeadersAsync(int statusCode, Http3ResponseHeaderCollection headers)
@@ -352,4 +364,19 @@ internal partial class Http3Stream : IHttpResponseTrailersFeature
 internal partial class Http3Stream : IHttpRequestBodyDetectionFeature
 {
     public bool CanHaveBody { get; set; }
+}
+
+internal partial class Http3Stream : IHttpRequestLifetimeFeature
+{
+    private CancellationTokenSource _abortApplication;
+    public CancellationToken RequestAborted
+    {
+        get => _abortApplication.Token;
+        set => throw new PlatformNotSupportedException();
+    }
+
+    public void Abort()
+    {
+        _abortApplication.Cancel();
+    }
 }

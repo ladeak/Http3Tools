@@ -48,8 +48,8 @@ internal abstract class CHttpConnection : IThreadPoolWorkItem, IConnectionLifeti
     public virtual async Task StopAsync(CancellationToken token)
     {
         _connectionsManager.RemoveConnection(_connectionContext.ConnectionId);
-        _connectionContext.ConnectionCancellation.Cancel(); // Awaits the execution to complete if there is one.
-        var execution = _execution ?? Task.CompletedTask;
+        _connectionContext.ConnectionCancellation.Cancel();
+        var execution = _execution ?? Task.CompletedTask; // Awaits the execution to complete if there is one.
         await execution.WaitAsync(token).AllowCancellation();
     }
 

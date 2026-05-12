@@ -326,5 +326,17 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
     }
+
+    [Fact]
+    public async Task TestTimeout()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/timeout") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        var response = client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        var completed = await Task.WhenAny(response, Task.Delay(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.Equal(response, completed);
+        Assert.True(response.IsCanceled);
+    }
 }
 

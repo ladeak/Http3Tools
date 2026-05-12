@@ -151,6 +151,18 @@ public class TestServer : IAsyncDisposable, IDisposable
             else
                 ctx.Response.StatusCode = 400;
         });
+        _app.MapGet("/timeout", async (HttpContext ctx, CancellationToken token) =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10), token);
+                ctx.Response.StatusCode = 400;
+            }
+            catch (OperationCanceledException)
+            {
+                ctx.Response.StatusCode = 204;
+            }
+        });
         return _app.StartAsync(); //.RunAsync();
     }
 

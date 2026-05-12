@@ -60,7 +60,6 @@ internal class TestBase
 
         public void DisposeContext(HttpContext context, Exception? exception)
         {
-
         }
 
         public Task ProcessRequestAsync(HttpContext context) => handler(context);

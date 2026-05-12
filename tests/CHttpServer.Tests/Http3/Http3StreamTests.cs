@@ -1,5 +1,6 @@
 ﻿using System.Net.Quic;
 using CHttpServer.Http3;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer.Tests.Http3;
 
@@ -389,6 +390,217 @@ public class Http3StreamTests
 
             await processing;
         }
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellation_WritesClosed_AppDoesNotThrow()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(100)];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx =>
+        {
+            var token = ctx.Features.Get<IHttpRequestLifetimeFeature>()?.RequestAborted;
+            if (token is null)
+                Assert.Fail("Request Cancellation feature is missing.");
+            tcs.SetResult();
+            while (!token.Value.IsCancellationRequested)
+                await Task.Delay(100);
+        });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+        // Act
+        clientStream.Abort(QuicAbortDirection.Write, ErrorCodes.H3RequestCancelled);
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.ReadsClosed,
+            ex => ex.ApplicationErrorCode == 268 ? null : "Expected error code is 268");
+
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellation_AbortClientRead_AppDoesNotThrow()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(100)];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx =>
+        {
+            var token = ctx.Features.Get<IHttpRequestLifetimeFeature>()?.RequestAborted;
+            if (token is null)
+                Assert.Fail("Request Cancellation feature is missing.");
+            tcs.SetResult();
+            while (!token.Value.IsCancellationRequested)
+                await Task.Delay(100);
+        });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+        // Act
+        clientStream.Abort(QuicAbortDirection.Read, ErrorCodes.H3RequestCancelled);
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.WritesClosed,
+            ex => ex.ApplicationErrorCode == 268 ? null : "Expected error code is 268");
+
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellation_AbortClientRead_AppThrows()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(100)];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx =>
+        {
+            var token = ctx.Features.Get<IHttpRequestLifetimeFeature>()?.RequestAborted;
+            if (token is null)
+                Assert.Fail("Request Cancellation feature is missing.");
+            tcs.SetResult();
+            while (true)
+            {
+                token.Value.ThrowIfCancellationRequested();
+                await Task.Delay(100);
+            }
+        });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+        // Act
+        clientStream.Abort(QuicAbortDirection.Read, ErrorCodes.H3RequestCancelled);
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.WritesClosed,
+            ex => ex.ApplicationErrorCode == 268 ? null : "Expected error code is 268");
+
+        // Shutdown
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellation_ReadsClosed_AppThrows()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetDataFrame(100)];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx =>
+        {
+            var token = ctx.Features.Get<IHttpRequestLifetimeFeature>()?.RequestAborted;
+            if (token is null)
+                Assert.Fail("Request Cancellation feature is missing.");
+            tcs.SetResult();
+            while (true)
+            {
+                token.Value.ThrowIfCancellationRequested();
+                await Task.Delay(100);
+            }
+        });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+
+        // Act
+        clientStream.Abort(QuicAbortDirection.Read, ErrorCodes.H3RequestCancelled);
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.WritesClosed,
+            ex => ex.ApplicationErrorCode == 268 ? null : "Expected error code is 268");
+
+        // Shutdown
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellationByStream_BeforeAppProcessStarts()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+
+        // Only send a partial header, so that appplication processing does not start.
+        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame()[0..^10]];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx => { Assert.Fail(); });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        clientStream.Abort(QuicAbortDirection.Write, ErrorCodes.H3RequestCancelled);
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.ReadsClosed,
+            ex => ex.ApplicationErrorCode == 267 ? null : "Expected error code is 267");
+
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RequestCancellationByToken_BeforeAppProcessStarts()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+
+        // Only send a partial header, so that appplication processing does not start.
+        byte[] data = [.. Http3FrameFixture.GetLargeHeadersFrame()[0..^10]];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx => { Assert.Fail(); });
+
+        var processing = sut.ProcessStreamAsync(testApp, new CancellationToken(true));
+
+        await Assert.ThrowsAsync<QuicException>(() => clientStream.WritesClosed,
+            ex => ex.ApplicationErrorCode == 267 ? null : "Expected error code is 267");
+
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
         await quicConnection.DisposeAsync();
     }
 
