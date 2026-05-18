@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-    <PackageReference Include="System.CommandLine" Version="3.0.0-preview.3.26207.106" />
+    <PackageReference Include="System.CommandLine" Version="3.0.0-preview.4.26230.115" />
   </ItemGroup>
 
   <ItemGroup>
