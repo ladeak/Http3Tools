@@ -9,8 +9,8 @@
     ".NETCoreApp,Version=v9.0/win-x64": {
       "CHttp/1.0.0": {
         "dependencies": {
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "1.15.0",
-          "System.CommandLine": "3.0.0-preview.1.26104.118"
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "1.15.3",
+          "System.CommandLine": "3.0.0-preview.4.26230.115"
         },
         "runtime": {
           "CHttp.dll": {}
@@ -170,62 +170,62 @@
           }
         }
       },
-      "OpenTelemetry/1.15.0": {
+      "OpenTelemetry/1.15.3": {
         "dependencies": {
           "Microsoft.Extensions.Diagnostics.Abstractions": "9.0.0",
           "Microsoft.Extensions.Logging.Configuration": "9.0.0",
-          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.15.0"
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.15.3"
         },
         "runtime": {
           "lib/net9.0/OpenTelemetry.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.15.0.1921",
+            "fileVersion": "1.15.3.2017",
             "localPath": "OpenTelemetry.dll"
           }
         }
       },
-      "OpenTelemetry.Api/1.15.0": {
+      "OpenTelemetry.Api/1.15.3": {
         "dependencies": {
           "System.Diagnostics.DiagnosticSource": "10.0.0"
         },
         "runtime": {
           "lib/net9.0/OpenTelemetry.Api.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.15.0.1921",
+            "fileVersion": "1.15.3.2017",
             "localPath": "OpenTelemetry.Api.dll"
           }
         }
       },
-      "OpenTelemetry.Api.ProviderBuilderExtensions/1.15.0": {
+      "OpenTelemetry.Api.ProviderBuilderExtensions/1.15.3": {
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
-          "OpenTelemetry.Api": "1.15.0"
+          "OpenTelemetry.Api": "1.15.3"
         },
         "runtime": {
           "lib/net9.0/OpenTelemetry.Api.ProviderBuilderExtensions.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.15.0.1921",
+            "fileVersion": "1.15.3.2017",
             "localPath": "OpenTelemetry.Api.ProviderBuilderExtensions.dll"
           }
         }
       },
-      "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.15.0": {
+      "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.15.3": {
         "dependencies": {
-          "OpenTelemetry": "1.15.0"
+          "OpenTelemetry": "1.15.3"
         },
         "runtime": {
           "lib/net9.0/OpenTelemetry.Exporter.OpenTelemetryProtocol.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.15.0.1921",
+            "fileVersion": "1.15.3.2017",
             "localPath": "OpenTelemetry.Exporter.OpenTelemetryProtocol.dll"
           }
         }
       },
-      "System.CommandLine/3.0.0-preview.1.26104.118": {
+      "System.CommandLine/3.0.0-preview.4.26230.115": {
         "runtime": {
           "lib/netstandard2.0/System.CommandLine.dll": {
             "assemblyVersion": "3.0.0.0",
-            "fileVersion": "3.0.26.10518",
+            "fileVersion": "3.0.26.23115",
             "localPath": "System.CommandLine.dll"
           }
         },
@@ -385,40 +385,40 @@
       "path": "microsoft.extensions.primitives/9.0.0",
       "hashPath": "microsoft.extensions.primitives.9.0.0.nupkg.sha512"
     },
-    "OpenTelemetry/1.15.0": {
+    "OpenTelemetry/1.15.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-7mS/oZFF8S6xyqGQfMU1btp0nXJQUPWV535Vp/XMLYwRAUv36xQN+U4vufWBF1+z4HnRTOwuFHtUSGnHbyN6FQ==",
-      "path": "opentelemetry/1.15.0",
-      "hashPath": "opentelemetry.1.15.0.nupkg.sha512"
+      "sha512": "sha512-N0i6WjPoHPbZyms1ugbDIFAJFuGlpeExJMU/+XSL0lQRUkg/D0utFkDoLXf8Z1km5B+xVZ2GyMXXiX8qdeNmPg==",
+      "path": "opentelemetry/1.15.3",
+      "hashPath": "opentelemetry.1.15.3.nupkg.sha512"
     },
-    "OpenTelemetry.Api/1.15.0": {
+    "OpenTelemetry.Api/1.15.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-vk5OGdf6K9kQScCWo3bRjhDWCv6Pqw92IpX4dlARZ8B1WL7/2NGTDtCkkw42eQf7UdwyoHKzVvMH/PtL8d6z7w==",
-      "path": "opentelemetry.api/1.15.0",
-      "hashPath": "opentelemetry.api.1.15.0.nupkg.sha512"
+      "sha512": "sha512-fX+fkCysfPut+qCcT3bKqyX4QN9Saf4CgX8HLOHywEVD+Xr7sULtfuypITpoDysjx8R59dn/3mWhgimMH8cm/g==",
+      "path": "opentelemetry.api/1.15.3",
+      "hashPath": "opentelemetry.api.1.15.3.nupkg.sha512"
     },
-    "OpenTelemetry.Api.ProviderBuilderExtensions/1.15.0": {
+    "OpenTelemetry.Api.ProviderBuilderExtensions/1.15.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-OnuSUlRpGvowkOzGFQfy+KZFu0cITfKfh2IYJJiZskxVJiOuexwOOuvfDAgpJdmTzVWAHjYdz2shcHZaJ06UjQ==",
-      "path": "opentelemetry.api.providerbuilderextensions/1.15.0",
-      "hashPath": "opentelemetry.api.providerbuilderextensions.1.15.0.nupkg.sha512"
+      "sha512": "sha512-SYn0lqYDwLMWhv/zlNGsQcl2yX++yTumanX46bmOZE/ZDOd1WjPBO2kZaZgKLEZTZk48pavIFGJ6vOvxXgWVFQ==",
+      "path": "opentelemetry.api.providerbuilderextensions/1.15.3",
+      "hashPath": "opentelemetry.api.providerbuilderextensions.1.15.3.nupkg.sha512"
     },
-    "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.15.0": {
+    "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.15.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-VH8ANc/js9IRvfYt0Q2UaAxNCOWm+IU+vWrtoH7pfx4oWPVdISUt+9uWfBCFMWZg5WzQip5dhslyDjeyZXXfSQ==",
-      "path": "opentelemetry.exporter.opentelemetryprotocol/1.15.0",
-      "hashPath": "opentelemetry.exporter.opentelemetryprotocol.1.15.0.nupkg.sha512"
+      "sha512": "sha512-FEXJepcseTGbATiCkUfP7ipoFEYYfl/0UmmUwi0KxCPg9PaUA8ab2P1LGopK+/HExasJ1ZutFhZrN6WvUIR23g==",
+      "path": "opentelemetry.exporter.opentelemetryprotocol/1.15.3",
+      "hashPath": "opentelemetry.exporter.opentelemetryprotocol.1.15.3.nupkg.sha512"
     },
-    "System.CommandLine/3.0.0-preview.1.26104.118": {
+    "System.CommandLine/3.0.0-preview.4.26230.115": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-i4ewgnmF4J8mmhV9QNjcflPveW01EJd28cmV+uvE6V/A89xmIal27SCzFzMNRq6X6qhZ5oUJG1KTTmDfacGI1g==",
-      "path": "system.commandline/3.0.0-preview.1.26104.118",
-      "hashPath": "system.commandline.3.0.0-preview.1.26104.118.nupkg.sha512"
+      "sha512": "sha512-cjNNWcLPuM8s1r0xrpJJLX4dDCKBXLmpbKqNuNJES6Lcuya6CjqlGb4xkq6FhvCVUqZMwEEFSstiAaYDGzlhQQ==",
+      "path": "system.commandline/3.0.0-preview.4.26230.115",
+      "hashPath": "system.commandline.3.0.0-preview.4.26230.115.nupkg.sha512"
     },
     "System.Diagnostics.DiagnosticSource/10.0.0": {
       "type": "package",
