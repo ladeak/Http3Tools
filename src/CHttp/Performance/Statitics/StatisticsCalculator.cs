@@ -104,8 +104,15 @@ internal static class StatisticsCalculator
     public static (double BucketCount, double BucketSize) GetHistogramBuckets(Stats stats)
     {
         var error = stats.Error == 0 ? 1 : stats.Error;
-        double bucketCount = Math.Max(Math.Min(10, (stats.Max - stats.Min) / error), 5);
-        var bucketSize = (stats.Max - stats.Min) / bucketCount;
+        long max = stats.Max;
+        long min = stats.Min;
+        if (stats.Durations.Length > 999)
+        {
+            var firstPercentile = stats.Durations.Length / 100; // p99
+            max = stats.Durations[^firstPercentile];
+        }
+        double bucketCount = Math.Max(Math.Min(10, (max - min) / error), 5);
+        var bucketSize = (max - min) / bucketCount;
         return (bucketCount, bucketSize);
     }
 

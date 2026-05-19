@@ -75,6 +75,30 @@ public class StatisticsCalculatorTests
         Assert.Fail();
     }
 
+    [Fact]
+    public void GetHistogramBuckets100()
+    {
+        (var bucketCount, var bucketSize) = StatisticsCalculator.GetHistogramBuckets(new Stats(100, 0, 0, 0, 0, 0, 99, 0, 0, [.. Enumerable.Sequence<long>(0, 99, 1)], []));
+        Assert.Equal(10, bucketCount);
+        Assert.Equal(9.9, bucketSize, 0.01);
+    }
+
+    [Fact]
+    public void GetHistogramBuckets_WithPercentile99()
+    {
+        (var bucketCount, var bucketSize) = StatisticsCalculator.GetHistogramBuckets(new Stats(100, 0, 0, 0, 0, 0, 100000, 0, 0, [.. Enumerable.Sequence<long>(0, 998, 1), 100000], []));
+        Assert.Equal(10, bucketCount);
+        Assert.Equal(99, bucketSize);
+    }
+
+    [Fact]
+    public void GetHistogramBuckets_WithPercentile98()
+    {
+        (var bucketCount, var bucketSize) = StatisticsCalculator.GetHistogramBuckets(new Stats(100, 0, 0, 0, 0, 0, 100000, 0, 0, [.. Enumerable.Sequence<long>(0, 990, 1), 100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000], []));
+        Assert.Equal(10, bucketCount);
+        Assert.Equal(10000, bucketSize);
+    }
+
     public static bool Equal(double expected, double actual, int precision)
     {
         var expectedRounded = Math.Round(expected, precision);

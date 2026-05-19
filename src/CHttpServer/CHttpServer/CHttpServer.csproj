@@ -11,7 +11,10 @@
     <DebugType>full</DebugType>
     <LangVersion>preview</LangVersion>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
-    <Features>$(Features);runtime-async=off</Features>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework) == 'net11.0'">
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,5 +29,5 @@
   <ItemGroup>
     <PackageReference Include="System.IO.Hashing" Version="11.0.0-preview.4.26230.115" />
   </ItemGroup>
-  
+
 </Project>
