@@ -37,7 +37,7 @@ internal class DiffPrinter
 
         int lineLength = _console.WindowWidth;
         var scaleNormalize = (double)lineLength / (stats0.Durations.Length + stats0.Durations.Length);
-        string separator = new string('-', lineLength);
+        string separator = new('-', lineLength);
 
         // Histogram
         if (stats0.Durations.Length >= 100 && stats1.Durations.Length >= 100)
@@ -49,6 +49,9 @@ internal class DiffPrinter
 
         PrintStatusCodes(stats0.StatusCodes, DiffStatusCodes(stats0, stats1));
         _console.WriteLine(separator);
+
+        if (PrintBayeisanComparison(session0, session1))
+            _console.WriteLine(separator);
 
         if (PrintWarnings(session0, session1))
             _console.WriteLine(separator);
@@ -106,9 +109,7 @@ internal class DiffPrinter
     {
         int[] diffStatusCodes = new int[stats0.StatusCodes.Length];
         for (int i = 0; i < diffStatusCodes.Length; i++)
-        {
             diffStatusCodes[i] = stats1.StatusCodes[i] - stats0.StatusCodes[i];
-        }
         return diffStatusCodes;
     }
 
@@ -172,4 +173,13 @@ internal class DiffPrinter
             currentCounter += input.Length;
         return currentCounter;
     }
+
+    private bool PrintBayeisanComparison(PerformanceMeasurementResults session0, PerformanceMeasurementResults session1)
+    {
+        double? percent = StatisticsCalculator.CalculateBayesianProbability(session0, session1) * 100;
+        if (percent.HasValue)
+            _console.WriteLine($"With {percent:00.0}% probability, the base session's true mean latency is lower than compared session's.");
+        return true;
+    }
+
 }
