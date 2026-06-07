@@ -178,7 +178,11 @@ internal class DiffPrinter
     {
         double? percent = StatisticsCalculator.CalculateBayesianProbability(session0, session1) * 100;
         if (percent.HasValue)
-            _console.WriteLine($"With {percent:00.0}% probability, the base session's true mean latency is lower than compared session's.");
+        {
+            var relativePercent = percent.Value < 50 ? 100 - percent.Value : percent.Value;
+            var direction = percent.Value < 50 ? "higher" : "lower";
+            _console.WriteLine($"With {relativePercent:00.0}% probability, the base session's true mean latency is {direction} than compared session's.");
+        }
         return true;
     }
 

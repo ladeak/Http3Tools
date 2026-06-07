@@ -4,11 +4,23 @@
 GET https://{{host}}/ HTTP/2
 
 ###
+# @name direct0
 # @clientsCount 10
 # @requestCount 20000
 # @shared-socketHandler true
 GET https://{{host}}/direct HTTP/2
 
+###
+
+###
+# @name direct1
+# @clientsCount 10
+# @requestCount 20000
+# @shared-socketHandler true
+GET https://{{host}}/direct HTTP/2
+
+###
+DIFF direct0 direct1
 ###
 GET https://{{host}} HTTP/3
 
