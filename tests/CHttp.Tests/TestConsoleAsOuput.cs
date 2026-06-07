@@ -3,7 +3,7 @@ using CHttp.Abstractions;
 
 namespace CHttp.Tests;
 
-public class TestConsoleAsOuput : IConsole
+public sealed class TestConsoleAsOuput : IConsole
 {
     public bool CursorVisible { get; set; }
     private StringBuilder _sb = new StringBuilder();

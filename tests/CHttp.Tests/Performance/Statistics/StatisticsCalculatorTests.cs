@@ -106,6 +106,30 @@ public class StatisticsCalculatorTests
     }
 
     [Fact]
+    public void CalculateBayesianProbability_NoData()
+    {
+        var (session0, session1) = GetSessions(100, 100, 0, 0, summaryCount0: 99, summaryCount1: 99);
+        var result = StatisticsCalculator.CalculateBayesianProbability(session0, session1, new Random(0));
+        Assert.Null(result);
+
+        (session0, session1) = GetSessions(100, 100, 0, 0, summaryCount0: 100, summaryCount1: 99);
+        result = StatisticsCalculator.CalculateBayesianProbability(session0, session1, new Random(0));
+        Assert.Null(result);
+
+        (session0, session1) = GetSessions(100, 100, 0, 0, summaryCount0: 99, summaryCount1: 100);
+        result = StatisticsCalculator.CalculateBayesianProbability(session0, session1, new Random(0));
+        Assert.Null(result);
+
+        (session0, session1) = GetSessions(100, 100, 0, 0, summaryCount0: 101, summaryCount1: 100);
+        result = StatisticsCalculator.CalculateBayesianProbability(session0, session1, new Random(0));
+        Assert.Null(result);
+
+        (session0, session1) = GetSessions(100, 100, 0, 0, summaryCount0: 50, summaryCount1: 50);
+        result = StatisticsCalculator.CalculateBayesianProbability(session0, session1, new Random(0));
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void CalculateBayesianProbability_NoVariance()
     {
         var (session0, session1) = GetSessions(100, 100, 0, 0);
@@ -224,19 +248,19 @@ public class StatisticsCalculatorTests
         Assert.True(Equal(0.77, result.Value, 2));
     }
 
-    private (PerformanceMeasurementResults, PerformanceMeasurementResults) GetSessions(int duration0, int duration1, int variance0, int variance1)
+    internal static (PerformanceMeasurementResults, PerformanceMeasurementResults) GetSessions(int duration0, int duration1, int variance0, int variance1, int summaryCount0 = 1000, int summaryCount1 = 1000)
     {
         List<Summary> summaries0 = new List<Summary>();
         List<Summary> summaries1 = new List<Summary>();
         int halfVariance0 = variance0 / 2;
         int halfVariance1 = variance1 / 2;
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < summaryCount0; i++)
         {
             int totalDuration = variance0 == 0 ? duration0 : duration0 + (i % variance0) - halfVariance0;
             summaries0.Add(new Summary("url", new DateTime(2026, 06, 01, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromMilliseconds(totalDuration)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 });
         }
 
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < summaryCount1; i++)
         {
             int totalDuration = variance1 == 0 ? duration1 : duration1 + (i % variance1) - halfVariance1;
             summaries1.Add(new Summary("url", new DateTime(2026, 06, 01, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromMilliseconds(totalDuration)) { ErrorCode = ErrorType.None, HttpStatusCode = 200 });

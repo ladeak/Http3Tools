@@ -167,17 +167,17 @@ public class CHttpFunctionalTests
         await host.StartAsync(TestContext.Current.CancellationToken);
         var console = new TestConsolePerWrite();
         var writer = new ProgressingConsoleWriter(new TextBufferedProcessor(), console);
-        var MemoryFileSystem = new MemoryFileSystem();
+        var memoryFileSystem = new MemoryFileSystem();
 
-        var client = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
+        var client = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json")
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: MemoryFileSystem)
+        var client2 = await CommandFactory.CreateRootCommand(writer, fileSystem: memoryFileSystem)
             .Parse("--method GET --no-certificate-validation --uri https://localhost:5011 --http-version 2 --cookie-container cookies.json").InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(cookieAttached);
-        Assert.True(MemoryFileSystem.Exists(Path.Join(Environment.CurrentDirectory, "cookies.json")));
+        Assert.True(memoryFileSystem.Exists(Path.Join(Environment.CurrentDirectory, "cookies.json")));
     }
 
     [Fact]
@@ -324,6 +324,29 @@ public class CHttpFunctionalTests
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains($"Status: OK Version: 2.0 Encoding: utf-8{Environment.NewLine}Date:{DateReplacement}{Environment.NewLine}Server:Kestrel{Environment.NewLine}{Environment.NewLine}test{Environment.NewLine}https://localhost:5011/ 4 B 00:0", console.Text);
+    }
+
+    [Fact]
+    public async Task Diff_FunctionalTest()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite(filterDate: DateReplacement);
+        var memoryFileSystem = new MemoryFileSystem();
+
+        var client0 = await CommandFactory.CreateRootCommand(fileSystem: memoryFileSystem)
+            .Parse("perf --method GET -v 2 -c 1 -n 100 --no-certificate-validation -o session0.json --uri https://localhost:5011")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var client1 = await CommandFactory.CreateRootCommand(fileSystem: memoryFileSystem)
+            .Parse("perf --method GET -v 2 -c 1 -n 100 --no-certificate-validation -o session1.json --uri https://localhost:5011")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: memoryFileSystem)
+            .Parse($"diff --files session0.json --files session0.json")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Contains("probability, the base session's true mean latency is", console.Text);
     }
 
     private class Request

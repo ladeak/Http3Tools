@@ -2,6 +2,7 @@
 using CHttp.Data;
 using CHttp.Performance.Data;
 using CHttp.Performance.Statitics;
+using CHttp.Tests.Performance.Statistics;
 
 namespace CHttp.Tests.Performance;
 
@@ -286,5 +287,23 @@ public class CHttpDiffFunctionalTests
         Assert.Contains("    79.200 ms ##", console.Text);
         Assert.Contains("    89.100 ms ##", console.Text);
         Assert.Contains("    99.000 ms ##", console.Text);
+    }
+
+    [Fact]
+    public async Task DisplayBayesianComparison()
+    {
+        var console = new TestConsoleAsOuput();
+        var fileSystem = new MemoryFileSystem();
+        var (session0, session1) = StatisticsCalculatorTests.GetSessions(100, 110, 1, 5, 100, 100);
+
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session0.json"), session0);
+        await PerformanceFileHandler.SaveAsync(fileSystem, Path.Join(Environment.CurrentDirectory, "session1.json"), session1);
+
+        var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: fileSystem)
+            .Parse($"diff --files session0.json --files session1.json")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Contains("With 100.0% probability, the base session's true mean latency is lower than compared session's.", console.Text);
     }
 }
