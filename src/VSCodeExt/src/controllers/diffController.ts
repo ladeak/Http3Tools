@@ -6,6 +6,7 @@ import { getCurrentTextDocument } from '../utils/workspaceUtility';
 import { ResponseWebView } from '../views/responseWebView';
 import { DiffRequestParser } from '../utils/diffRequestParser';
 import { SelectedRequest } from '../models/SelectedRequest';
+import * as os from 'os';
 
 export class DiffController {
     private _requestStatusEntry: RequestStatusEntry;
@@ -52,7 +53,7 @@ export class DiffController {
             return;
         }
         try {
-            const CHttpModule = require('../chttp-win-x64/CHttpExtension.node');
+            const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
             this._view.render(response);
             this._requestStatusEntry.updateStatus("Completed");

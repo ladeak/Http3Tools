@@ -7,6 +7,7 @@ import { HttpResponseTextDocumentView } from '../views/httpResponseTextDocumentV
 import { HttpRequestParser } from '../utils/httpRequestParser';
 import { SelectedRequest } from '../models/SelectedRequest';
 import { RequestVariableCache } from '../utils/requestVariableCache';
+import * as os from 'os';
 
 export class RequestController {
     private _requestStatusEntry: RequestStatusEntry;
@@ -64,7 +65,7 @@ export class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                const CHttpModule = require('../chttp-win-x64/CHttpExtension.node');
+                const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(
                     name ? name : null,
                     !metadatas.has(RequestMetadata.NoRedirect),
@@ -108,7 +109,7 @@ export class RequestController {
         const httpRequest = await parser.parseHttpRequest(name);
 
         try {
-            const CHttpModule = require('../chttp-win-x64/CHttpExtension.node');
+            const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
                 !metadatas.has(RequestMetadata.NoCertificateValidation),
@@ -125,8 +126,8 @@ export class RequestController {
                 return;
             }
 
-            if(metadatas.has(RequestMetadata.Name))
-            RequestVariableCache.add(document, metadatas.get(RequestMetadata.Name)!, response);
+            if (metadatas.has(RequestMetadata.Name))
+                RequestVariableCache.add(document, metadatas.get(RequestMetadata.Name)!, response);
             this._textDocumentView.render(response);
             this._requestStatusEntry.updateStatus("Completed");
         } catch (reason: any) {

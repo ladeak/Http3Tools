@@ -23,6 +23,7 @@ const workspaceUtility_1 = __webpack_require__(25);
 const httpResponseTextDocumentView_1 = __webpack_require__(26);
 const httpRequestParser_1 = __webpack_require__(27);
 const requestVariableCache_1 = __webpack_require__(12);
+const os = __webpack_require__(6);
 class RequestController {
     constructor(context) {
         this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
@@ -66,7 +67,7 @@ class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                const CHttpModule = __webpack_require__(28);
+                const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), metadatas.has(requestMetadata_1.RequestMetadata.SharedSocketHandler), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
@@ -91,7 +92,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const httpRequest = await parser.parseHttpRequest(name);
         try {
-            const CHttpModule = __webpack_require__(28);
+            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
@@ -2402,17 +2403,59 @@ exports.HttpRequestParser = HttpRequestParser;
 /* 28 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
+var map = {
+	"./chttp-linux-x64/CHttpExtension.node": 29,
+	"./chttp-win32-x64/CHttpExtension.node": 30
+};
+
+
+function webpackContext(req) {
+	var id = webpackContextResolve(req);
+	return __webpack_require__(id);
+}
+function webpackContextResolve(req) {
+	if(!__webpack_require__.o(map, req)) {
+		var e = new Error("Cannot find module '" + req + "'");
+		e.code = 'MODULE_NOT_FOUND';
+		throw e;
+	}
+	return map[req];
+}
+webpackContext.keys = function webpackContextKeys() {
+	return Object.keys(map);
+};
+webpackContext.resolve = webpackContextResolve;
+module.exports = webpackContext;
+webpackContext.id = 28;
+
+/***/ }),
+/* 29 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "fb2a37cc668f7f6283124bfa9c18f98f.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "ab06728c37cbfb96912cfba7b67fe6ea.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
 
 
 /***/ }),
-/* 29 */
+/* 30 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "23ab9c9c223beae7916c7554878bb543.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
+/***/ }),
+/* 31 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -2424,8 +2467,9 @@ const requestMetadata_1 = __webpack_require__(3);
 const requestStatusBarEntry_1 = __webpack_require__(4);
 const selector_1 = __webpack_require__(5);
 const workspaceUtility_1 = __webpack_require__(25);
-const responseWebView_1 = __webpack_require__(30);
-const diffRequestParser_1 = __webpack_require__(31);
+const responseWebView_1 = __webpack_require__(32);
+const diffRequestParser_1 = __webpack_require__(33);
+const os = __webpack_require__(6);
 class DiffController {
     constructor(context) {
         this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
@@ -2460,7 +2504,7 @@ class DiffController {
             return;
         }
         try {
-            const CHttpModule = __webpack_require__(28);
+            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
             this._view.render(response);
             this._requestStatusEntry.updateStatus("Completed");
@@ -2481,7 +2525,7 @@ exports.DiffController = DiffController;
 
 
 /***/ }),
-/* 30 */
+/* 32 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -2522,7 +2566,7 @@ exports.ResponseWebView = ResponseWebView;
 
 
 /***/ }),
-/* 31 */
+/* 33 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -2551,7 +2595,7 @@ exports.DiffRequestParser = DiffRequestParser;
 
 
 /***/ }),
-/* 32 */
+/* 34 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -2592,7 +2636,7 @@ exports.HttpCodeLensProvider = HttpCodeLensProvider;
 
 
 /***/ }),
-/* 33 */
+/* 35 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -2667,6 +2711,11 @@ exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
+/******/ 	(() => {
+/******/ 		__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/node module decorator */
 /******/ 	(() => {
 /******/ 		__webpack_require__.nmd = (module) => {
@@ -2693,15 +2742,16 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __webpack_require__(1);
 const vscode_1 = __webpack_require__(1);
 const requestController_1 = __webpack_require__(2);
-const diffController_1 = __webpack_require__(29);
-const httpCodeLensProvider_1 = __webpack_require__(32);
-const requestVariableHoverProvider_1 = __webpack_require__(33);
+const diffController_1 = __webpack_require__(31);
+const httpCodeLensProvider_1 = __webpack_require__(34);
+const requestVariableHoverProvider_1 = __webpack_require__(35);
+const os = __webpack_require__(6);
 function activate(context) {
     const requestController = new requestController_1.RequestController(context);
     const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
-        const cHttpModule = __webpack_require__(28);
+        const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
         cHttpModule.CHttpExt.cancel();
     }));
     let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => diffController.run(range)));
@@ -2713,7 +2763,7 @@ function activate(context) {
     context.subscriptions.push(sendRequest);
     context.subscriptions.push(cancelRequest);
     context.subscriptions.push(diff);
-    const cHttpModule = __webpack_require__(28);
+    const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
     cHttpModule.CHttpExt.setMsQuicPath(context.extensionPath);
 }
 exports.activate = activate;
