@@ -67,7 +67,7 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "vsce-deploy": "vsce package --target win32-x64,linux-x64",
+    "vsce-deploy": "vsce package --target win32-x64 linux-x64",
     "vsce-publish": "vsce publish"
   },
   "devDependencies": {
