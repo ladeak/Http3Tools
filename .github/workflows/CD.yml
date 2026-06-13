@@ -159,7 +159,8 @@ jobs:
       run: |
         pushd ./src/VSCodeExt/
         npm install
-        npm run vsce-deploy ${VERSION}
+        npm run vsce-deploy-win ${VERSION}
+        npm run vsce-deploy-linux ${VERSION}
         npm run vsce-publish --out chttp-vsce.vsix --packagePath $(find . -iname *.vsix)
         popd
     - name: Release
