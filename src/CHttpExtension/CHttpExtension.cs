@@ -27,6 +27,7 @@ public static class CHttpExt
     }
 
     [SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("linux")]
     public static async Task<string> SendRequestAsync(
         bool enableRedirects,
         bool enableCertificateValidation,
@@ -93,6 +94,7 @@ public static class CHttpExt
     }
 
     [SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("linux")]
     public static async Task<string> PerfMeasureAsync(
         string executionName,
         bool enableRedirects,
@@ -184,12 +186,16 @@ public static class CHttpExt
 
 
     [SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("linux")]
     private static Version ParseHttpVersion(string version)
     {
         var parsedVersion = VersionParser.Map(version);
 #pragma warning disable CA2252 // This API requires opting into preview features
         if (parsedVersion == HttpVersion.Version30 && !QuicConnection.IsSupported)
-            throw new InvalidOperationException($"QUIC is not supported or not available in folder {AppContext.BaseDirectory}");
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+                throw new InvalidOperationException($"QUIC is not supported or not available. Install libmsquic.so from your package registry.");
+            else
+                throw new InvalidOperationException($"QUIC is not supported or not available in folder {AppContext.BaseDirectory}.");
 #pragma warning restore CA2252 // This API requires opting into preview features
         return parsedVersion;
     }
