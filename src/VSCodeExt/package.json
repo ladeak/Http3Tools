@@ -69,7 +69,7 @@
     "test": "node ./out/test/runTest.js",
     "vsce-deploy-win": "vsce package --target win32-x64",
     "vsce-deploy-linux": "vsce package --target linux-x64",
-    "vsce-publish": "vsce publish"
+    "vsce-publish": "vsce publish --packagePath $(find . -iname *.vsix)"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
