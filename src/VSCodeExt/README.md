@@ -214,3 +214,15 @@ HTTP status codes:
 *Warning: session files contain different urls: https://localhost:5001/,https://localhost:5001/post
 ------------------------------------------------------------------------
 ```
+
+## Troubleshooting
+
+On Linux, to use HTTP/3, install libmsquic. For example, on Ubuntu:
+
+```
+sudo wget https://packages.microsoft.com/config/ubuntu/<version>/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y libmsquic
+```
