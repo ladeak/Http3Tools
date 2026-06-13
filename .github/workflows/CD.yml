@@ -160,6 +160,7 @@ jobs:
         pushd ./src/VSCodeExt/
         npm install
         npm run vsce-deploy ${VERSION}
+        npm run vsce-publish --out chttp-vsce.vsix --packagePath $(find . -iname *.vsix)
         popd
     - name: Release
       uses: softprops/action-gh-release@v3
