@@ -91,12 +91,12 @@ jobs:
             src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
     - name: Build VSCodeExtension dependencies
       run: |
-        dotnet publish src/CHttpExtension -r win-x64 -f net9.0 # .NET 9
+        dotnet publish src/CHttpExtension -r linux-x64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts
       uses: actions/upload-artifact@v4
       with:
         name: CHttpExtension-Linux # The name of the artifact bundle
-        path: src/CHttpExtension/linux-x64/publish/*
+        path: src/CHttpExtension/bin/Release/net9.0/linux-x64/publish/*
 
   cross-compile-windows-aot:
     runs-on: windows-latest
@@ -125,12 +125,12 @@ jobs:
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
     - name: Build VSCodeExtension dependencies
       run: |
-        dotnet publish src/CHttpExtension -r linux-x64 -f net9.0 # .NET 9
+        dotnet publish src/CHttpExtension -r win-x64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts
       uses: actions/upload-artifact@v4
       with:
         name: CHttpExtension-Windows # The name of the artifact bundle
-        path: src/CHttpExtension/linux-x64/publish/*
+        path: src/CHttpExtension/bin/Release/net9.0/win-x64/publish/*
 
   build-and-deploy-vscodeextension:
     runs-on: ubuntu-latest
