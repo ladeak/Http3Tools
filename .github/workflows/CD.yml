@@ -92,12 +92,27 @@ jobs:
     - name: Build VSCodeExtension dependencies
       run: |
         dotnet publish src/CHttpExtension -r linux-x64 -f net9.0 # .NET 9
-        dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts (linux-x64)
       uses: actions/upload-artifact@v4
       with:
         name: CHttpExtension-linux-x64 # The name of the artifact bundle
         path: src/CHttpExtension/bin/Release/net9.0/linux-x64/publish/*
+
+  cross-compile-linux-aot:
+    runs-on: ubuntu-26.04-arm
+    steps:
+    - uses: actions/checkout@v6
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Set VERSION variable from tag
+      run: |
+        $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
+        echo "VERSION=${ver}" >> $env:GITHUB_ENV
+    - name: Build VSCodeExtension dependencies
+      run: |
+        dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts (linux-arm64)
       uses: actions/upload-artifact@v4
       with:
@@ -176,7 +191,7 @@ jobs:
 
   vscodeextension-linux-arm64:
     runs-on: ubuntu-latest
-    needs: [build-and-deploy]
+    needs: [cross-compile-linux-arm64]
     permissions:
       contents: write
     steps:
