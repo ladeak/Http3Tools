@@ -33,8 +33,7 @@ jobs:
       run: dotnet build CHttpTools.slnx -c ${{ env.CONFIGURATION }}
     - name: Test
       run: |
-        # dotnet test --no-build -c ${{ env.CONFIGURATION }}
-        echo hi
+        dotnet test --no-build -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
         pushd ./src/VSCodeExt/
