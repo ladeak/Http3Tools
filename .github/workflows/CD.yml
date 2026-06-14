@@ -191,7 +191,7 @@ jobs:
 
   vscodeextension-linux-arm64:
     runs-on: ubuntu-latest
-    needs: [cross-compile-linux-arm64]
+    needs: [cross-compile-linux-aot]
     permissions:
       contents: write
     steps:
