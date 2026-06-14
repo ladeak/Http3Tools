@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using CHttp.Abstractions;
@@ -329,20 +330,20 @@ public class CHttpFunctionalTests
     [Fact]
     public async Task Diff_FunctionalTest()
     {
-        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2, port: 5011);
         await host.StartAsync(TestContext.Current.CancellationToken);
-        var console = new TestConsolePerWrite(filterDate: DateReplacement);
+        var console = new TestConsolePerWrite();
         var memoryFileSystem = new MemoryFileSystem();
 
-        var client0 = await CommandFactory.CreateRootCommand(fileSystem: memoryFileSystem)
+        var client0 = await CommandFactory.CreateRootCommand(console: new TestConsolePerWrite(), fileSystem: memoryFileSystem)
             .Parse("perf --method GET -v 2 -c 1 -n 100 --no-certificate-validation -o session0.json --uri https://localhost:5011")
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
-        var client1 = await CommandFactory.CreateRootCommand(fileSystem: memoryFileSystem)
+        var client1 = await CommandFactory.CreateRootCommand(console: new TestConsolePerWrite(), fileSystem: memoryFileSystem)
             .Parse("perf --method GET -v 2 -c 1 -n 100 --no-certificate-validation -o session1.json --uri https://localhost:5011")
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         var client = await CommandFactory.CreateRootCommand(console: console, fileSystem: memoryFileSystem)
-            .Parse($"diff --files session0.json --files session0.json")
+            .Parse("diff --files session0.json --files session1.json")
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 

@@ -5,7 +5,7 @@ namespace CHttp.Tests;
 
 public class TestConsolePerWrite : IConsole
 {
-    private readonly StringBuilder _sb = new StringBuilder();
+    private readonly StringBuilder _sb = new();
     private readonly string _filterDate = string.Empty;
 
     public TestConsolePerWrite()
@@ -25,7 +25,7 @@ public class TestConsolePerWrite : IConsole
 
     public bool CursorVisible { get; set; }
 
-    public string Text { get => _sb.ToString(); }
+    public string Text => _sb.ToString();
 
     public int WindowWidth { get; }
 

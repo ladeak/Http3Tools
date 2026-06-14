@@ -12,7 +12,7 @@ public class UploadThrottledStringContentTests
 		var awaiter = new SyncedAwaiter(1);
 		var sut = new UploadThrottledStringContent(input, 1, awaiter);
 		using var ms = new MemoryStream();
-		await sut.CopyToAsync(ms);
+		await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
 		ms.Seek(0, SeekOrigin.Begin);
 		Assert.Equal(Encoding.UTF8.GetBytes(input), ms.ToArray());
 		Assert.Equal(1, awaiter.RemainingCount);
@@ -25,7 +25,7 @@ public class UploadThrottledStringContentTests
 		var awaiter = new SyncedAwaiter(1);
 		var sut = new UploadThrottledStringContent(input, 1, awaiter);
 		using var ms = new MemoryStream();
-		await sut.CopyToAsync(ms);
+		await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
 		ms.Seek(0, SeekOrigin.Begin);
 		Assert.Equal(Encoding.UTF8.GetBytes(input), ms.ToArray());
 		Assert.Equal(0, awaiter.RemainingCount);
@@ -38,7 +38,7 @@ public class UploadThrottledStringContentTests
 		var awaiter = new SyncedAwaiter(300);
 		var sut = new UploadThrottledStringContent(input, 1, awaiter);
 		using var ms = new MemoryStream();
-		await sut.CopyToAsync(ms);
+		await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
 		ms.Seek(0, SeekOrigin.Begin);
 		Assert.Equal(Encoding.UTF8.GetBytes(input), ms.ToArray());
 		Assert.Equal(0, awaiter.RemainingCount);
