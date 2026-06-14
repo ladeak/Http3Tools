@@ -65,7 +65,7 @@ export class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
+                const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(
                     name ? name : null,
                     !metadatas.has(RequestMetadata.NoRedirect),
@@ -109,7 +109,7 @@ export class RequestController {
         const httpRequest = await parser.parseHttpRequest(name);
 
         try {
-            const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
+            const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
                 !metadatas.has(RequestMetadata.NoCertificateValidation),

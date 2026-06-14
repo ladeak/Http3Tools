@@ -67,7 +67,7 @@ class RequestController {
                 token.onCancellationRequested(() => {
                     CHttpModule.CHttpExt.cancel();
                 });
-                const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
+                const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
                 var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), metadatas.has(requestMetadata_1.RequestMetadata.SharedSocketHandler), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
@@ -92,7 +92,7 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const httpRequest = await parser.parseHttpRequest(name);
         try {
-            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
+            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
@@ -2435,7 +2435,7 @@ webpackContext.id = 28;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "f07947184cb354b38b43a68f9b508891.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "cd23b70ea4cfc96a438db98b20fb3ba2.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
@@ -2504,7 +2504,7 @@ class DiffController {
             return;
         }
         try {
-            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
+            const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
             this._view.render(response);
             this._requestStatusEntry.updateStatus("Completed");
@@ -2732,7 +2732,7 @@ exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+// This entry needs to be wrapped in an IIFE because it needs to be in strict mode.
 (() => {
 "use strict";
 var exports = __webpack_exports__;
@@ -2751,7 +2751,7 @@ function activate(context) {
     const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
-        const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
+        const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
         cHttpModule.CHttpExt.cancel();
     }));
     let diff = vscode.commands.registerCommand('LaDeak-CHttp.diff', ((document, range) => diffController.run(range)));
@@ -2763,7 +2763,7 @@ function activate(context) {
     context.subscriptions.push(sendRequest);
     context.subscriptions.push(cancelRequest);
     context.subscriptions.push(diff);
-    const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-x64/CHttpExtension.node`);
+    const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
     cHttpModule.CHttpExt.setMsQuicPath(context.extensionPath);
 }
 exports.activate = activate;

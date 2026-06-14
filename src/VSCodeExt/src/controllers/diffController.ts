@@ -53,7 +53,7 @@ export class DiffController {
             return;
         }
         try {
-            const CHttpModule = require(`../chttp-${os.platform()}-x64/CHttpExtension.node`);
+            const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             var response = await CHttpModule.CHttpExt.getDiffAsync(diffRequest.file1, diffRequest.file2);
             this._view.render(response);
             this._requestStatusEntry.updateStatus("Completed");

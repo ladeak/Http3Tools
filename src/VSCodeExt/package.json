@@ -67,8 +67,10 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "vsce-deploy-win": "vsce package -o chttp-win-x64.vsix --target win32-x64",
-    "vsce-deploy-linux": "vsce package -o chttp-linux-x64.vsix --target linux-x64",
+    "vsce-deploy-win-x64": "vsce package -o chttp-win-x64.vsix --target win32-x64",
+    "vsce-deploy-linux-x64": "vsce package -o chttp-linux-x64.vsix --target linux-x64",
+    "vsce-deploy-win-arm64": "vsce package -o chttp-win-arm64.vsix --target win32-arm64",
+    "vsce-deploy-linux-arm64": "vsce package -o chttp-linux-arm64.vsix --target linux-arm64",
     "vsce-publish": "vsce publish"
   },
   "devDependencies": {

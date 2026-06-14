@@ -38,6 +38,6 @@ jobs:
       run: |
         pushd ./src/VSCodeExt/
         npm install
-        npm run vsce-deploy-win
-        npm run vsce-deploy-linux
+        npm run vsce-deploy-win-x64
+        npm run vsce-deploy-linux-x64
         popd
