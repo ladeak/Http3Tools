@@ -107,9 +107,7 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Set VERSION variable from tag
-      run: |
-        $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
-        echo "VERSION=${ver}" >> $env:GITHUB_ENV
+      run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Build VSCodeExtension dependencies
       run: |
         dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
