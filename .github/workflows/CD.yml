@@ -161,10 +161,10 @@ jobs:
         npm install
         npm run vsce-deploy-win ${VERSION}
         npm run vsce-deploy-linux ${VERSION}
-        npm run vsce-publish
         popd
     - name: Release
       uses: softprops/action-gh-release@v3
       with:
           files: |
-            src/VSCodeExt/chttp-vsce.vsix
+            src/VSCodeExt/chttp-win-x64.vsix
+            src/VSCodeExt/chttp-linux-x64.vsix

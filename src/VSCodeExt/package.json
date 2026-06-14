@@ -67,9 +67,9 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "vsce-deploy-win": "vsce package --target win32-x64",
-    "vsce-deploy-linux": "vsce package --target linux-x64",
-    "vsce-publish": "vsce publish --packagePath $(find . -iname *.vsix)"
+    "vsce-deploy-win": "vsce package -o chttp-win-x64.vsix --target win32-x64",
+    "vsce-deploy-linux": "vsce package -o chttp-linux-x64.vsix --target linux-x64",
+    "vsce-publish": "vsce publish"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",

@@ -41,5 +41,4 @@ jobs:
         npm install
         npm run vsce-deploy-win
         npm run vsce-deploy-linux
-        npm run vsce-publish
         popd
