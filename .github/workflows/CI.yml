@@ -41,19 +41,3 @@ jobs:
         npm run vsce-deploy-win-x64
         npm run vsce-deploy-linux-x64
         popd
-  cross-compile-linux-aot:
-    runs-on: ubuntu-26.04-arm
-    steps:
-    - uses: actions/checkout@v6
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-    - name: Build VSCodeExtension dependencies
-      run: |
-        dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
-    - name: Upload CHttpExtension file to artifacts (linux-arm64)
-      uses: actions/upload-artifact@v4
-      with:
-        name: CHttpExtension-linux-arm64 # The name of the artifact bundle
-        path: src/CHttpExtension/bin/Release/net9.0/linux-arm64/publish/*
