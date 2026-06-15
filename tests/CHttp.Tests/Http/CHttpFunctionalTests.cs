@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using CHttp.Abstractions;
@@ -350,8 +349,51 @@ public class CHttpFunctionalTests
         Assert.Contains("probability, the base session's true mean latency is", console.Text);
     }
 
+    [Fact]
+    public async Task CertificateValidationError_WithProposedSuggestion()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 2")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains($"SSL", console.Text);
+    }
+
     private class Request
     {
         public string? Data { get; set; }
     }
 }
+
+
+//Request Error System.Net.Http.HttpRequestException: The SSL connection could not be established, see inner exception.
+// ---> System.Security.Authentication.AuthenticationException: The remote certificate is invalid because of errors in the certificate chain: UntrustedRoot
+//   at System.Net.Security.SslStream.SendAuthResetSignal(ReadOnlySpan`1, ExceptionDispatchInfo) + 0x6e
+//   at System.Net.Security.SslStream.CompleteHandshake(SslAuthenticationOptions) + 0x18b
+//   at System.Net.Security.SslStream.<ForceAuthenticationAsync>d__157`1.MoveNext() + 0x942
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.ConnectHelper.<EstablishSslConnectionAsync>d__2.MoveNext() + 0xd0
+//   --- End of inner exception stack trace ---
+//   at System.Net.Http.ConnectHelper.<EstablishSslConnectionAsync>d__2.MoveNext() + 0x441
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.HttpConnectionPool.<ConnectAsync>d__51.MoveNext() + 0xa10
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.HttpConnectionPool.<InjectNewHttp2ConnectionAsync>d__101.MoveNext() + 0x857
+//--- End of stack trace from previous location ---
+//   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.<WaitWithCancellationAsync>d__1.MoveNext() + 0xef
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.HttpConnectionPool.<SendWithVersionDetectionAndRetryAsync>d__50.MoveNext() + 0x692
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.RedirectHandler.<SendAsync>d__4.MoveNext() + 0x1e5
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.DecompressionHandler.<SendAsync>d__16.MoveNext() + 0x2fd
+//--- End of stack trace from previous location ---
+//   at System.Net.Http.HttpClient.<<SendAsync>g__Core|83_0>d.MoveNext() + 0x3a1
+//--- End of stack trace from previous location ---
+//   at CHttp.Http.HttpMessageSender.<SendRequestAsync>d__7.MoveNext() + 0x30b
