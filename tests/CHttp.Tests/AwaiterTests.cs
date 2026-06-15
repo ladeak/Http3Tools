@@ -14,6 +14,6 @@ public class AwaiterTests
 		timeProvider.Advance(TimeSpan.FromMilliseconds(49));
 		Assert.False(waiting.IsCompleted);
 		timeProvider.Advance(TimeSpan.FromMilliseconds(1));
-		await waiting.WaitAsync(TimeSpan.FromSeconds(1));
+		await waiting.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
 	}
 }
