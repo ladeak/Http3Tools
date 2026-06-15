@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Net.Http.Headers;
 using System.Security.Authentication;
 using System.Text;

@@ -1,19 +1,12 @@
-using System.Collections;
 using System.IO.Compression;
-using System.Net.Security;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
 using CHttp.Abstractions;
-using CHttp.Http;
 using CHttp.Writers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Primitives;
-using OpenTelemetry.Trace;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace CHttp.Tests.Http;
 
