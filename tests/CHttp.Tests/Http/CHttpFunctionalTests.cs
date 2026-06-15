@@ -1,12 +1,19 @@
+using System.Collections;
 using System.IO.Compression;
+using System.Net.Security;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using CHttp.Abstractions;
+using CHttp.Http;
 using CHttp.Writers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Primitives;
+using OpenTelemetry.Trace;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace CHttp.Tests.Http;
 
@@ -362,7 +369,71 @@ public class CHttpFunctionalTests
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        Assert.Contains($"SSL", console.Text);
+        Assert.Contains("Enable flag --no-certificate-validation true'. SSL error: The remote certificate is invalid because of errors in the certificate chain", console.Text);
+    }
+
+    [Fact]
+    public async Task CertificateValidationError_HttpsServer_HttpRequest_H2()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http2);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri http://localhost:5011 -v 2")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("Invalid http(s) schema: An HTTP/2 connection could not be established", console.Text);
+    }
+
+    [Fact]
+    public async Task CertificateValidationError_HttpsServer_HttpRequest_H3()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http3);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri http://localhost:5011 -v 3")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("Requesting HTTP version 3.0 with version policy RequestVersionExact while unable to establish HTTP/3 connection.", console.Text);
+    }
+
+    [Fact]
+    public async Task CertificateValidationError_HttpsServer_HttpRequest_H1()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http1);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri http://localhost:5011 -v 1.1")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("Invalid http(s) schema: The response ended prematurely.", console.Text);
+    }
+
+    [Fact]
+    public async Task CertificateValidationError_HttpServer_HttpsRequest()
+    {
+        using var host = HttpServer.CreateHostBuilder(context => context.Response.WriteAsync("test"), HttpProtocols.Http1, withHttps: false);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 1.1")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("Invalid http(s) schema: Cannot determine the frame size or a corrupted frame was received.", console.Text);
     }
 
     private class Request
@@ -370,30 +441,3 @@ public class CHttpFunctionalTests
         public string? Data { get; set; }
     }
 }
-
-
-//Request Error System.Net.Http.HttpRequestException: The SSL connection could not be established, see inner exception.
-// ---> System.Security.Authentication.AuthenticationException: The remote certificate is invalid because of errors in the certificate chain: UntrustedRoot
-//   at System.Net.Security.SslStream.SendAuthResetSignal(ReadOnlySpan`1, ExceptionDispatchInfo) + 0x6e
-//   at System.Net.Security.SslStream.CompleteHandshake(SslAuthenticationOptions) + 0x18b
-//   at System.Net.Security.SslStream.<ForceAuthenticationAsync>d__157`1.MoveNext() + 0x942
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.ConnectHelper.<EstablishSslConnectionAsync>d__2.MoveNext() + 0xd0
-//   --- End of inner exception stack trace ---
-//   at System.Net.Http.ConnectHelper.<EstablishSslConnectionAsync>d__2.MoveNext() + 0x441
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.HttpConnectionPool.<ConnectAsync>d__51.MoveNext() + 0xa10
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.HttpConnectionPool.<InjectNewHttp2ConnectionAsync>d__101.MoveNext() + 0x857
-//--- End of stack trace from previous location ---
-//   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.<WaitWithCancellationAsync>d__1.MoveNext() + 0xef
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.HttpConnectionPool.<SendWithVersionDetectionAndRetryAsync>d__50.MoveNext() + 0x692
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.RedirectHandler.<SendAsync>d__4.MoveNext() + 0x1e5
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.DecompressionHandler.<SendAsync>d__16.MoveNext() + 0x2fd
-//--- End of stack trace from previous location ---
-//   at System.Net.Http.HttpClient.<<SendAsync>g__Core|83_0>d.MoveNext() + 0x3a1
-//--- End of stack trace from previous location ---
-//   at CHttp.Http.HttpMessageSender.<SendRequestAsync>d__7.MoveNext() + 0x30b

@@ -5,14 +5,14 @@ namespace CHttp.Binders;
 
 internal sealed class HttpBehaviorBinder(
     Option<bool> redirectBinder,
-    Option<bool> enableCertificateValidationBinder,
+    Option<bool> validateCertificateValidationBinder,
     Option<double> timeout,
     Option<FileInfo?> cookieContainerOption,
     Option<bool> kerberosAuthOption,
     Option<bool> decompressResponse)
 {
     private readonly Option<bool> _redirectBinder = redirectBinder;
-    private readonly Option<bool> _enableCertificateValidationBinder = enableCertificateValidationBinder;
+    private readonly Option<bool> _validateCertificateValidationBinder = validateCertificateValidationBinder;
     private readonly Option<double> _timeoutOption = timeout;
     private readonly Option<FileInfo?> _cookieContainerOption = cookieContainerOption;
     private readonly Option<bool> _kerberosAuthOption = kerberosAuthOption;
@@ -21,7 +21,7 @@ internal sealed class HttpBehaviorBinder(
     internal HttpBehavior Bind(ParseResult parseResult)
     {
         var redirects = parseResult.GetValue(_redirectBinder);
-        var enableCertificateValidation = parseResult.GetValue(_enableCertificateValidationBinder);
+        var enableCertificateValidation = !parseResult.GetValue(_validateCertificateValidationBinder);
         var timeout = parseResult.GetValue(_timeoutOption);
         var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.FullName ?? string.Empty;
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);

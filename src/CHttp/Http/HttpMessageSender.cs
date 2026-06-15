@@ -1,5 +1,7 @@
-﻿using System.IO.Pipelines;
+﻿using System.Drawing;
+using System.IO.Pipelines;
 using System.Net.Http.Headers;
+using System.Security.Authentication;
 using System.Text;
 using CHttp.Data;
 using CHttp.Writers;
@@ -46,7 +48,7 @@ internal sealed class HttpMessageSender
 
     private async Task SendRequestAsync(HttpClient client, HttpRequestMessage request, CancellationToken token = default)
     {
-        Summary summary = new Summary(request.RequestUri?.ToString() ?? string.Empty);
+        Summary summary = new(request.RequestUri?.ToString() ?? string.Empty);
         HttpResponseHeaders? trailers = null;
         {
             try
@@ -61,7 +63,7 @@ internal sealed class HttpMessageSender
             }
             catch (HttpRequestException requestException)
             {
-                summary = summary with { Error = $"Request Error {requestException}", ErrorCode = ErrorType.HttpRequestException };
+                summary = summary with { Error = HandleRequestException(requestException), ErrorCode = ErrorType.HttpRequestException };
             }
             catch (HttpProtocolException protocolException)
             {
@@ -111,5 +113,22 @@ internal sealed class HttpMessageSender
                 }
             }
         }
+    }
+
+    private string HandleRequestException(HttpRequestException requestException)
+    {
+        if (requestException.InnerException is AuthenticationException authException)
+        {
+            if (authException.Message.StartsWith("The remote certificate is invalid"))
+                return $"Enable flag --no-certificate-validation true'. SSL error: {authException.Message}";
+            if (authException.Message.StartsWith("Cannot determine the frame size or a corrupted frame was received"))
+                return $"Invalid http(s) schema: {authException.Message}";
+        }
+
+        if (requestException.InnerException is HttpIOException ioException)
+        {
+            return $"Invalid http(s) schema: {ioException.Message}";
+        }
+        return $"Request Error {requestException}";
     }
 }

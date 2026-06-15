@@ -9,32 +9,34 @@ namespace CHttp.Tests;
 
 public static class HttpServer
 {
-	public static WebApplication CreateHostBuilder(RequestDelegate? requestDelegate = null,
-		HttpProtocols? protocol = null,
-		Action<KestrelServerOptions>? configureKestrel = null,
-		Action<IServiceCollection>? configureServices = null,
-		Action<WebApplication>? configureApp = null,
-		int port = 5011,
-		string path = "/")
-	{
-		var builder = WebApplication.CreateBuilder();
-		builder.WebHost.UseKestrel(kestrel =>
-		{
-			kestrel.ListenAnyIP(port, options =>
-			{
-				options.UseHttps(X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"));
-				options.Protocols = protocol ?? HttpProtocols.Http3;
-			});
-			configureKestrel?.Invoke(kestrel);
-		});
+    public static WebApplication CreateHostBuilder(RequestDelegate? requestDelegate = null,
+        HttpProtocols? protocol = null,
+        Action<KestrelServerOptions>? configureKestrel = null,
+        Action<IServiceCollection>? configureServices = null,
+        Action<WebApplication>? configureApp = null,
+        int port = 5011,
+        string path = "/",
+        bool withHttps = true)
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseKestrel(kestrel =>
+        {
+            kestrel.ListenAnyIP(port, options =>
+            {
+                if (withHttps)
+                    options.UseHttps(X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"));
+                options.Protocols = protocol ?? HttpProtocols.Http3;
+            });
+            configureKestrel?.Invoke(kestrel);
+        });
 
-		configureServices?.Invoke(builder.Services);
-		var app = builder.Build();
+        configureServices?.Invoke(builder.Services);
+        var app = builder.Build();
 
-		if (requestDelegate != null)
-			app.Map(path, requestDelegate);
-		else if (configureApp != null)
-			configureApp.Invoke(app);
-		return app;
-	}
+        if (requestDelegate != null)
+            app.Map(path, requestDelegate);
+        else if (configureApp != null)
+            configureApp.Invoke(app);
+        return app;
+    }
 }
