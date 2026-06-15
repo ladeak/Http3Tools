@@ -93,7 +93,7 @@ jobs:
       run: |
         dotnet publish src/CHttpExtension -r linux-x64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts (linux-x64)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-linux-x64 # The name of the artifact bundle
         path: src/CHttpExtension/bin/Release/net9.0/linux-x64/publish/*
@@ -112,7 +112,7 @@ jobs:
       run: |
         dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts (linux-arm64)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-linux-arm64 # The name of the artifact bundle
         path: src/CHttpExtension/bin/Release/net9.0/linux-arm64/publish/*
@@ -147,12 +147,12 @@ jobs:
         dotnet publish src/CHttpExtension -r win-x64 -f net9.0 # .NET 9
         dotnet publish src/CHttpExtension -r win-arm64 -f net9.0 # .NET 9
     - name: Upload CHttpExtension file to artifacts (win-x64)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-win-x64 # The name of the artifact bundle
         path: src/CHttpExtension/bin/Release/net9.0/win-x64/publish/*
     - name: Upload CHttpExtension file to artifacts (win-arm64)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-win-arm64 # The name of the artifact bundle
         path: src/CHttpExtension/bin/Release/net9.0/win-arm64/publish/*
@@ -171,7 +171,7 @@ jobs:
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Download Platform Specific Artifacts (linux-x64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: CHttpExtension-linux-x64
         path: src/VSCodeExt/src/chttp-linux-x64
@@ -201,7 +201,7 @@ jobs:
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Download Platform Specific Artifacts (linux-arm64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: CHttpExtension-linux-arm64
         path: src/VSCodeExt/src/chttp-linux-arm64
@@ -231,7 +231,7 @@ jobs:
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Download Platform Specific Artifacts (win-x64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: CHttpExtension-win-x64
         path: src/VSCodeExt/src/chttp-win32-x64
@@ -261,7 +261,7 @@ jobs:
     - name: Set VERSION variable from tag
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Download Platform Specific Artifacts (win-arm64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: CHttpExtension-win-arm64
         path: src/VSCodeExt/src/chttp-win32-arm64
