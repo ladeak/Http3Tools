@@ -1,10 +1,8 @@
-﻿using System.Net;
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CHttpServer.Tests;
 
@@ -18,6 +16,7 @@ public class TestServer : IAsyncDisposable, IDisposable
         if (_app != null)
             return Task.CompletedTask;
         var builder = WebApplication.CreateBuilder();
+        builder.Logging.SetMinimumLevel(LogLevel.Error);
         builder.UseCHttpServer(o =>
         {
             o.Port = port;
