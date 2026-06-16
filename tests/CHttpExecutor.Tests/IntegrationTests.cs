@@ -360,7 +360,7 @@ GET {{host}} HTTP/2
     {
         using var host = HttpServer.CreateHostBuilder(async context =>
         {
-            await Task.Delay(1);
+            await Task.Delay(2);
             await context.Response.WriteAsync("test");
         }, HttpProtocols.Http2, port: Port);
         await host.StartAsync(TestContext.Current.CancellationToken);
