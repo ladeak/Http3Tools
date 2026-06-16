@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CHttp.Tests;
 
@@ -19,6 +20,7 @@ public static class HttpServer
         bool withHttps = true)
     {
         var builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
         builder.WebHost.UseKestrel(kestrel =>
         {
             kestrel.ListenAnyIP(port, options =>
