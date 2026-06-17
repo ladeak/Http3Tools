@@ -37,7 +37,7 @@ public record struct Summary
     private long _endTime;
     public long EndTime
     {
-        get => _endTime;
+        readonly get => _endTime;
         set
         {
             if (_endTime != default || StartTime == default)
@@ -59,7 +59,7 @@ public record struct Summary
         HttpStatusCode = (int)statusCode;
     }
 
-    public override string ToString()
+    public readonly override string ToString()
     {
         if (!string.IsNullOrEmpty(Error))
             return Error;
@@ -69,19 +69,19 @@ public record struct Summary
             inputs.Url.CopyTo(buffer);
             buffer = buffer.Slice(inputs.Url.Length);
             buffer[0] = ' ';
-            buffer = buffer.Slice(1);
+            buffer = buffer[1..];
             var responseSize = inputs.Length;
             if (SizeFormatter<double>.TryFormatSize(responseSize, buffer, out var count))
             {
-                buffer = buffer.Slice(count);
+                buffer = buffer[count..];
                 buffer[0] = ' ';
-                buffer = buffer.Slice(1);
+                buffer = buffer[1..];
             }
             if (!inputs.Duration.TryFormat(buffer, out count, "c"))
                 ThrowInvalidOperationException();
-            buffer = buffer.Slice(count);
+            buffer = buffer[count..];
             buffer[0] = 's';
-            buffer = buffer.Slice(1);
+            buffer = buffer[1..];
             buffer.Fill(' ');
         });
     }

@@ -20,8 +20,6 @@ internal static class CommandFactory
         IFileSystem? fileSystem = null)
     {
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-        // kerberos auth
-        // certificates
         // TLS
         // proxy
 
@@ -122,9 +120,9 @@ internal static class CommandFactory
             {
                 var value = parseResult.Tokens.FirstOrDefault()?.Value;
                 if (value == null)
-                    return false;
+                    return true;
                 if (bool.TryParse(value, out var result))
-                    return !result; // Invert the value to match the option name
+                    return result; // Invert the value to match the option name
                 parseResult.AddError("Invalid value for --no-certificate-validation. Expected 'true' or 'false' or no value.");
                 return false;
             },

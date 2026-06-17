@@ -10,7 +10,7 @@ public class StringLinesContentTests
         List<string> input = ["test"];
         var sut = new StringLinesContent(input);
         using var ms = new MemoryStream();
-        await sut.CopyToAsync(ms);
+        await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
         ms.Seek(0, SeekOrigin.Begin);
         Assert.Equal(Encoding.UTF8.GetBytes("test"), ms.ToArray());
     }
@@ -21,7 +21,7 @@ public class StringLinesContentTests
         List<string> input = ["test", "test"];
         var sut = new StringLinesContent(input);
         using var ms = new MemoryStream();
-        await sut.CopyToAsync(ms);
+        await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
         ms.Seek(0, SeekOrigin.Begin);
         Assert.Equal(Encoding.UTF8.GetBytes("testtest"), ms.ToArray());
     }
@@ -32,7 +32,7 @@ public class StringLinesContentTests
         List<string> input = ["test", new string('a', 8 * 1024), "test2"];
         var sut = new StringLinesContent(input);
         using var ms = new MemoryStream();
-        await sut.CopyToAsync(ms);
+        await sut.CopyToAsync(ms, TestContext.Current.CancellationToken);
         ms.Seek(0, SeekOrigin.Begin);
         StringBuilder sb = new();
         sb.Append(input[0]);

@@ -17,7 +17,7 @@ public class StreamBufferedProcessorTests
         var input = Enumerable.Range(0, 100).Select(x => (byte)x).ToArray();
         var sut = new StreamBufferedProcessor(outputStream);
         var sutRun = sut.RunAsync(_ => Task.CompletedTask);
-        await sut.Pipe.WriteAsync(input);
+        await sut.Pipe.WriteAsync(input, TestContext.Current.CancellationToken);
         sut.Pipe.Complete();
         await sutRun;
         Assert.True(input.SequenceEqual(outputStream.ToArray()));
@@ -31,7 +31,7 @@ public class StreamBufferedProcessorTests
         var input = new byte[0];
         var sut = new StreamBufferedProcessor(outputStream);
         var sutRun = sut.RunAsync(_ => Task.CompletedTask);
-        await sut.Pipe.WriteAsync(input);
+        await sut.Pipe.WriteAsync(input, TestContext.Current.CancellationToken);
         sut.Pipe.Complete();
         await sutRun;
         Assert.True(input.SequenceEqual(outputStream.ToArray()));
@@ -44,7 +44,7 @@ public class StreamBufferedProcessorTests
         var input = Enumerable.Range(0, 100000).Select(x => (byte)x).ToArray();
         var sut = new StreamBufferedProcessor(outputStream);
         var sutRun = sut.RunAsync(_ => Task.CompletedTask);
-        await sut.Pipe.WriteAsync(input);
+        await sut.Pipe.WriteAsync(input, TestContext.Current.CancellationToken);
         sut.Pipe.Complete();
         await sutRun;
         Assert.True(input.SequenceEqual(outputStream.ToArray()));
@@ -63,7 +63,7 @@ public class StreamBufferedProcessorTests
 
         while (remainderToWrite.Length > 0)
         {
-            await sut.Pipe.WriteAsync(remainderToWrite.Slice(0, segmentLength));
+            await sut.Pipe.WriteAsync(remainderToWrite.Slice(0, segmentLength), TestContext.Current.CancellationToken);
             remainderToWrite = remainderToWrite.Slice(segmentLength);
         }
 
@@ -79,7 +79,7 @@ public class StreamBufferedProcessorTests
         var sut = new StreamBufferedProcessor(outputStream);
         var sutRun = sut.RunAsync(_ => Task.CompletedTask);
         sut.Cancel();
-        await sutRun.WaitAsync(TimeSpan.FromSeconds(1));
+        await sutRun.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         Assert.Equal(0, outputStream.Length);
         Assert.Equal(0, sut.Position);
     }
