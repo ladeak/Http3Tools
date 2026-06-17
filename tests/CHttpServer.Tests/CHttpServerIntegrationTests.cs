@@ -1,11 +1,9 @@
 ﻿using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 
 namespace CHttpServer.Tests;
 
 [Collection(nameof(VanilaCHttpServerIntegrationTests))]
-[CollectionDefinition(DisableParallelization = true)]
 public class VanilaCHttpServerIntegrationTests : CHttpServerIntegrationTests, IClassFixture<TestServer>
 {
     private const int Port = 7222;
@@ -17,7 +15,6 @@ public class VanilaCHttpServerIntegrationTests : CHttpServerIntegrationTests, IC
 }
 
 [Collection(nameof(PriorityCHttpServerIntegrationTests))]
-[CollectionDefinition(DisableParallelization = true)]
 public class PriorityCHttpServerIntegrationTests : CHttpServerIntegrationTests, IClassFixture<TestServer>
 {
     private const int Port = 7223;
