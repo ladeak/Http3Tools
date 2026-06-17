@@ -143,7 +143,7 @@ internal sealed partial class Http3Connection
     /// <summary>Graceful shutdown (until token gets cancelled).</summary>
     internal async Task StopAsync(CancellationToken token)
     {
-        using var _ = token.Register(() => _abruptCts.Cancel()); // Registers for immediate abort.
+        using var _ = token.Register(() => { try { _abruptCts.Cancel(); } catch (ObjectDisposedException) { } }); // Registers for immediate abort.
         _context.ConnectionCancellation.Cancel(); // Graceful shutdown
         await _processingCompleted.Task;
     }
