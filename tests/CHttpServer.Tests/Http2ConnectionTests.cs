@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
 using CHttpServer.System.Net.Http.HPack;
@@ -9,7 +8,6 @@ using static CHttpServer.Tests.TestBase;
 
 namespace CHttpServer.Tests;
 
-[SuppressMessage("Usage", "xUnit1051:Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken")]
 public class Http2ConnectionTests
 {
     [Fact]
