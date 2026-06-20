@@ -35,7 +35,7 @@ public class Http3FramingStreamWriterTests
 
         for (int i = 0; i < payloadLength; i++)
             Assert.Equal((byte)i, result[i + headerLength]);
-        
+
         sut.Complete();
         Assert.Equal(0, arrayPool.OutstandingBytes);
     }
@@ -549,6 +549,76 @@ public class Http3FramingStreamWriterTests
         Assert.Equal(expected, ms.ToArray());
     }
 
+    [Fact]
+    public async Task ArrayPool_DoubleReturn_FlushAsync_Complete()
+    {
+        var sut = new Http3FramingStreamWriter(Stream.Null, 1, new TestArrayPool());
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        // Flushes 2 segments.
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+
+        sut.Complete(); // Should not double clear segments. If so, TestArrayPool will throw an exception.
+    }
+
+    [Fact]
+    public void ArrayPool_DoubleReturn_Flush_Complete()
+    {
+        var sut = new Http3FramingStreamWriter(Stream.Null, 1, new TestArrayPool());
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        // Flushes 2 segments.
+        sut.Flush();
+
+        sut.Complete(); // Should not double clear segments. If so, TestArrayPool will throw an exception.
+    }
+
+    [Fact]
+    public async Task ArrayPool_DoubleReturn_FlushAsync_CompleteAsync()
+    {
+        var sut = new Http3FramingStreamWriter(Stream.Null, 1, new TestArrayPool());
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        // Flushes 2 segments.
+        await sut.FlushAsync(TestContext.Current.CancellationToken);
+        
+        await sut.CompleteAsync(); // Should not double clear segments. If so, TestArrayPool will throw an exception.
+    }
+
+    [Fact]
+    public async Task ArrayPool_DoubleReturn_Flush_CompleteAsync()
+    {
+        var sut = new Http3FramingStreamWriter(Stream.Null, 1, new TestArrayPool());
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        // Flushes 2 segments.
+        sut.Flush();
+        
+        await sut.CompleteAsync(); // Should not double clear segments. If so, TestArrayPool will throw an exception.
+    }
+
+    [Fact]
+    public void ArrayPool_DoubleReturn_Flush_Reset()
+    {
+        var sut = new Http3FramingStreamWriter(Stream.Null, 1, new TestArrayPool());
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        sut.GetMemory(8192);
+        sut.Advance(8100);
+        // Flushes 2 segments.
+        sut.Flush();
+
+        sut.Reset(Stream.Null); // Should not double clear segments. If so, TestArrayPool will throw an exception.
+    }
+
     private class TestArrayPool : ArrayPool<byte>
     {
         private readonly ArrayPool<byte> _internalPool;
@@ -576,7 +646,7 @@ public class Http3FramingStreamWriterTests
         public override void Return(byte[] array, bool clearArray = false)
         {
             _internalPool.Return(array, clearArray);
-            _rentedArrays.Remove(array);
+            Assert.True(_rentedArrays.Remove(array)); // Should not return an array twice.
         }
     }
 }
