@@ -142,7 +142,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
                 var frameHeaderLength = PrepareFrameHeader(buffer.AsSpan(), source.Length, _frameType);
                 source.CopyTo(buffer.AsMemory(frameHeaderLength));
                 await _responseStream.WriteAsync(buffer.AsMemory(0..(source.Length + frameHeaderLength)), cancellationToken);
-                ArrayPool<byte>.Shared.Return(buffer);
+                ArrayPool<byte>.Shared.Return(buffer, true);
             }
             else
             {
@@ -208,11 +208,6 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
 
     private async Task<FlushResult> FlushAllSegmentsAsync(int startOffset, CancellationToken localToken)
     {
-        if (!_currentSegment.IsEmpty)
-            _segments.Add(_currentSegment);
-        else if (_currentSegment.IsAllocated)
-            _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
-
         // First segment handled with offset.
         var memory = _segments[0];
         Debug.Assert(!memory.IsEmpty);
@@ -227,6 +222,12 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
                 await _responseStream.WriteAsync(memory.Used, localToken);
             _memoryPool.Return(memory.Reference, true);
         }
+
+        // Last segment (the _currentSegment is not returned to the memory pool.
+        if (!_currentSegment.IsEmpty)
+            await _responseStream.WriteAsync(_currentSegment.Used, localToken);
+        _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
+
         _segments.Clear();
         _unflushedBytes = 0;
         _responseStream.Flush();
@@ -263,17 +264,14 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
 
     private void FlushAllSegments(int startOffset)
     {
-        if (!_currentSegment.IsEmpty)
-            _segments.Add(_currentSegment);
-        else if (_currentSegment.IsAllocated)
-            _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
-
+        // First segment handled with offset.
         var source = CollectionsMarshal.AsSpan(_segments);
         ref var initialMemory = ref source[0];
         Debug.Assert(!initialMemory.IsEmpty);
         _responseStream.Write(initialMemory.Used.Span[startOffset..]);
         _memoryPool.Return(initialMemory.Reference, true);
 
+        // Remaining segments.
         for (int i = 1; i < _segments.Count; i++)
         {
             ref var memory = ref source[i];
@@ -281,6 +279,12 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
                 _responseStream.Write(memory.Used.Span);
             _memoryPool.Return(memory.Reference, true);
         }
+
+        // Last segment (the _currentSegment is not returned to the memory pool.
+        if (!_currentSegment.IsEmpty)
+            _responseStream.Write(_currentSegment.Used.Span);
+        _currentSegment = _currentSegment with { Used = Memory<byte>.Empty };
+
         _segments.Clear();
         _unflushedBytes = 0;
         _responseStream.Flush();
@@ -335,7 +339,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         for (int i = 0; i < source.Length; i++)
         {
             ref var memory = ref source[i];
-            if (memory.Reference.Length != 0)
+            if (memory.IsAllocated)
                 _memoryPool.Return(memory.Reference, true);
         }
         _unflushedBytes = 0;
@@ -343,7 +347,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
         if (clearCurrent)
         {
             if (_currentSegment.IsAllocated)
-                _memoryPool.Return(_currentSegment.Reference);
+                _memoryPool.Return(_currentSegment.Reference, true);
             _currentSegment = new Segment();
         }
         else
