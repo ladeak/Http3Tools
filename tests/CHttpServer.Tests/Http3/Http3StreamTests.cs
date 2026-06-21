@@ -1,4 +1,5 @@
-﻿using System.Net.Quic;
+﻿using System.Diagnostics;
+using System.Net.Quic;
 using CHttpServer.Http3;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -55,22 +56,24 @@ public class Http3StreamTests
 
             TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
             sut.Initialize(null, await serverStreamTask);
-            var testApp = new TestBase.TestApplication(ctx =>
+            var testApp = new TestBase.TestApplication(async ctx =>
             {
                 Assert.Equal("/", ctx.Request.Path);
                 Assert.Equal("https", ctx.Request.Scheme);
                 Assert.Equal("localhost", ctx.Request.Host.ToString());
                 Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
-                tcs.SetResult();
-                return Task.CompletedTask;
+
+                // This callback shall not complete before the 2nd flush, otherwise the
+                // server might close the stream before the flush succeeds.
+                await tcs.Task;
             });
             var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
 
             // Second Write
             await clientStream.WriteAsync(headersFrame[i..], TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+            tcs.SetResult();
 
-            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
             clientStream.Close();
             await processing;
             await quicConnection.DisposeAsync();
@@ -112,37 +115,38 @@ public class Http3StreamTests
     public async Task MultipleWrites_HeaderFrame_ReservedFrame()
     {
         byte[] data = [.. Http3FrameFixture.GetHeadersFrame(), .. Http3FrameFixture.GetReservedFrame(10)];
-        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        await using var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
         for (int i = 1; i < data.Length; i++)
         {
             var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
             var sut = new Http3Stream([]);
 
-            var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+            await using var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
             await clientStream.WriteAsync(data.AsMemory(0, i), TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
 
-            TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource secondFlushCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
             sut.Initialize(null, await serverStreamTask);
-            var testApp = new TestBase.TestApplication(ctx =>
+            var testApp = new TestBase.TestApplication(async ctx =>
             {
                 Assert.Equal("/", ctx.Request.Path);
                 Assert.Equal("https", ctx.Request.Scheme);
                 Assert.Equal("localhost", ctx.Request.Host.ToString());
                 Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
-                tcs.SetResult();
-                return Task.CompletedTask;
+
+                // This callback shall not complete before the 2nd flush, otherwise the
+                // server might close the stream before the flush succeeds.
+                await secondFlushCompleted.Task;
             });
             var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
 
             await clientStream.WriteAsync(data.AsMemory(i), TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+            secondFlushCompleted.SetResult();
 
-            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
-            clientStream.Close();
             await processing;
+            clientStream.Close();
         }
-        await quicConnection.DisposeAsync();
     }
 
     [Fact]
