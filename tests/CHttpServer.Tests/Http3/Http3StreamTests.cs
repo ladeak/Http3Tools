@@ -56,22 +56,24 @@ public class Http3StreamTests
 
             TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
             sut.Initialize(null, await serverStreamTask);
-            var testApp = new TestBase.TestApplication(ctx =>
+            var testApp = new TestBase.TestApplication(async ctx =>
             {
                 Assert.Equal("/", ctx.Request.Path);
                 Assert.Equal("https", ctx.Request.Scheme);
                 Assert.Equal("localhost", ctx.Request.Host.ToString());
                 Assert.Equal(HttpMethod.Get.ToString(), ctx.Request.Method);
-                tcs.SetResult();
-                return Task.CompletedTask;
+
+                // This callback shall not complete before the 2nd flush, otherwise the
+                // server might close the stream before the flush succeeds.
+                await tcs.Task;
             });
             var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
 
             // Second Write
             await clientStream.WriteAsync(headersFrame[i..], TestContext.Current.CancellationToken);
             await clientStream.FlushAsync(TestContext.Current.CancellationToken);
+            tcs.SetResult();
 
-            await tcs.Task.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
             clientStream.Close();
             await processing;
             await quicConnection.DisposeAsync();
