@@ -18,11 +18,19 @@ public sealed class TestConsoleAsOuput : IConsole
         WindowWidth = windowWidth;
     }
 
-    public string Text { get => _sb.ToString(); }
+    public string Text => field ??= _sb.ToString();
 
     public int WindowWidth { get; }
 
-    public ConsoleColor ForegroundColor { get; set; }
+    public ConsoleColor ForegroundColor
+    {
+        get;
+        set
+        {
+            field = value;
+            _sb.Append($"[color:{value}]");
+        }
+    }
 
     public (int Left, int Top) GetCursorPosition() => (0, 0);
 

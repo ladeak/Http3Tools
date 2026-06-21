@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Drawing;
+using System.Numerics;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Performance.Data;
@@ -51,11 +52,15 @@ internal class StatisticsPrinter : ISummaryPrinter, IStatsHandler
         int lineLength = _console.WindowWidth;
         var scaleNormalize = (double)lineLength / session.Summaries.Count;
         string separator = new string('-', lineLength);
+        
         // Histogram
         if (session.Summaries.Count >= 100)
         {
             _console.WriteLine(separator);
-            PrintHistogram(stats, scaleNormalize);
+            var oldColor = _console.ForegroundColor;
+            _console.ForegroundColor = ConsoleColor.Cyan;
+            PrintHistogram(stats, scaleNormalize); 
+            _console.ForegroundColor = oldColor;
         }
         _console.WriteLine(separator);
         PrintStatusCodes(stats.StatusCodes);
@@ -65,8 +70,11 @@ internal class StatisticsPrinter : ISummaryPrinter, IStatsHandler
 
     private void PrintStatusCodes(int[] statusCodes)
     {
+        var oldColor = _console.ForegroundColor;
+        _console.ForegroundColor = statusCodes[0] + statusCodes[2]+ statusCodes[3]+ statusCodes[4]+ statusCodes[5] > 0 ? ConsoleColor.Red : ConsoleColor.Green;
         _console.WriteLine("HTTP status codes:");
         _console.WriteLine($"1xx: {statusCodes[0]}, 2xx: {statusCodes[1]}, 3xx: {statusCodes[2]}, 4xx: {statusCodes[3]}, 5xx: {statusCodes[4]}, Other: {statusCodes[5]}");
+        _console.ForegroundColor = oldColor;
     }
 
     private void PrintHistogram(Stats stats, double scaleNormalize)

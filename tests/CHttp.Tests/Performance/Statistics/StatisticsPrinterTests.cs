@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Net;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Performance.Data;
@@ -159,10 +160,52 @@ HTTP status codes:
         var sut = new StatisticsPrinter(console);
         await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, MaxConnections = 1, Behavior = new(input.Count, 1, false) });
 
-        Assert.Contains("     1.300 s  ##################################################", console.Text);
+        Assert.Contains("[color:Cyan]     1.300 s  ##################################################", console.Text);
         Assert.Contains("     2.200 s  ##################################################", console.Text);
         Assert.Contains("     3.100 s  ##################################################", console.Text);
         Assert.Contains("     4.000 s  ##################################################", console.Text);
+        Assert.Contains("[color:Black]---", console.Text);
+        Assert.Contains("[color:Green]HTTP status codes:", console.Text);
         Assert.Equal(200, console.Text.Count(x => x == '#'));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Continue)] // 100
+    [InlineData(HttpStatusCode.Ambiguous)] // 300
+    [InlineData(HttpStatusCode.BadRequest)] // 400
+    [InlineData(HttpStatusCode.InternalServerError)] // 500
+    public async Task ErrorCodes_Print_RedStatusLine(HttpStatusCode statusCode)
+    {
+        var input = new List<Summary>();
+        for (int i = 0; i < 100; i++)
+        {
+            var summary = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(1));
+            summary.RequestCompleted(statusCode);
+            input.Add(summary);
+        }
+        var console = new TestConsoleAsOuput(59);
+        var sut = new StatisticsPrinter(console);
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, MaxConnections = 1, Behavior = new(input.Count, 1, false) });
+
+        Assert.Contains("[color:Red]HTTP status codes:", console.Text);
+        Assert.Contains("[color:Black]---", console.Text);
+    }
+
+    [Fact]
+    public async Task OtherError_Print_RedStatusLine()
+    {
+        var input = new List<Summary>();
+        for (int i = 0; i < 100; i++)
+        {
+            var summary = new Summary("url", new DateTime(2023, 04, 05, 21, 32, 00, DateTimeKind.Utc), TimeSpan.FromSeconds(1)) { ErrorCode = ErrorType.Other };
+            summary.RequestCompleted((HttpStatusCode)999);
+            input.Add(summary);
+        }
+        var console = new TestConsoleAsOuput(59);
+        var sut = new StatisticsPrinter(console);
+        await sut.SummarizeResultsAsync(new PerformanceMeasurementResults() { Summaries = input, TotalBytesRead = 1, MaxConnections = 1, Behavior = new(input.Count, 1, false) });
+
+        Assert.Contains("[color:Red]HTTP status codes:", console.Text);
+        Assert.Contains("[color:Black]---", console.Text);
     }
 }
