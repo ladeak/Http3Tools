@@ -116,14 +116,17 @@ internal class TestBase
     {
         public SslProtocols Protocol => SslProtocols.Tls12;
 
+        [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
         public CipherAlgorithmType CipherAlgorithm => throw new NotImplementedException();
 
         public int CipherStrength => throw new NotImplementedException();
 
+        [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
         public HashAlgorithmType HashAlgorithm => throw new NotImplementedException();
 
         public int HashStrength => throw new NotImplementedException();
 
+        [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
         public ExchangeAlgorithmType KeyExchangeAlgorithm => throw new NotImplementedException();
 
         public int KeyExchangeStrength => throw new NotImplementedException();

@@ -252,17 +252,23 @@ internal sealed class CHttpTlsConnectionFeature : ITlsConnectionFeature, ITlsApp
     // Required for TLS Handshake feature
 
     public TlsCipherSuite? NegotiatedCipherSuite => _sslStream.NegotiatedCipherSuite;
-
+    
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public CipherAlgorithmType CipherAlgorithm => _sslStream.CipherAlgorithm;
 
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public int CipherStrength => _sslStream.CipherStrength;
 
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public HashAlgorithmType HashAlgorithm => _sslStream.HashAlgorithm;
 
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public int HashStrength => _sslStream.HashStrength;
 
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public ExchangeAlgorithmType KeyExchangeAlgorithm => _sslStream.KeyExchangeAlgorithm;
 
+    [Obsolete("Obsolete by BCL, use NegotiatedCipherSuite instead.")]
     public int KeyExchangeStrength => _sslStream.KeyExchangeStrength;
 
     public Task<X509Certificate2?> GetClientCertificateAsync(CancellationToken cancellationToken)
