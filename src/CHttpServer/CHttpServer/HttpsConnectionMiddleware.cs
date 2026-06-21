@@ -54,7 +54,7 @@ internal sealed class HttpsConnectionMiddleware
         }
 
         var sslDuplexPipe = CreateSslDuplexPipe(
-            context.Transport,
+            context.Transport!,
             context.Features.Get<IMemoryPoolFeature>()?.MemoryPool ?? MemoryPool<byte>.Shared);
         var sslStream = sslDuplexPipe.Stream;
 

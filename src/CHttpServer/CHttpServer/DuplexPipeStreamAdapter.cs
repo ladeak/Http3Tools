@@ -7,7 +7,7 @@ namespace CHttpServer;
 internal class DuplexPipeStreamAdapter<TStream> : Stream, IDuplexPipe where TStream : Stream
 {
     private bool _disposed;
-    private readonly object _disposeLock = new object();
+    private readonly Lock _disposeLock = new();
 
     public DuplexPipeStreamAdapter(TStream stream, StreamPipeReaderOptions readerOptions, StreamPipeWriterOptions writerOptions)
     {
