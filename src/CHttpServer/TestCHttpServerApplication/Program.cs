@@ -58,7 +58,7 @@ app.Run();
 
 public class Data
 {
-    public string Message { get; set; }
+    public required string Message { get; set; }
 }
 
 [JsonSerializable(typeof(Data))]

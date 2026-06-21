@@ -154,7 +154,7 @@ internal class Http3FramingStreamWriter(Stream responseStream, byte frameType, A
             _responseStream.Flush();
             return new FlushResult(isCanceled: false, isCompleted: false);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _isCompleted = true;
             ClearSegments(CollectionsMarshal.AsSpan(_segments));
