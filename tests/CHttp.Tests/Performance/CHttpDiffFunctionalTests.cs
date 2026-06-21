@@ -87,15 +87,15 @@ public class CHttpDiffFunctionalTests
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        Assert.Contains("| Mean:            1.000 s             0 ns   |", console.Text);
-        Assert.Contains("| StdDev:          0.000 ns            0 ns   |", console.Text);
-        Assert.Contains("| Error:           0.000 ns            0 ns   |", console.Text);
-        Assert.Contains("| Median:          1.000 s             0 ns   |", console.Text);
-        Assert.Contains("| Min:             1.000 s             0 ns   |", console.Text);
-        Assert.Contains("| Max:             1.000 s             0 ns   |", console.Text);
-        Assert.Contains("| 95th:            1.000 s             0 ns   |", console.Text);
+        Assert.Contains("| Mean:            1.000 s    [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| StdDev:          0.000 ns   [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Error:           0.000 ns   [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Median:          1.000 s    [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Min:             1.000 s    [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Max:             1.000 s    [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| 95th:            1.000 s    [color:Green]         0 ns[color:Black]   |", console.Text);
         Assert.Contains("| Throughput:    100.000  B/s          0  B/s |", console.Text);
-        Assert.Contains("| Req/Sec:             1               0      |", console.Text);
+        Assert.Contains("| Req/Sec:             1       [color:Green]        0[color:Black]      |", console.Text);
         Assert.Contains("1xx: 0 +0, 2xx: 1 +0, 3xx: 0 +0, 4xx: 0 +0, 5xx: 0 +0, Other: 0 +0", console.Text);
     }
 
@@ -128,15 +128,15 @@ public class CHttpDiffFunctionalTests
             .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Contains($"RequestCount: 1, Clients: 1", console.Text);
-        Assert.Contains("| Mean:            1.000 s        +1.000 s    |", console.Text);
-        Assert.Contains("| StdDev:          0.000 ns            0 ns   |", console.Text);
-        Assert.Contains("| Error:           0.000 ns            0 ns   |", console.Text);
-        Assert.Contains("| Median:          1.000 s        +1.000 s    |", console.Text);
-        Assert.Contains("| Min:             1.000 s        +1.000 s    |", console.Text);
-        Assert.Contains("| Max:             1.000 s        +1.000 s    |", console.Text);
-        Assert.Contains("| 95th:            1.000 s        +1.000 s    |", console.Text);
+        Assert.Contains("| Mean:            1.000 s    [color:Red]    +1.000 s [color:Black]   |", console.Text);
+        Assert.Contains("| StdDev:          0.000 ns   [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Error:           0.000 ns   [color:Green]         0 ns[color:Black]   |", console.Text);
+        Assert.Contains("| Median:          1.000 s    [color:Red]    +1.000 s [color:Black]   |", console.Text);
+        Assert.Contains("| Min:             1.000 s    [color:Red]    +1.000 s [color:Black]   |", console.Text);
+        Assert.Contains("| Max:             1.000 s    [color:Red]    +1.000 s [color:Black]   |", console.Text);
+        Assert.Contains("| 95th:            1.000 s    [color:Red]    +1.000 s [color:Black]   |", console.Text);
         Assert.Contains("| Throughput:    100.000  B/s   +100.000  B/s |", console.Text);
-        Assert.Contains("| Req/Sec:             1            -0.5      |", console.Text);
+        Assert.Contains("| Req/Sec:             1       [color:Red]     -0.5[color:Black]      |", console.Text);
         Assert.Contains("1xx: 0 +0, 2xx: 1 -1, 3xx: 0 +0, 4xx: 0 +1, 5xx: 0 +0, Other: 0 +0", console.Text);
     }
 
