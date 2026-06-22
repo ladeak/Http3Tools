@@ -16,7 +16,7 @@ jobs:
       contents: write
       id-token: write # Enable GitHub OIDC token issuance for NuGet Trusted Publishing
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
@@ -101,7 +101,7 @@ jobs:
   cross-compile-linux-aot:
     runs-on: ubuntu-26.04-arm
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
@@ -120,7 +120,7 @@ jobs:
   cross-compile-windows-aot:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
@@ -163,7 +163,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install Node.js
       uses: actions/setup-node@v6
       with:
@@ -193,7 +193,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install Node.js
       uses: actions/setup-node@v6
       with:
@@ -223,7 +223,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install Node.js
       uses: actions/setup-node@v6
       with:
@@ -253,7 +253,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install Node.js
       uses: actions/setup-node@v6
       with:
