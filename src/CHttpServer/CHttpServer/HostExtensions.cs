@@ -41,14 +41,19 @@ public class CHttpServerOptions
     public X509Certificate2? Certificate { get; set; }
 
     /// <summary>
-    /// HTTP/2 and HTTP/3 TLS certificate path.
+    /// HTTP/2 and HTTP/3 TLS certificate path (PEM or PKCS).
     /// </summary>
     public string? CertificatePath { get; set; }
 
     /// <summary>
-    /// HTTP/2 and HTTP/3 TLS certificate password.
+    /// HTTP/2 and HTTP/3 TLS certificate password (PKCS).
     /// </summary>
     public string? CertificatePassword { get; set; }
+
+    /// <summary>
+    /// HTTP/2 and HTTP/3 TLS certificate path (PEM).
+    /// </summary>
+    public string? CertificateKeyPath { get; set; }
 
     /// <summary>
     /// Set <see langword="true" /> to enable HTTP/3 support.
@@ -81,8 +86,16 @@ public class CHttpServerOptions
     {
         if (Certificate != null)
             return Certificate;
-        if (!string.IsNullOrEmpty(CertificatePath) && !string.IsNullOrEmpty(CertificatePassword))
+        else if (!string.IsNullOrEmpty(CertificatePath)
+            && !string.IsNullOrEmpty(CertificatePassword)
+            && Path.GetExtension(CertificatePath) == ".pfx")
             return X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, CertificatePassword);
+        else if (!string.IsNullOrEmpty(CertificatePath) && Path.GetExtension(CertificatePath) == ".pem")
+        {
+            var ephemeralCertificate = X509Certificate2.CreateFromPemFile(CertificatePath, CertificateKeyPath);
+            var certificateBytes = ephemeralCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+            return X509CertificateLoader.LoadPkcs12(certificateBytes, null);
+        }
         return GetDevelopmentCertificateFromStore();
     }
 

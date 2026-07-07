@@ -343,7 +343,6 @@ internal partial class Http2Stream : IHttpResponseFeature, IHttpResponseBodyFeat
 
     public void DisableBuffering()
     {
-        throw new NotImplementedException();
     }
 
     private Func<object, Task>? _onCompletedCallback;

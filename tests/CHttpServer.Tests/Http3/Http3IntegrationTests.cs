@@ -338,5 +338,16 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         Assert.Equal(response, completed);
         Assert.True(response.IsCanceled);
     }
+
+    [Fact]
+    public async Task TestServerSideEvents()
+    {
+        var client = CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:{_port}/sse") { Version = HttpVersion.Version30, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("data: some content\n\ndata: some content\n\n", content);
+    }
 }
 

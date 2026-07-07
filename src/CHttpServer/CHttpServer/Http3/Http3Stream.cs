@@ -263,13 +263,12 @@ internal partial class Http3Stream : IHttpResponseBodyFeature
     private readonly Http3HeaderFramingStreamWriter _responseHeaderWriter;
     private readonly Http3FramingStreamWriter _responseDataWriter;
 
-    public Stream Stream => throw new PlatformNotSupportedException();
+    public Stream Stream => _responseDataWriter.AsStream();
 
     public PipeWriter Writer => _responseDataWriter;
 
     public Task CompleteAsync()
     {
-        // TODO
         return Task.CompletedTask;
     }
 
