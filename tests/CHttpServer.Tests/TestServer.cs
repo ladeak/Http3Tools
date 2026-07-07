@@ -83,6 +83,18 @@ public class TestServer : IAsyncDisposable, IDisposable
             }
             return GetStream();
         });
+        _app.MapGet("/sse", (HttpContext ctx) =>
+        {
+            async IAsyncEnumerable<string> GetStream()
+            {
+                foreach (var i in Enumerable.Range(0, 2))
+                {
+                    await Task.Delay(1000);
+                    yield return "some content";
+                }
+            }
+            return Results.ServerSentEvents(GetStream());
+        });
         _app.MapGet("/headerstrailers", async (HttpContext ctx) =>
         {
             if (!ctx.Request.Headers.Accept.Contains("application/json") || ctx.Request.Headers["x-custom"] != "custom-header-value")
