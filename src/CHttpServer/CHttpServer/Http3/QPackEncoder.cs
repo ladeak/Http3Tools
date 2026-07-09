@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
@@ -156,11 +157,26 @@ internal sealed partial class QPackDecoder
         var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + nameLength + QPackIntegerEncoder.MaxLength + valueLength);
         buffer[0] = 0b00100000;
         var writtenLength = QPackIntegerEncoder.Encode(buffer[0..], nameLength, 3);
-        writtenLength += Encoding.Latin1.GetBytes(name, buffer[writtenLength..]);
+        writtenLength += EncodeLowerCasedHeaderLiteral(name, buffer[writtenLength..]);
+
         buffer[writtenLength] = 0;
         writtenLength += QPackIntegerEncoder.Encode(buffer[writtenLength..], valueLength, 7);
         writtenLength += Encoding.Latin1.GetBytes(value, buffer[writtenLength..]);
         writer.Advance(writtenLength);
+    }
+
+    private static int EncodeLowerCasedHeaderLiteral(ReadOnlySpan<char> name, Span<byte> destination)
+    {
+        char[]? rentedArray = null;
+        Span<char> lowerCasedBuffer = name.Length <= 128 ? stackalloc char[128] 
+            : rentedArray = ArrayPool<char>.Shared.Rent(name.Length);
+
+        name.ToLowerInvariant(lowerCasedBuffer);
+        var writtenLength = Encoding.Latin1.GetBytes(lowerCasedBuffer[..name.Length], destination);
+        
+        if (rentedArray != null)
+            ArrayPool<char>.Shared.Return(rentedArray);
+        return writtenLength;
     }
 
     internal readonly record struct EncodingKnownHeaderField

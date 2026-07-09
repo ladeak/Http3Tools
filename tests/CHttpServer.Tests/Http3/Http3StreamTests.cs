@@ -1,6 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Net.Quic;
+using System.Net.ServerSentEvents;
+using System.Text;
 using CHttpServer.Http3;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer.Tests.Http3;
@@ -606,6 +609,69 @@ public class Http3StreamTests
 
         await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
         await quicConnection.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Test_ServerSideEvents()
+    {
+        var quicConnection = await QuicConnectionFixture.SetupConnectionAsync(Port, TestContext.Current.CancellationToken);
+        byte[] data = [.. Http3FrameFixture.GetHeadersFrame()];
+
+        var sut = new Http3Stream([]);
+        var serverStreamTask = Task.Run(async () => await quicConnection.ServerConnection.AcceptInboundStreamAsync());
+        var clientStream = await quicConnection.ClientConnection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, TestContext.Current.CancellationToken);
+        await clientStream.WriteAsync(data, TestContext.Current.CancellationToken);
+
+        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverStream = await serverStreamTask;
+        sut.Initialize(null, serverStream);
+        var testApp = new TestBase.TestApplication(async ctx =>
+        {
+            ctx.Response.Headers.TryAdd("Cache-Control", "no-cache,no-store");
+            ctx.Response.Headers.TryAdd("content-encoding", "identity");
+            ctx.Response.Headers.TryAdd("Content-Type", "text/event-stream");
+            ctx.Response.Headers.TryAdd("Pragma", "no-cache");
+            await SseFormatter.WriteAsync(ResponseAsync(), ctx.Response.Body);
+        });
+
+        var processing = sut.ProcessStreamAsync(testApp, TestContext.Current.CancellationToken);
+        await AssertHeadersAsync(clientStream, headerLength: 70);
+        await AssertDataAsync(clientStream, "data: data0\n\n");
+        await AssertDataAsync(clientStream, "data: data1\n\n");
+
+        await processing.WaitAsync(DefaultTimeout, TestContext.Current.CancellationToken);
+        await quicConnection.DisposeAsync();
+
+        static async IAsyncEnumerable<SseItem<string>> ResponseAsync()
+        {
+            yield return new SseItem<string>("data0");
+            await Task.Yield();
+            yield return new SseItem<string>("data1");
+        }
+    }
+
+    private static async Task AssertHeadersAsync(Stream stream, int headerLength)
+    {
+        var expectedLengthBytesCount = VariableLenghtIntegerDecoder.Write(headerLength).Length;
+        var buffer = new byte[1 + expectedLengthBytesCount];
+        await stream.ReadExactlyAsync(buffer.AsMemory(), TestContext.Current.CancellationToken);
+        Assert.Equal(0x01, buffer[0]); // Frame Type: HEADERS
+        Assert.True(VariableLenghtIntegerDecoder.TryRead(buffer[1..], out var actualLength, out _));
+        Assert.Equal((ulong)headerLength, actualLength); // Length 
+        await stream.ReadExactlyAsync(new byte[headerLength], TestContext.Current.CancellationToken);
+    }
+
+    private static async Task AssertDataAsync(Stream stream, string expectedData)
+    {
+        var expectedLengthBytesCount = VariableLenghtIntegerDecoder.Write(expectedData.Length).Length;
+        var buffer = new byte[1 + expectedLengthBytesCount];
+        await stream.ReadExactlyAsync(buffer.AsMemory(), TestContext.Current.CancellationToken);
+        Assert.Equal(0x00, buffer[0]); // Frame Type: DATA
+        Assert.True(VariableLenghtIntegerDecoder.TryRead(buffer[1..], out var actualLength, out _));
+        Assert.Equal((ulong)expectedData.Length, actualLength);
+        var data = new byte[expectedData.Length];
+        await stream.ReadExactlyAsync(data, TestContext.Current.CancellationToken);
+        Assert.Equal(expectedData, Encoding.Latin1.GetString(data));
     }
 
     private static async Task WriteHeaders(QuicStream clientStream)

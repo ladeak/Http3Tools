@@ -42,11 +42,21 @@ public class QPackEncoderTests
     }
 
     [Fact]
-    public async Task EncodeLiteralFieldWithLiteralValue2()
+    public async Task EncodeLiteralFieldWithLiteralValue_2()
     {
         var stream = new MemoryStream();
         var pipe = PipeWriter.Create(stream);
         QPackDecoder.EncodeLiteralFieldWithLiteralValue("ab", "ba", pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x22, 0x61, 0x62, 0x02, 0x62, 0x61 }));
+    }
+
+    [Fact]
+    public async Task EncodeLiteralFieldWithLiteralValue_Cased()
+    {
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        QPackDecoder.EncodeLiteralFieldWithLiteralValue("AB", "ba", pipe);
         await pipe.FlushAsync(TestContext.Current.CancellationToken);
         Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x22, 0x61, 0x62, 0x02, 0x62, 0x61 }));
     }
@@ -167,6 +177,46 @@ public class QPackEncoderTests
           // referer,  len,  cache-control, content-encoding, a-len, a
              0x7D,     0x00, 0xE7,          0x7F, 0x1B,      0x01,  0x61
         }));
+    }
+
+    [Fact]
+    public async Task EncodeStatusCodeAndHeaders_Cased()
+    {
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        QPackDecoder sut = new();
+        Http3ResponseHeaderCollection headers = new()
+        {
+            { "A", "b" }, // name and value (name lower-cased)
+            { "Referer", "" }, // Static table index 13, name indexed
+            { "Cache-Control", "no-cache" }, // name and value indexed
+            { "Content-Encoding", "a" } // name indexed only
+        };
+        sut.Encode(200, headers, pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(stream.ToArray().SequenceEqual(new byte[] { 0x00, 0x00, 0xD9, 0x21, 0x61, 0x01, 0x62,
+        
+          // referer,  len,  cache-control, content-encoding, a-len, a
+             0x7D,     0x00, 0xE7,          0x7F, 0x1B,      0x01,  0x61
+        }));
+    }
+
+
+    [Fact]
+    public async Task LongHeaderNameCased_LowerCased()
+    {
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        QPackDecoder sut = new();
+        Http3ResponseHeaderCollection headers = new()
+        {
+            { "AaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaAaaaB", "b" }, // name and value (name lower-cased)
+        };
+        sut.Encode(headers, pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(stream.ToArray().StartsWith(new byte[] { 0x00, 0x00, 0x27, 0x7A, 0x61 }));
     }
 
     [Fact]
