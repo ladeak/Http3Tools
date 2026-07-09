@@ -54,7 +54,25 @@ app.MapPost("/jsonrequest", (Data input) => Results.Ok(input.Message.Length));
 
 app.MapGet("/echo", context => context.Request.Body.CopyToAsync(context.Response.Body));
 
+app.MapGet("/stream", Streaming);
+
+app.MapGet("/streamraw", StreamingRaw);
+
 app.Run();
+
+async IAsyncEnumerable<string> StreamingRaw()
+{
+    for (int i = 0; i < 100; i++)
+    {
+        await Task.Delay(1000);
+        yield return i.ToString();
+    }
+}
+
+IResult Streaming()
+{
+    return Results.ServerSentEvents<string>(StreamingRaw());
+}
 
 public class Data
 {
