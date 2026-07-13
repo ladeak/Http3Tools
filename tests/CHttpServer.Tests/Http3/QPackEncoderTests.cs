@@ -62,6 +62,16 @@ public class QPackEncoderTests
     }
 
     [Fact]
+    public async Task EncodeLiteralFieldWithLiteralValue_Cased2()
+    {
+        var stream = new MemoryStream();
+        var pipe = PipeWriter.Create(stream);
+        QPackDecoder.EncodeLiteralFieldWithLiteralValue("A_Ba0@[Z", "ba", pipe);
+        await pipe.FlushAsync(TestContext.Current.CancellationToken);
+        Assert.True(stream.ToArray().SequenceEqual(new byte[] { /*FieldName:*/ 0x27, 0x01, 0x61, 0x5F, 0x62, 0x61, 0x30, 0x40, 0x5B, 0x7A, /*Value:*/ 0x02, 0x62, 0x61 }));
+    }
+
+    [Fact]
     public async Task WritingIntoReusedMemory_EncodeLiteralFieldWithLiteralValue()
     {
         var pipe = new MemoryReusingPipeWriter();

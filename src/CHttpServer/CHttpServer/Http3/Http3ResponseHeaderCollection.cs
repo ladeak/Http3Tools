@@ -9,6 +9,11 @@ namespace CHttpServer.Http3;
 
 public class Http3ResponseHeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePair<string, StringValues>>
 {
+    // ':' is added to cover cases of :method, :path, etc.
+    private readonly static SearchValues<char> ValidFieldNameChars = SearchValues.Create(":!#$%&'*+-.^_`ˇ|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+    private static readonly SearchValues<char> InvalidFieldValueChars = SearchValues.Create(
+        "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u000A\u000B\u000C\u000D\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F\u007F");
+
     // Known header keys
     private StringValues _serverValue = StringValues.Empty;
     // Move to bitmap with more known headers
@@ -42,6 +47,8 @@ public class Http3ResponseHeaderCollection : IHeaderDictionary, IEnumerator<KeyV
         set
         {
             ValidateReadOnly();
+            ValidateFieldName(key);
+            ValidateFieldValue(value);
 
             bool valueSet = TrySetKnownHeader(key, value);
             if (!valueSet)
@@ -58,6 +65,9 @@ public class Http3ResponseHeaderCollection : IHeaderDictionary, IEnumerator<KeyV
     public void Add(string key, StringValues value)
     {
         ValidateReadOnly();
+        ValidateFieldName(key);
+        ValidateFieldValue(value);
+
         if (!TrySetKnownHeader(key, value))
             if (!_headers.TryAdd(key, value))
                 return;
@@ -70,7 +80,21 @@ public class Http3ResponseHeaderCollection : IHeaderDictionary, IEnumerator<KeyV
             ThrowReadOnlyException();
     }
 
-    private static void ThrowReadOnlyException() => throw new InvalidOperationException("HeaderCollection is readonly");
+    private static void ThrowReadOnlyException() => throw new ArgumentException("HeaderCollection is readonly");
+
+    private static void ValidateFieldName(ReadOnlySpan<char> value)
+    {
+        if (value.ContainsAnyExcept(ValidFieldNameChars))
+            ThrowInvalidChar();
+    }
+
+    private static void ValidateFieldValue(ReadOnlySpan<char> value)
+    {
+        if (value.ContainsAny(InvalidFieldValueChars))
+            ThrowInvalidChar();
+    }
+
+    private static void ThrowInvalidChar() => throw new ArgumentException("Invalid character in Header");
 
     public bool ContainsKey(string key)
     {

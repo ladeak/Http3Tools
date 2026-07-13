@@ -1,7 +1,8 @@
-﻿using System.Buffers;
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.IO.Pipelines;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Extensions.Primitives;
@@ -10,6 +11,10 @@ namespace CHttpServer.Http3;
 
 internal sealed partial class QPackDecoder
 {
+    private readonly static Vector<byte> LowerBound = Vector.Create((byte)64);
+    private readonly static Vector<byte> UpperBound = Vector.Create((byte)91);
+    private readonly static Vector<byte> Offset = Vector.Create((byte)32);
+
     private static FrozenDictionary<int, EncodingKnownHeaderField> BuildStatusCodeEndoderTable(KnownHeaderField[] source)
     {
         var dict = new Dictionary<int, EncodingKnownHeaderField>();
@@ -154,7 +159,9 @@ internal sealed partial class QPackDecoder
         var nameLength = Encoding.Latin1.GetByteCount(name);
         var valueLength = Encoding.Latin1.GetByteCount(value);
 
-        var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + nameLength + QPackIntegerEncoder.MaxLength + valueLength);
+        // Adding Vector<byte>.Count, so that EncodeLowerCasedHeaderLiteral can use vectorized approach
+        // with LoadUnsafe but without considering destination length.
+        var buffer = writer.GetSpan(1 + QPackIntegerEncoder.MaxLength + nameLength + QPackIntegerEncoder.MaxLength + valueLength + Vector<byte>.Count);
         buffer[0] = 0b00100000;
         var writtenLength = QPackIntegerEncoder.Encode(buffer[0..], nameLength, 3);
         writtenLength += EncodeLowerCasedHeaderLiteral(name, buffer[writtenLength..]);
@@ -167,15 +174,18 @@ internal sealed partial class QPackDecoder
 
     private static int EncodeLowerCasedHeaderLiteral(ReadOnlySpan<char> name, Span<byte> destination)
     {
-        char[]? rentedArray = null;
-        Span<char> lowerCasedBuffer = name.Length <= 128 ? stackalloc char[128] 
-            : rentedArray = ArrayPool<char>.Shared.Rent(name.Length);
+        var writtenLength = Encoding.ASCII.GetBytes(name[..name.Length], destination);
 
-        name.ToLowerInvariant(lowerCasedBuffer);
-        var writtenLength = Encoding.Latin1.GetBytes(lowerCasedBuffer[..name.Length], destination);
-        
-        if (rentedArray != null)
-            ArrayPool<char>.Shared.Return(rentedArray);
+        // The consumer must have a 'large' enough destination so LoadUnsafe and StoreUnsafe can avoid dealing with overindexing.
+        // This is set by the callsite.
+        Debug.Assert(destination.Length >= writtenLength + Vector<byte>.Count);
+        for (int i = 0; i < writtenLength; i += Vector<byte>.Count)
+        {
+            // Converts the casing of ASCII chars from uppercase to lowercase.
+            var items = Vector.LoadUnsafe(ref destination[i]);
+            var mask = Vector.BitwiseAnd(Vector.BitwiseAnd(Vector.GreaterThan(items, LowerBound), Vector.GreaterThan(UpperBound, items)), Offset);
+            Vector.StoreUnsafe(Vector.Add(items, mask), ref destination[i]);
+        }
         return writtenLength;
     }
 

@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.Buffers;
+using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -9,6 +11,66 @@ using CHttpServer.Http3;
 using Microsoft.Extensions.Primitives;
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+
+[SimpleJob]
+public class LowerCaseAscii
+{
+    private readonly byte[] _buffer = new byte[1024];
+    private readonly Vector<byte> LowerBound = Vector.Create((byte)64);
+    private readonly Vector<byte> UpperBound = Vector.Create((byte)91);
+    private readonly Vector<byte> Offset = Vector.Create((byte)32);
+
+    [Params("Content-Type", "Some_custom_And_Very_Long_header_NAME_comes_here._Some_custom_And_Very_Long_header_NAME_comes_here._Some_custom_And_Very_Long_header_NAME_comes_here.")]
+    public string Input { get; set; } = string.Empty;
+
+    [Benchmark]
+    public int Base() => Base(Input, _buffer);
+    [Benchmark]
+    public int Normal() => Normal(Input, _buffer);
+    [Benchmark]
+    public int Simd() => Simd(Input, _buffer);
+
+    private int Simd(ReadOnlySpan<char> name, Span<byte> destination)
+    {
+        var writtenLength = Encoding.ASCII.GetBytes(name[..name.Length], destination);
+
+        // The consumer must have a 'large' enough destination so LoadUnsafe and StoreUnsafe can avoid dealing with overindexing.
+        // This is set by the callsite.
+        Debug.Assert(destination.Length >= writtenLength + Vector<byte>.Count);
+        for (int i = 0; i < writtenLength; i += Vector<byte>.Count)
+        {
+            var items = Vector.LoadUnsafe(ref destination[i]);
+            var mask = Vector.BitwiseAnd(Vector.BitwiseAnd(Vector.GreaterThan(items, LowerBound), Vector.GreaterThan(UpperBound, items)), Offset);
+            Vector.StoreUnsafe(Vector.Add(items, mask), ref destination[i]);
+        }
+        return writtenLength;
+    }
+
+    private int Normal(ReadOnlySpan<char> name, Span<byte> destination)
+    {
+        var writtenLength = Encoding.ASCII.GetBytes(name[..name.Length], destination);
+        for (var i = 0; i < writtenLength; i++)
+        {
+            if (destination[i] > 64 && destination[i] < 91)
+                destination[i] += 32;
+        }
+        return writtenLength;
+    }
+
+    private int Base(ReadOnlySpan<char> name, Span<byte> destination)
+    {
+        char[]? rentedArray = null;
+        Span<char> lowerCasedBuffer = name.Length <= 128 ? stackalloc char[128]
+            : rentedArray = ArrayPool<char>.Shared.Rent(name.Length);
+
+        name.ToLowerInvariant(lowerCasedBuffer);
+        var writtenLength = Encoding.Latin1.GetBytes(lowerCasedBuffer[..name.Length], destination);
+
+        if (rentedArray != null)
+            ArrayPool<char>.Shared.Return(rentedArray);
+        return writtenLength;
+    }
+}
 
 [DisassemblyDiagnoser]
 public class Divison31

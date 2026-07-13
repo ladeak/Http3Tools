@@ -1,9 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
 using System.Net.Quic;
 using System.Net.ServerSentEvents;
 using System.Text;
 using CHttpServer.Http3;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace CHttpServer.Tests.Http3;
@@ -648,6 +647,41 @@ public class Http3StreamTests
             await Task.Yield();
             yield return new SseItem<string>("data1");
         }
+    }
+
+    [Theory]
+    [InlineData('\u0000')] // NUL
+    [InlineData('\u0001')] // Start of Heading
+    [InlineData('\u0008')] // Backspace
+    [InlineData('\u000A')] // New Line
+    [InlineData('\u001B')] // ESC
+    public void OnHeader_InvalidCharsInValue_Throws(char invalidChar)
+    {
+        var sut = new Http3Stream(new());
+        Assert.Throws<InvalidOperationException>(() => sut.OnHeader(new KnownHeaderField(24, "a", "a"), new([0x61, (byte)invalidChar])));
+        Assert.Throws<InvalidOperationException>(() => sut.OnHeader(new ReadOnlySequence<byte>([0x61]), new([0x61, (byte)invalidChar])));
+    }
+
+    [Theory]
+    [InlineData(' ')]
+    [InlineData('\t')]
+    [InlineData('\u0000')] // NUL
+    [InlineData('\u0001')] // SOStart of HeadingH
+    [InlineData('ú')]
+    [InlineData('ö')]
+    [InlineData('\u0008')] // Backspace
+    [InlineData('\u0010')] // New Line
+    [InlineData(']')]
+    [InlineData('<')]
+    [InlineData(';')]
+    [InlineData(':')]
+    [InlineData('A')]
+    [InlineData('B')]
+    [InlineData('Z')]
+    public void OnHeader_InvalidCharsInKey_Throws(char invalidChar)
+    {
+        var sut = new Http3Stream(new());
+        Assert.Throws<InvalidOperationException>(() => sut.OnHeader(new ReadOnlySequence<byte>([0x61, (byte)invalidChar]), new([0x61])));
     }
 
     private static async Task AssertHeadersAsync(Stream stream, int headerLength)
