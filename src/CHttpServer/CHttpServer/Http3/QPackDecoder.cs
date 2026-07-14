@@ -243,7 +243,7 @@ internal sealed partial class QPackDecoder
             IMemoryOwner<byte> decodedValue = MemoryPool<byte>.Shared.Rent(_fieldValueLength * 2);
             int decodedLength;
             if (source.IsSingleSegment)
-                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+                decodedLength = Huffman.Decode(source.FirstSpan[.._fieldValueLength], ref decodedValue);
             else
             {
                 var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
@@ -308,7 +308,7 @@ internal sealed partial class QPackDecoder
             var decodedValue = new byte[_fieldNameLength * 2];
             int decodedLength;
             if (source.IsSingleSegment)
-                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+                decodedLength = Huffman.Decode(source.FirstSpan[.._fieldNameLength], ref decodedValue);
             else
             {
                 var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
@@ -335,7 +335,7 @@ internal sealed partial class QPackDecoder
 
     private bool DecodeLiteralFieldValueLength(ReadOnlySequence<byte> source, IQPackHeaderHandler handler, byte firstByte, out int consumed)
     {
-        _huffmanEncoding = (firstByte & 0b1000_1000) == 0b1000_0000;
+        _huffmanEncoding = (firstByte & 0b1000_0000) == 0b1000_0000;
         var decoder = new QPackIntegerDecoder();
         consumed = 1;
         if (!decoder.BeginTryDecode((byte)(firstByte & 0b0111_1111), 7, out var length))
@@ -365,7 +365,7 @@ internal sealed partial class QPackDecoder
             IMemoryOwner<byte> decodedValue = MemoryPool<byte>.Shared.Rent(_fieldValueLength * 2);
             int decodedLength;
             if (source.IsSingleSegment)
-                decodedLength = Huffman.Decode(source.FirstSpan, ref decodedValue);
+                decodedLength = Huffman.Decode(source.FirstSpan[.._fieldValueLength], ref decodedValue);
             else
             {
                 var input = ArrayPool<byte>.Shared.Rent(_fieldValueLength);
