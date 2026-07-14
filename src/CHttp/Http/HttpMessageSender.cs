@@ -86,7 +86,7 @@ internal sealed class HttpMessageSender
 
     private async Task ProcessResponseAsync(HttpResponseMessage response, Encoding encoding, CancellationToken token = default)
     {
-        var contentStream = await response.Content.ReadAsStreamAsync(token);
+        using var contentStream = await response.Content.ReadAsStreamAsync(token);
         var transcodingStream = _toUtf8 ? Encoding.CreateTranscodingStream(contentStream, encoding, Encoding.UTF8) : contentStream;
         await transcodingStream.CopyToAsync(_writer.Buffer, token);
         await _writer.Buffer.CompleteAsync();
