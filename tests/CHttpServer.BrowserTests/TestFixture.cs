@@ -21,7 +21,7 @@ public class TestFixture : IAsyncDisposable
         PlaywrightHost = Playwright.CreateAsync().GetAwaiter().GetResult();
         Browser = PlaywrightHost.Chromium.LaunchPersistentContextAsync("/tmp/chrome-profile-integrationtest", new()
         {
-            Headless = false,
+            Headless = true,
             Args = ["--origin-to-force-quic-on=127.0.0.1:7297", "--ignore-certificate-errors-spki-list=5QveYGg8xaCnnZWvkC9Y6v9lQVmF2BCozvds6Cn6F6k="]
         }).GetAwaiter().GetResult();
     }

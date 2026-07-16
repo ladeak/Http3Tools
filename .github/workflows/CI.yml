@@ -47,7 +47,7 @@ jobs:
         npm run vsce-deploy-linux-x64
         popd
     - name: Playwright installation
-      run: ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps
+      run: ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps chromium
       shell: pwsh
     - name: Broswer Tests
       run: dotnet test ./tests/CHttpServer.BrowserTests --no-build -c ${{ env.CONFIGURATION }}
