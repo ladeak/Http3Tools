@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace CHttpServer.Tests;
 
-public class TestServer : IAsyncDisposable, IDisposable
+public sealed class TestServer : IAsyncDisposable, IDisposable
 {
     private WebApplication? _app;
     private bool _isDisposed;
@@ -38,6 +38,10 @@ public class TestServer : IAsyncDisposable, IDisposable
         _app.MapGet("/nostatuscode", () =>
         {
             return "TypedResults.NoContent()";
+        });
+        _app.MapGet("/protocol", (HttpContext ctx) =>
+        {
+            return ctx.Request.Protocol;
         });
         _app.MapGet("/nocontent", () =>
         {
