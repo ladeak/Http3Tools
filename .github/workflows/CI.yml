@@ -11,6 +11,7 @@ on:
 env:
   CONFIGURATION: Release
   DOTNET_VERSION: 11.0.x
+  OUTPUT_FOLDER: net11.0
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -45,8 +46,8 @@ jobs:
         npm run vsce-deploy-win-x64
         npm run vsce-deploy-linux-x64
         popd
-    - name: Invoke Playwright installation
-      run: ./tests/IntegrationTests/bin/${{ env.CONFIGURATION }}/${{ env.DOTNET_VERSION }}/playwright.ps1 install --with-deps
+    - name: Playwright installation
+      run: ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps
       shell: pwsh
     - name: Broswer Tests
       run: dotnet test ./tests/CHttpServer.BrowserTests --no-build -c ${{ env.CONFIGURATION }}
