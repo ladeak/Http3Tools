@@ -52,7 +52,7 @@ internal sealed class HttpMessageSender
         {
             try
             {
-                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+                using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
                 var charSet = response.Content.Headers.ContentType?.CharSet;
                 var encoding = charSet is { } ? Encoding.GetEncoding(charSet) : Encoding.UTF8;
                 await _writer.InitializeResponseAsync(new HttpResponseInitials(response.StatusCode, response.Headers, response.Content.Headers, response.Version, encoding));
