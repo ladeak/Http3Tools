@@ -13,7 +13,30 @@ env:
   DOTNET_VERSION: 11.0.x
   OUTPUT_FOLDER: net11.0
 jobs:
-  build-and-deploy:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Install Package libmsquic
+      run: |
+        sudo apt update
+        sudo apt install -y libmsquic
+      shell: sh
+    - name: Build
+      run: dotnet build CHttpTools.slnx -c ${{ env.CONFIGURATION }}
+    - name: Test
+      run: |
+        dotnet test ./tests/CHttp.Tests --no-build -c ${{ env.CONFIGURATION }}
+        dotnet test ./tests/CHttpExecutor.Tests --no-build -c ${{ env.CONFIGURATION }}
+        dotnet test ./tests/TestWebApplication.Tests --no-build -c ${{ env.CONFIGURATION }}
+        dotnet test ./tests/CHttp.Api.Tests --no-build -c ${{ env.CONFIGURATION }}
+        dotnet test ./tests/CHttpServer.Tests --no-build -c ${{ env.CONFIGURATION }}
+
+  build-and-test-node:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
@@ -30,15 +53,6 @@ jobs:
         sudo apt update
         sudo apt install -y libmsquic
       shell: sh
-    - name: Build
-      run: dotnet build CHttpTools.slnx -c ${{ env.CONFIGURATION }}
-    - name: Test
-      run: |
-        dotnet test ./tests/CHttp.Tests --no-build -c ${{ env.CONFIGURATION }}
-        dotnet test ./tests/CHttpExecutor.Tests --no-build -c ${{ env.CONFIGURATION }}
-        dotnet test ./tests/TestWebApplication.Tests --no-build -c ${{ env.CONFIGURATION }}
-        dotnet test ./tests/CHttp.Api.Tests --no-build -c ${{ env.CONFIGURATION }}
-        dotnet test ./tests/CHttpServer.Tests --no-build -c ${{ env.CONFIGURATION }}
     - name: Publish VSCE
       run: |
         pushd ./src/VSCodeExt/
@@ -46,8 +60,9 @@ jobs:
         npm run vsce-deploy-win-x64
         npm run vsce-deploy-linux-x64
         popd
-    - name: Playwright installation
-      run: ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps chromium
+    - name: Browser CHttp Server Tests
+      run: |
+        dotnet build ./tests/CHttpServer.BrowserTests -c ${{ env.CONFIGURATION }}  
+        ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps chromium
+        dotnet test ./tests/CHttpServer.BrowserTests -c ${{ env.CONFIGURATION }}
       shell: pwsh
-    - name: Broswer Tests
-      run: dotnet test ./tests/CHttpServer.BrowserTests --no-build -c ${{ env.CONFIGURATION }}
