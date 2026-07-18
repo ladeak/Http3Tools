@@ -1,5 +1,7 @@
-﻿using System.Security.Cryptography.X509Certificates;
+﻿using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -30,7 +32,7 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
         //{
         //    o.Listen(IPAddress.Loopback, port, lo =>
         //    {
-        //        lo.UseHttps();
+        //        lo.UseHttps(X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"));
         //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3;
         //    });
         //});
@@ -94,7 +96,7 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
                 foreach (var i in Enumerable.Range(0, 2))
                 {
                     await Task.Delay(1000);
-                    yield return "some content";
+                    yield return $"sse {i}";
                 }
             }
             return Results.ServerSentEvents(GetStream());
@@ -178,7 +180,54 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
                 ctx.Response.StatusCode = 204;
             }
         });
-        return _app.StartAsync(); //.RunAsync();
+        _app.MapPost("/posthiddenfield", ([FromForm(Name = "field")] string field) =>
+        {
+            return TypedResults.LocalRedirect("/protocol");
+        });
+        _app.MapGet("/html", async (HttpContext ctx) =>
+        {
+            var baseUrl = ctx.Request.Host;
+            await ctx.Response.WriteAsync($$"""
+            <!DOCTYPE html>
+            <html>
+            <body>
+            <form action="https://{{baseUrl}}/posthiddenfield" method="post">
+                <input type="hidden" name="field" value="value">
+                <button type="submit">Send POST</button>
+            </form>
+            <button onclick="loadContent()">Load Content</button>
+            <button onclick="startSSE()">Start SSE</button>
+            <div id="output" style="visibility: hidden"></div>
+            <div id="sse" style="visibility: hidden"></div>
+            <script>
+            function loadContent() {
+                fetch("https://{{baseUrl}}/content")
+                    .then(r => r.text())
+                    .then(t => { let divOutput = document.getElementById("output"); divOutput.innerText = t; divOutput.style = "visibility: visible"; })
+                    .catch(e => console.error(e));
+            }
+
+            function startSSE() {
+                const evtSource = new EventSource("https://{{baseUrl}}/sse");
+
+                evtSource.onmessage = function(event) {
+                    let divSse = document.getElementById("sse");
+                    divSse.textContent += event.data + "\n";
+                };
+
+                evtSource.onerror = function(err) {
+                    let divSse = document.getElementById("sse");
+                    divSse.style = "visibility: visible";
+                    evtSource.close();
+                };
+            }
+            </script>
+
+            </body>
+            </html>
+            """);
+        });
+        return _app.StartAsync();
     }
 
     public async ValueTask DisposeAsync()

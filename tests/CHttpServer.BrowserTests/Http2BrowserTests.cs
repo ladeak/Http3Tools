@@ -1,19 +1,18 @@
-﻿using System.Runtime.InteropServices;
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 
 namespace CHttpServer.BrowserTests;
 
-public class Http3BrowserTests(Http3TestFixture testFixture) : IClassFixture<Http3TestFixture>
+public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Http2TestFixture>
 {
-    private readonly Http3TestFixture _fixture = testFixture;
+    private readonly Http2TestFixture _fixture = testFixture;
     private readonly string _url = $"https://127.0.0.1:{testFixture.Port}";
 
     [Fact]
-    public async Task Http3Protocol()
+    public async Task Http2Protocol()
     {
         var page = await _fixture.Browser.NewPageAsync();
         await page.GotoAsync($"{_url}/protocol");
-        Assert.Contains("HTTP/3", await page.ContentAsync());
+        Assert.Contains("HTTP/2", await page.ContentAsync());
     }
 
     [Fact]
@@ -29,7 +28,7 @@ public class Http3BrowserTests(Http3TestFixture testFixture) : IClassFixture<Htt
         Assert.Contains("sse 1", content);
     }
 
-    [Fact(Skip = "WIP")]
+    [Fact]
     public async Task FormPost()
     {
         var page = await _fixture.Browser.NewPageAsync();

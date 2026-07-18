@@ -2,10 +2,12 @@
 using CHttpServer.Tests;
 using Microsoft.Playwright;
 
-namespace TestCHttpServerApplication.Tests;
+namespace CHttpServer.BrowserTests;
 
-public class TestFixture : IAsyncDisposable
+public sealed class Http2TestFixture : IAsyncDisposable
 {
+    internal int Port => 7294;
+
     public TestServer? Server { get; private set; }
 
     public IPlaywright PlaywrightHost { get; private set; }
@@ -14,15 +16,15 @@ public class TestFixture : IAsyncDisposable
 
     [SupportedOSPlatform("linux")]
     [SupportedOSPlatform("windows")]
-    public TestFixture()
+    public Http2TestFixture()
     {
         Server = new TestServer();
-        Server.RunAsync(7297, false, useHttp3: true).GetAwaiter().GetResult();
+        Server.RunAsync(Port, false, useHttp3: false).GetAwaiter().GetResult();
         PlaywrightHost = Playwright.CreateAsync().GetAwaiter().GetResult();
         Browser = PlaywrightHost.Chromium.LaunchPersistentContextAsync("/tmp/chrome-profile-integrationtest", new()
         {
             Headless = true,
-            Args = ["--origin-to-force-quic-on=127.0.0.1:7297", "--ignore-certificate-errors-spki-list=5QveYGg8xaCnnZWvkC9Y6v9lQVmF2BCozvds6Cn6F6k="]
+            Args = ["--ignore-certificate-errors-spki-list=5QveYGg8xaCnnZWvkC9Y6v9lQVmF2BCozvds6Cn6F6k="]
         }).GetAwaiter().GetResult();
     }
 
