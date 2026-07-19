@@ -191,7 +191,7 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
             <!DOCTYPE html>
             <html>
             <body>
-            <form action="https://{{baseUrl}}/posthiddenfield" method="post">
+            <form action="/posthiddenfield" method="post">
                 <input type="hidden" name="field" value="value">
                 <button type="submit">Send POST</button>
             </form>

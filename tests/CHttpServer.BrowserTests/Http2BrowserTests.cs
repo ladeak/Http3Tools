@@ -35,6 +35,14 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
     {
         var page = await _fixture.Browser.NewPageAsync();
         await page.GotoAsync($"{_url}/html");
+
+        // Intercept all requests ("**/*" is a glob pattern for everything)
+        await page.RouteAsync("**/*", async route =>
+        {            
+            // Let the request continue normally
+            await route.ContinueAsync();
+        });
+        
         await page.RunAndWaitForResponseAsync(async () =>
         {
             await page.ClickAsync("body > form > button");
