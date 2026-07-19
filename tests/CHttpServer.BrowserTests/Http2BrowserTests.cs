@@ -50,6 +50,7 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
         Assert.NotNull(output);
         var content = await output.InnerHTMLAsync();
         Assert.Contains("\"some content\"", content);
+        await page.CloseAsync();
     }
 }
 
