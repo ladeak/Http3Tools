@@ -33,7 +33,7 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
         //    o.Listen(IPAddress.Loopback, port, lo =>
         //    {
         //        lo.UseHttps(X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"));
-        //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http3;
+        //        lo.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2AndHttp3;
         //    });
         //});
         _app = builder.Build();
@@ -183,7 +183,7 @@ public sealed class TestServer : IAsyncDisposable, IDisposable
         _app.MapPost("/posthiddenfield", ([FromForm(Name = "field")] string field) =>
         {
             return TypedResults.LocalRedirect("/protocol");
-        });
+        }).DisableAntiforgery();
         _app.MapGet("/html", async (HttpContext ctx) =>
         {
             var baseUrl = ctx.Request.Host;
