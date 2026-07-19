@@ -13,6 +13,7 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
         var page = await _fixture.Browser.NewPageAsync();
         await page.GotoAsync($"{_url}/protocol");
         Assert.Contains("HTTP/2", await page.ContentAsync());
+        await page.CloseAsync();
     }
 
     [Fact]
@@ -26,6 +27,7 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
         var content = await sse.InnerHTMLAsync();
         Assert.Contains("sse 0", content);
         Assert.Contains("sse 1", content);
+        await page.CloseAsync();
     }
 
     [Fact]
@@ -35,6 +37,7 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
         await page.GotoAsync($"{_url}/html");
         await page.ClickAsync("body > form > button");
         await page.WaitForURLAsync($"{_url}/protocol");
+        await page.CloseAsync();
     }
 
     [Fact]

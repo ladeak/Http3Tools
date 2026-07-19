@@ -170,6 +170,7 @@ internal sealed partial class Http3Connection
         catch (QuicException ex) when (
            ex.QuicError == QuicError.ConnectionAborted
         || ex.QuicError == QuicError.StreamAborted
+        || ex.QuicError == QuicError.InternalError
         || ex.QuicError == QuicError.ConnectionTimeout)
         {
             // Connection already aborted by the client.

@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 
 namespace CHttpServer.BrowserTests;
 
@@ -11,9 +10,13 @@ public class Http3BrowserTests(Http3TestFixture testFixture) : IClassFixture<Htt
     [Fact]
     public async Task Http3Protocol()
     {
-        var page = await _fixture.Browser.NewPageAsync();
-        await page.GotoAsync($"{_url}/protocol");
-        Assert.Contains("HTTP/3", await page.ContentAsync());
+        for (int i = 0; i < 10; i++)
+        {
+            var page = await _fixture.Browser.NewPageAsync();
+            await page.GotoAsync($"{_url}/protocol");
+            Assert.Contains("HTTP/3", await page.ContentAsync());
+            await page.CloseAsync();
+        }
     }
 
     [Fact]
@@ -27,27 +30,36 @@ public class Http3BrowserTests(Http3TestFixture testFixture) : IClassFixture<Htt
         var content = await sse.InnerHTMLAsync();
         Assert.Contains("sse 0", content);
         Assert.Contains("sse 1", content);
+        await page.CloseAsync();
     }
 
-    [Fact(Skip = "WIP")]
+    [Fact]
     public async Task FormPost()
     {
-        var page = await _fixture.Browser.NewPageAsync();
-        await page.GotoAsync($"{_url}/html");
-        await page.ClickAsync("body > form > button");
-        await page.WaitForURLAsync($"{_url}/protocol");
+        for (int i = 0; i < 10; i++)
+        {
+            var page = await _fixture.Browser.NewPageAsync();
+            await page.GotoAsync($"{_url}/html");
+            await page.ClickAsync("body > form > button");
+            await page.WaitForURLAsync($"{_url}/protocol");
+            await page.CloseAsync();
+        }
     }
 
     [Fact]
     public async Task GetFetchJs()
     {
-        var page = await _fixture.Browser.NewPageAsync();
-        await page.GotoAsync($"{_url}/html");
-        await page.ClickAsync("body > button:nth-child(2)");
-        var output = await page.WaitForSelectorAsync("#output", new PageWaitForSelectorOptions() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
-        Assert.NotNull(output);
-        var content = await output.InnerHTMLAsync();
-        Assert.Contains("\"some content\"", content);
+        for (int i = 0; i < 100; i++)
+        {
+            var page = await _fixture.Browser.NewPageAsync();
+            await page.GotoAsync($"{_url}/html");
+            await page.ClickAsync("body > button:nth-child(2)");
+            var output = await page.WaitForSelectorAsync("#output", new PageWaitForSelectorOptions() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+            Assert.NotNull(output);
+            var content = await output.InnerHTMLAsync();
+            Assert.Contains("\"some content\"", content);
+            await page.CloseAsync();
+        }
     }
 }
 

@@ -8,7 +8,7 @@ public sealed class Http2TestFixture : IAsyncDisposable
 {
     internal int Port => 7294;
 
-    public TestServer? Server { get; private set; }
+    public TestServer Server { get; private set; }
 
     public IPlaywright PlaywrightHost { get; private set; }
 
@@ -30,10 +30,8 @@ public sealed class Http2TestFixture : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Server == null)
-            return;
-        await Server.DisposeAsync();
         await Browser.DisposeAsync();
         PlaywrightHost.Dispose();
+        await Server.DisposeAsync();
     }
 }
