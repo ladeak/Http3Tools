@@ -36,7 +36,7 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
         var page = await _fixture.Browser.NewPageAsync();
         await page.GotoAsync($"{_url}/html");
         await page.ClickAsync("body > form > button");
-        await page.WaitForURLAsync($"{_url}/protocol");
+        Assert.Contains("HTTP/2", await page.ContentAsync());
         await page.CloseAsync();
     }
 

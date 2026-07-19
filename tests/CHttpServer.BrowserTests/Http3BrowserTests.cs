@@ -41,7 +41,7 @@ public class Http3BrowserTests(Http3TestFixture testFixture) : IClassFixture<Htt
             var page = await _fixture.Browser.NewPageAsync();
             await page.GotoAsync($"{_url}/html");
             await page.ClickAsync("body > form > button");
-            await page.WaitForURLAsync($"{_url}/protocol");
+            Assert.Contains("HTTP/3", await page.ContentAsync());
             await page.CloseAsync();
         }
     }
