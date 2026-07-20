@@ -139,17 +139,12 @@ public class RequestHeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePa
         {
             Span<char> utf16Value = stackalloc char[rawValue.Length];
             Encoding.Latin1.GetChars(rawValue, utf16Value);
-            if (_hostValue.Count > 0 && utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
-            {
-                key = "Host";
-                value = _hostValue;
-                return true;
-            }
+            if (_hostValue.Count == 0 || !utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
+                _hostValue = new StringValues(utf16Value.ToString());
 
-            _hostValue = new StringValues(utf16Value.ToString());
-            _isHostValueSet = true;
             key = "Host";
             value = _hostValue;
+            _isHostValueSet = true;
             return true;
         }
 
@@ -164,12 +159,9 @@ public class RequestHeaderCollection : IHeaderDictionary, IEnumerator<KeyValuePa
         {
             Span<char> utf16Value = stackalloc char[rawValue.Length];
             Encoding.Latin1.GetChars(rawValue, utf16Value);
-            if (_hostValue.Count > 0 && utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
-            {
-                key = "Host";
-                return true;
-            }
-            _hostValue = new StringValues(utf16Value.ToString());
+            if (_hostValue.Count == 0 || !utf16Value.SequenceEqual(_hostValue[0].AsSpan()))
+                _hostValue = new StringValues(utf16Value.ToString());
+
             _isHostValueSet = true;
             return true;
         }

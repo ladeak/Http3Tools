@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 
 namespace CHttpServer.Tests.Http3;
@@ -347,7 +346,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
         Assert.True(response.IsSuccessStatusCode);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("data: some content\n\ndata: some content\n\n", content);
+        Assert.Equal("data: sse 0\n\ndata: sse 1\n\n", content);
     }
 }
 

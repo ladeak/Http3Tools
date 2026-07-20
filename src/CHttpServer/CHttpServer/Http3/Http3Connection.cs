@@ -174,6 +174,10 @@ internal sealed partial class Http3Connection
         {
             // Connection already aborted by the client.
         }
+        catch (QuicException ex)
+        {
+            Debug.WriteLine(ex);
+        }
     }
 
     private async Task HandleStreamAsync<TContext>(
