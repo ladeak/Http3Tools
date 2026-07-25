@@ -2,9 +2,9 @@
 
 namespace CHttpServer.BrowserTests;
 
-public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Http2TestFixture>
+public abstract class Http2BrowserTestsBase(Http2TestFixtureBase testFixture)
 {
-    private readonly Http2TestFixture _fixture = testFixture;
+    private readonly Http2TestFixtureBase _fixture = testFixture;
     private readonly string _url = $"https://127.0.0.1:{testFixture.Port}";
 
     [Fact]
@@ -38,11 +38,11 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
 
         // Intercept all requests ("**/*" is a glob pattern for everything)
         await page.RouteAsync("**/*", async route =>
-        {            
+        {
             // Let the request continue normally
             await route.ContinueAsync();
         });
-        
+
         await page.RunAndWaitForResponseAsync(async () =>
         {
             await page.ClickAsync("body > form > button");
@@ -65,3 +65,10 @@ public class Http2BrowserTests(Http2TestFixture testFixture) : IClassFixture<Htt
     }
 }
 
+public class Http2ChromeTests(Http2ChromeTestFixture testFixture) : Http2BrowserTestsBase(testFixture), IClassFixture<Http2ChromeTestFixture>
+{
+}
+
+public class Http2FirefoxTests(Http2FirefoxTestFixture testFixture) : Http2BrowserTestsBase(testFixture), IClassFixture<Http2FirefoxTestFixture>
+{
+}

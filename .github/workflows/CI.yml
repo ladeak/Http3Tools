@@ -63,6 +63,6 @@ jobs:
     - name: Browser CHttp Server Tests
       run: |
         dotnet build ./tests/CHttpServer.BrowserTests -c ${{ env.CONFIGURATION }}  
-        ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps chromium
+        ./tests/CHttpServer.BrowserTests/bin/${{ env.CONFIGURATION }}/${{ env.OUTPUT_FOLDER }}/playwright.ps1 install --with-deps chromium firefox
         dotnet test ./tests/CHttpServer.BrowserTests -c ${{ env.CONFIGURATION }}
       shell: pwsh
