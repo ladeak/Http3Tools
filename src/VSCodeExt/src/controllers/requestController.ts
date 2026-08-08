@@ -9,7 +9,6 @@ import { SelectedRequest } from '../models/SelectedRequest';
 import { RequestVariableCache } from '../utils/requestVariableCache';
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { inspect } from 'util';
 
 export class RequestController {
     private _requestStatusEntry: RequestStatusEntry;
@@ -117,8 +116,6 @@ export class RequestController {
             this._log.appendLine("Request Parsed");
             const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             this._log.appendLine(`Dependency loaded: ${CHttpModule}`);
-            this._log.appendLine(`CHttpModule keys: ${Object.keys(CHttpModule).join(', ')}`);
-            this._log.appendLine(inspect(CHttpModule, { depth: 2 }));
 
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
@@ -133,10 +130,11 @@ export class RequestController {
 
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
+                this._log.appendLine('Request cancelled');
                 return;
             }
 
-             this._log.appendLine(`Response received: ${response}`);
+            this._log.appendLine(`Response received: ${response}`);
 
             if (metadatas.has(RequestMetadata.Name))
                 RequestVariableCache.add(document, metadatas.get(RequestMetadata.Name)!, response);
