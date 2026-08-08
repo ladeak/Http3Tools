@@ -8,14 +8,18 @@ import { HttpRequestParser } from '../utils/httpRequestParser';
 import { SelectedRequest } from '../models/SelectedRequest';
 import { RequestVariableCache } from '../utils/requestVariableCache';
 import * as os from 'os';
+import * as vscode from 'vscode';
+import { inspect } from 'util';
 
 export class RequestController {
     private _requestStatusEntry: RequestStatusEntry;
     private _textDocumentView: HttpResponseTextDocumentView;
+    private _log: vscode.OutputChannel;
 
-    public constructor(context: ExtensionContext) {
+    public constructor(context: ExtensionContext, log: vscode.OutputChannel) {
         this._requestStatusEntry = new RequestStatusEntry();
         this._textDocumentView = new HttpResponseTextDocumentView();
+        this._log = log;
     }
 
     public async run(range: Range) {
@@ -101,6 +105,7 @@ export class RequestController {
     }
 
     public async sendRequest(selectedRequest: SelectedRequest, document: TextDocument) {
+
         const { text, metadatas } = selectedRequest;
         const name = metadatas.get(RequestMetadata.Name);
 
@@ -109,7 +114,12 @@ export class RequestController {
         const httpRequest = await parser.parseHttpRequest(name);
 
         try {
+            this._log.appendLine("Request Parsed");
             const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
+            this._log.appendLine(`Dependency loaded: ${CHttpModule}`);
+            this._log.appendLine(`CHttpModule keys: ${Object.keys(CHttpModule).join(', ')}`);
+            this._log.appendLine(inspect(CHttpModule, { depth: 2 }));
+
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
                 !metadatas.has(RequestMetadata.NoCertificateValidation),
@@ -126,11 +136,14 @@ export class RequestController {
                 return;
             }
 
+             this._log.appendLine(`Response received: ${response}`);
+
             if (metadatas.has(RequestMetadata.Name))
                 RequestVariableCache.add(document, metadatas.get(RequestMetadata.Name)!, response);
             this._textDocumentView.render(response);
             this._requestStatusEntry.updateStatus("Completed");
         } catch (reason: any) {
+            this._log.appendLine(`Error occurred: ${reason.message}`);
             this._requestStatusEntry.updateStatus("Error");
             if ("message" in reason)
                 window.showErrorMessage(reason.message);
