@@ -8,7 +8,8 @@ import * as os from 'os';
 
 export function activate(context: vscode.ExtensionContext) {
 
-    const requestController = new RequestController(context);
+	const log = vscode.window.createOutputChannel('CHttp Output');
+    const requestController = new RequestController(context, log);
 	const diffController = new DiffController(context);
 	let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document: TextDocument, range: Range) => requestController.run(range)));
 	let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document: TextDocument, range: Range) => 
@@ -28,6 +29,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(sendRequest);
 	context.subscriptions.push(cancelRequest);
 	context.subscriptions.push(diff);
+    context.subscriptions.push(log);
+    log.appendLine(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
 	const cHttpModule = require(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
 	cHttpModule.CHttpExt.setMsQuicPath(context.extensionPath);
 }

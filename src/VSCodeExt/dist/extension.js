@@ -24,10 +24,12 @@ const httpResponseTextDocumentView_1 = __webpack_require__(26);
 const httpRequestParser_1 = __webpack_require__(27);
 const requestVariableCache_1 = __webpack_require__(12);
 const os = __webpack_require__(6);
+const util_1 = __webpack_require__(37);
 class RequestController {
-    constructor(context) {
+    constructor(context, log) {
         this._requestStatusEntry = new requestStatusBarEntry_1.RequestStatusEntry();
         this._textDocumentView = new httpResponseTextDocumentView_1.HttpResponseTextDocumentView();
+        this._log = log;
     }
     async run(range) {
         this._requestStatusEntry.updateStatus("Working...", 'LaDeak-CHttp.cancelRequest');
@@ -92,18 +94,24 @@ class RequestController {
         var parser = new httpRequestParser_1.HttpRequestParser(text);
         const httpRequest = await parser.parseHttpRequest(name);
         try {
+            this._log.appendLine("Request Parsed");
             const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
+            this._log.appendLine(`Dependency loaded: ${CHttpModule}`);
+            this._log.appendLine(`CHttpModule keys: ${Object.keys(CHttpModule).join(', ')}`);
+            this._log.appendLine((0, util_1.inspect)(CHttpModule, { depth: 2 }));
             var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
                 return;
             }
+            this._log.appendLine(`Response received: ${response}`);
             if (metadatas.has(requestMetadata_1.RequestMetadata.Name))
                 requestVariableCache_1.RequestVariableCache.add(document, metadatas.get(requestMetadata_1.RequestMetadata.Name), response);
             this._textDocumentView.render(response);
             this._requestStatusEntry.updateStatus("Completed");
         }
         catch (reason) {
+            this._log.appendLine(`Error occurred: ${reason.message}`);
             this._requestStatusEntry.updateStatus("Error");
             if ("message" in reason)
                 vscode_1.window.showErrorMessage(reason.message);
@@ -2404,8 +2412,9 @@ exports.HttpRequestParser = HttpRequestParser;
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 var map = {
+	"./chttp-linux-x64-old/CHttpExtension.node": 36,
 	"./chttp-linux-x64/CHttpExtension.node": 29,
-	"./chttp-win32-x64/CHttpExtension.node": 30
+	"./chttp-win32-x64/CHttpExtension.node": 39
 };
 
 
@@ -2435,26 +2444,14 @@ webpackContext.id = 28;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "cd23b70ea4cfc96a438db98b20fb3ba2.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "9685b902cdd8cfe7e5676385f52d59ae.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }
 
 
 /***/ }),
-/* 30 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-/* module decorator */ module = __webpack_require__.nmd(module);
-
-try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "23ab9c9c223beae7916c7554878bb543.node");
-} catch (error) {
-  throw new Error('node-loader:\n' + error);
-}
-
-
-/***/ }),
+/* 30 */,
 /* 31 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -2680,6 +2677,40 @@ class RequestVariableHoverProvider {
 exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 
 
+/***/ }),
+/* 36 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "cd23b70ea4cfc96a438db98b20fb3ba2.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
+/***/ }),
+/* 37 */
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("util");
+
+/***/ }),
+/* 38 */,
+/* 39 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "efc507eedb3e11db5653ce07993ea030.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
 /***/ })
 /******/ 	]);
 /************************************************************************/
@@ -2747,7 +2778,8 @@ const httpCodeLensProvider_1 = __webpack_require__(34);
 const requestVariableHoverProvider_1 = __webpack_require__(35);
 const os = __webpack_require__(6);
 function activate(context) {
-    const requestController = new requestController_1.RequestController(context);
+    const log = vscode.window.createOutputChannel('CHttp Output');
+    const requestController = new requestController_1.RequestController(context, log);
     const diffController = new diffController_1.DiffController(context);
     let sendRequest = vscode.commands.registerCommand('LaDeak-CHttp.sendRequest', ((document, range) => requestController.run(range)));
     let cancelRequest = vscode.commands.registerCommand('LaDeak-CHttp.cancelRequest', ((document, range) => {
@@ -2763,6 +2795,8 @@ function activate(context) {
     context.subscriptions.push(sendRequest);
     context.subscriptions.push(cancelRequest);
     context.subscriptions.push(diff);
+    context.subscriptions.push(log);
+    log.appendLine(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
     const cHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
     cHttpModule.CHttpExt.setMsQuicPath(context.extensionPath);
 }
