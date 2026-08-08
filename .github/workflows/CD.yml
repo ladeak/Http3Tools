@@ -91,12 +91,12 @@ jobs:
             src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
     - name: Build VSCodeExtension dependencies
       run: |
-        dotnet publish src/CHttpExtension -r linux-x64 -f net9.0 # .NET 9
+        dotnet publish src/CHttpExtension -r linux-x64 -f net10.0
     - name: Upload CHttpExtension file to artifacts (linux-x64)
       uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-linux-x64 # The name of the artifact bundle
-        path: src/CHttpExtension/bin/Release/net9.0/linux-x64/publish/*
+        path: src/CHttpExtension/bin/Release/net10.0/linux-x64/publish/*
 
   cross-compile-linux-aot:
     runs-on: ubuntu-26.04-arm
@@ -110,12 +110,12 @@ jobs:
       run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
     - name: Build VSCodeExtension dependencies
       run: |
-        dotnet publish src/CHttpExtension -r linux-arm64 -f net9.0 # .NET 9
+        dotnet publish src/CHttpExtension -r linux-arm64 -f net10.0
     - name: Upload CHttpExtension file to artifacts (linux-arm64)
       uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-linux-arm64 # The name of the artifact bundle
-        path: src/CHttpExtension/bin/Release/net9.0/linux-arm64/publish/*
+        path: src/CHttpExtension/bin/Release/net10.0/linux-arm64/publish/*
 
   cross-compile-windows-aot:
     runs-on: windows-latest
@@ -144,18 +144,18 @@ jobs:
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
     - name: Build VSCodeExtension dependencies
       run: |
-        dotnet publish src/CHttpExtension -r win-x64 -f net9.0 # .NET 9
-        dotnet publish src/CHttpExtension -r win-arm64 -f net9.0 # .NET 9
+        dotnet publish src/CHttpExtension -r win-x64 -f net10.0
+        dotnet publish src/CHttpExtension -r win-arm64 -f net10.0
     - name: Upload CHttpExtension file to artifacts (win-x64)
       uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-win-x64 # The name of the artifact bundle
-        path: src/CHttpExtension/bin/Release/net9.0/win-x64/publish/*
+        path: src/CHttpExtension/bin/Release/net10.0/win-x64/publish/*
     - name: Upload CHttpExtension file to artifacts (win-arm64)
       uses: actions/upload-artifact@v7
       with:
         name: CHttpExtension-win-arm64 # The name of the artifact bundle
-        path: src/CHttpExtension/bin/Release/net9.0/win-arm64/publish/*
+        path: src/CHttpExtension/bin/Release/net10.0/win-arm64/publish/*
 
   vscodeextension-linux-x64:
     runs-on: ubuntu-latest
