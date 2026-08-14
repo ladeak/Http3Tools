@@ -2,10 +2,12 @@ using System.IO.Compression;
 using System.Text;
 using CHttp.Abstractions;
 using CHttp.Writers;
+using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 
 namespace CHttp.Tests.Http;
@@ -427,6 +429,30 @@ public class CHttpFunctionalTests
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("Invalid http(s) schema: Cannot determine the frame size or a corrupted frame was received.", console.Text);
+    }
+
+    [Fact]
+    public async Task UseClientCertificate_HttpServer_HttpsRequest()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http2,
+            configureServices: services => services.AddAuthentication(CertificateAuthenticationDefaults.AuthenticationScheme).AddCertificate(),
+            configureApp: app =>
+        {
+            app.UseAuthentication();
+            app.Map("/", context => context.Response.WriteAsync("certificate found"));
+        });
+
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 2")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("certificate found", console.Text);
     }
 
     private class Request

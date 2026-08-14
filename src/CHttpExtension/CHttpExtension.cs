@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Quic;
 using System.Runtime.Versioning;
+using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -32,6 +33,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -48,7 +51,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
-                timeout, method, uri, parsedVersion, headers, body);
+                clientCertificatePath, clientCertificateKeyPath, timeout, method, uri, parsedVersion, headers, body);
         }
         finally
         {
@@ -60,6 +63,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -68,7 +73,11 @@ public static class CHttpExt
         string body
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true));
+        X509Certificate2? clientCertificate = null;
+        if (!string.IsNullOrWhiteSpace(clientCertificatePath) && !string.IsNullOrWhiteSpace(clientCertificateKeyPath))
+            clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, clientCertificateKeyPath);
+
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -100,6 +109,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -119,7 +130,7 @@ public static class CHttpExt
         try
         {
             _cancellationTokenSource = new();
-            return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth,
+            return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth, clientCertificatePath, clientCertificateKeyPath,
                 timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, callback);
         }
         finally
@@ -133,6 +144,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -145,7 +158,10 @@ public static class CHttpExt
         Action<string> callback
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false));
+        X509Certificate2? clientCertificate = null;
+        if (!string.IsNullOrWhiteSpace(clientCertificatePath) && !string.IsNullOrWhiteSpace(clientCertificateKeyPath))
+            clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, clientCertificateKeyPath);
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {

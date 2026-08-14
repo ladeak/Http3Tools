@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using CHttp.Data;
 
 namespace CHttpExecutor;
@@ -76,6 +77,10 @@ internal class ExecutionStep
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
+    public string? ClientCertificatePath { get; set; }
+
+    public string? ClientCertificateKeyPath { get; set; }
+
     public List<Variable> Variables { get; set; } = [];
 
     internal List<Assertion> Assertions { get; set; } = [];
@@ -86,7 +91,8 @@ internal class ExecutionStep
         Name == null && Uri == null && Method == null && Body.Count == 0
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
-        && SharedSocket == VarValue.False && Timeout == DefaultTimeout
+        && SharedSocket == VarValue.False && Timeout == DefaultTimeout 
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null
         && Variables.Count == 0 && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 
@@ -97,6 +103,7 @@ internal class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null
         && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 }
@@ -128,6 +135,10 @@ internal class FrozenExecutionStep
     public VarValue<bool> EnableRedirects { get; set; } = VarValue.True;
 
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
+
+    public required string? ClientCertificatePath { get; init; }
+    
+    public required string? ClientCertificateKeyPath { get; init; }
 
     public IReadOnlyCollection<Variable> Variables { get; init; } = [];
 

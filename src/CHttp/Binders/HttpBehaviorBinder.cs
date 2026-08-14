@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Security.Cryptography.X509Certificates;
 using CHttp.Http;
 
 namespace CHttp.Binders;
@@ -9,7 +10,9 @@ internal sealed class HttpBehaviorBinder(
     Option<double> timeout,
     Option<FileInfo?> cookieContainerOption,
     Option<bool> kerberosAuthOption,
-    Option<bool> decompressResponse)
+    Option<bool> decompressResponse,
+    Option<FileInfo?> clientCertificatePath,
+    Option<FileInfo?> clientCertificateKeyPath)
 {
     private readonly Option<bool> _redirectBinder = redirectBinder;
     private readonly Option<bool> _validateCertificateValidationBinder = validateCertificateValidationBinder;
@@ -17,6 +20,8 @@ internal sealed class HttpBehaviorBinder(
     private readonly Option<FileInfo?> _cookieContainerOption = cookieContainerOption;
     private readonly Option<bool> _kerberosAuthOption = kerberosAuthOption;
     private readonly Option<bool> _decompressResponse = decompressResponse;
+    private readonly Option<FileInfo?> _clientCertificatePath = clientCertificatePath;
+    private readonly Option<FileInfo?> _clientCertificateKeyPath = clientCertificateKeyPath;
 
     internal HttpBehavior Bind(ParseResult parseResult)
     {
@@ -26,6 +31,12 @@ internal sealed class HttpBehaviorBinder(
         var cookieContainer = parseResult.GetValue(_cookieContainerOption)?.FullName ?? string.Empty;
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         var decompressResponse = parseResult.GetValue(_decompressResponse);
-        return new HttpBehavior(timeout, ToUtf8: true, cookieContainer, new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse));
+        var clientCertificatePath = parseResult.GetValue(_clientCertificatePath)?.FullName ?? string.Empty;
+        var clientCertificateKeyPath = parseResult.GetValue(_clientCertificateKeyPath)?.FullName ?? string.Empty;
+        X509Certificate2? clientCertificate = null;
+        if (!string.IsNullOrWhiteSpace(clientCertificatePath) && !string.IsNullOrWhiteSpace(clientCertificateKeyPath))
+            clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, clientCertificateKeyPath);
+        return new HttpBehavior(timeout, ToUtf8: true, cookieContainer,
+            new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate));
     }
 }
