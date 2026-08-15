@@ -43,7 +43,11 @@ internal sealed class HttpBehaviorBinder(
                 clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, parseResult.GetValue(_clientCertificateKeyPath)?.FullName);
                 if (Environment.OSVersion.Platform == PlatformID.Win32NT)
                 {
+#if NET10_0_OR_GREATER
                     var exported = clientCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+#else
+                    var exported = clientCertificate.Export(X509ContentType.Pkcs12);
+#endif
                     clientCertificate = X509CertificateLoader.LoadPkcs12(exported, null);
                 }
             }
