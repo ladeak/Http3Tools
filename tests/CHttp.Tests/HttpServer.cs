@@ -11,6 +11,7 @@ public static class HttpServer
 {
     public static WebApplication CreateHostBuilder(RequestDelegate? requestDelegate = null,
         HttpProtocols? protocol = null,
+        Action<KestrelServerOptions>? configureDefaultKestrel = null,
         Action<KestrelServerOptions>? configureKestrel = null,
         Action<IServiceCollection>? configureServices = null,
         Action<WebApplication>? configureApp = null,
@@ -21,6 +22,7 @@ public static class HttpServer
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseKestrel(kestrel =>
         {
+            configureDefaultKestrel?.Invoke(kestrel);
             kestrel.ListenAnyIP(port, options =>
             {
                 if (withHttps)

@@ -32,10 +32,23 @@ internal sealed class HttpBehaviorBinder(
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         var decompressResponse = parseResult.GetValue(_decompressResponse);
         var clientCertificatePath = parseResult.GetValue(_clientCertificatePath)?.FullName ?? string.Empty;
-        var clientCertificateKeyPath = parseResult.GetValue(_clientCertificateKeyPath)?.FullName ?? string.Empty;
         X509Certificate2? clientCertificate = null;
-        if (!string.IsNullOrWhiteSpace(clientCertificatePath) && !string.IsNullOrWhiteSpace(clientCertificateKeyPath))
-            clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, clientCertificateKeyPath);
+
+        if (!string.IsNullOrWhiteSpace(clientCertificatePath))
+        {
+            if (Path.GetExtension(clientCertificatePath) == ".pfx")
+                clientCertificate = X509CertificateLoader.LoadPkcs12FromFile(clientCertificatePath, parseResult.GetValue(_clientCertificateKeyPath)?.Name); // Handle KeyPath as a password as opposed file.
+            else
+            {
+                clientCertificate = X509Certificate2.CreateFromPemFile(clientCertificatePath, parseResult.GetValue(_clientCertificateKeyPath)?.FullName);
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                {
+                    var exported = clientCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+                    clientCertificate = X509CertificateLoader.LoadPkcs12(exported, null);
+                }
+            }
+        }
+
         return new HttpBehavior(timeout, ToUtf8: true, cookieContainer,
             new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate));
     }
