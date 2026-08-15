@@ -9,6 +9,8 @@ export enum RequestMetadata {
     Timeout = 'timeout',
     KerberosAuth = 'kerberos-auth',
     SharedSocketHandler = 'shared-sockethandler',
+    ClientCertificatePath = 'client-certificate-path',
+    ClientCertificateKey = 'client-certificate-key',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

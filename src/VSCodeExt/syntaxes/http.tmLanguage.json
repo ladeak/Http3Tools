@@ -153,7 +153,7 @@
           "name": "comment.line.sharp.http"
         },
         {
-          "match": "^\\s*\\#{1,}\\s+(?:((@)clientsCount)\\s+([^\\s\\.]+))$",
+          "match": "^\\s*\\#{1,}\\s+(?:((@)clientsCount)\\s+(\\d+))$",
           "captures": {
             "1": {
               "name": "entity.other.attribute-name"
@@ -168,7 +168,7 @@
           "name": "comment.line.sharp.http"
         }, 
         {
-          "match": "^\\s*\\#{1,}\\s+(?:((@)requestCount)\\s+([^\\s\\.]+))$",
+          "match": "^\\s*\\#{1,}\\s+(?:((@)requestCount)\\s+(\\d+))$",
           "captures": {
             "1": {
               "name": "entity.other.attribute-name"
@@ -181,7 +181,37 @@
             }
           },
           "name": "comment.line.sharp.http"
-        },        
+        },
+        {
+          "match": "^\\s*\\#{1,}\\s+(?:((@)client-certificate-path)\\s+([^\\s]+))$",
+          "captures": {
+            "1": {
+              "name": "entity.other.attribute-name"
+            },
+            "2": {
+              "name": "punctuation.definition.block.tag.metadata"
+            },
+            "3": {
+              "name": "entity.name.type.http"
+            }
+          },
+          "name": "comment.line.sharp.http"
+        },    
+       {
+          "match": "^\\s*\\#{1,}\\s+(?:((@)client-certificate-key)\\s+([^\\s]+))$",
+          "captures": {
+            "1": {
+              "name": "entity.other.attribute-name"
+            },
+            "2": {
+              "name": "punctuation.definition.block.tag.metadata"
+            },
+            "3": {
+              "name": "entity.name.type.http"
+            }
+          },
+          "name": "comment.line.sharp.http"
+        },      
         {
           "match": "^\\s*\\#{1,}\\s+((@)note)\\s*$",
           "captures": {
