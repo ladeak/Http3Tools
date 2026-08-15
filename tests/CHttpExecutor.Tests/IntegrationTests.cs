@@ -67,6 +67,36 @@ my: {{myheader}}"u8.ToArray();
     }
 
     [Fact]
+    public async Task Single_PemClientCertificate_RequestInvokesEndpoint()
+    {
+        TaskCompletionSource requestReceived = new();
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            requestReceived.TrySetResult();
+            await context.Response.WriteAsync(context.Connection.ClientCertificate!.SubjectName.Name);
+        }, HttpProtocols.Http2,
+        configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+        {
+            httpsOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.RequireCertificate;
+            httpsOptions.ClientCertificateValidation = (_, _, _) => true;
+        }), port: Port);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+
+        var stream = new MemoryStream(@"###
+# @no-cert-validation
+# @clientCertificatePath testCert.pem
+# @clientCertificateKeyPath testCert.key
+GET https://localhost:5020/ HTTP/2"u8.ToArray());
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        var plan = await reader.ReadStreamAsync(stream);
+        var executor = new Executor(plan, new NoOpConsole());
+        await executor.ExecuteAsync();
+
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task MultiRequestInvokesEndpoint()
     {
         int requestCount = 0;

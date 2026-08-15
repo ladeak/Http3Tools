@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Security.Cryptography.X509Certificates;
 
 namespace CHttp.Http;
 
@@ -13,9 +14,12 @@ internal abstract class BaseSocketsHandlerProvider
         messageHandler.AllowAutoRedirect = behavior.EnableRedirects;
         messageHandler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions()
         {
-            // TODO: sockets behavior
-            CertificateRevocationCheckMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.Offline,
+            // Sockets behavior
+            CertificateRevocationCheckMode = X509RevocationMode.Offline,
+            EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
         };
+        if (behavior.ClientCertificate != null)
+            messageHandler.SslOptions.ClientCertificates = [behavior.ClientCertificate];
 
         if (!behavior.EnableCertificateValidation)
             messageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;

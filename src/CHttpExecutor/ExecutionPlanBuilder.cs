@@ -174,6 +174,24 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             return;
         }
 
+        if ((command.Equals("clientCertificatePath", StringComparison.OrdinalIgnoreCase))
+            && File.Exists(parameters.ToString()))
+        {
+            var value = parameters.ToString();
+            ValidateVariableExistance(value);
+            _currentStep.ClientCertificatePath = value;
+            return;
+        }
+
+        if ((command.Equals("clientCertificateKeyPath", StringComparison.OrdinalIgnoreCase))
+            && File.Exists(parameters.ToString()))
+        {
+            var value = parameters.ToString();
+            ValidateVariableExistance(value);
+            _currentStep.ClientCertificateKeyPath = value;
+            return;
+        }
+
         if (command.Equals("assert", StringComparison.OrdinalIgnoreCase)
             || command.Equals("assertion", StringComparison.OrdinalIgnoreCase))
         {
@@ -231,7 +249,9 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             EnableRedirects = step.EnableRedirects,
             NoCertificateValidation = step.NoCertificateValidation,
             Variables = step.Variables,
-            Assertions = step.Assertions
+            Assertions = step.Assertions,
+            ClientCertificatePath = step.ClientCertificatePath,
+            ClientCertificateKeyPath = step.ClientCertificateKeyPath,
         };
 
     private void ValidateVariableExistance<T>(VarValue<T> source)

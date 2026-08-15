@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Primitives;
 
 namespace CHttp.Tests.Http;
@@ -427,6 +428,93 @@ public class CHttpFunctionalTests
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Contains("Invalid http(s) schema: Cannot determine the frame size or a corrupted frame was received.", console.Text);
+    }
+
+    [Fact]
+    public async Task Pem_ClientCertificate_H2_Succeeds()
+    {
+        const string expectedSubjectName = "CN=localhost";
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http2,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(options =>
+            {
+                options.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                options.CheckCertificateRevocation = false;
+                options.ClientCertificateValidation = (cert, chain, _) => cert.SubjectName.Name == expectedSubjectName;
+            }),
+            configureApp: app =>
+        {
+            app.MapGet("/", context => context.Response.WriteAsync(context.Connection.ClientCertificate?.SubjectName.Name ?? "no certificate"));
+        });
+
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 2 --clientCertificatePath testCert.pem --clientCertificateKeyPath testCert.key  --no-certificate-validation true")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains(expectedSubjectName, console.Text);
+    }
+
+    [Fact]
+    public async Task Pem_ClientCertificate_H3_Succeeds()
+    {
+        const string expectedSubjectName = "CN=localhost";
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http3,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(options =>
+            {
+                options.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                options.CheckCertificateRevocation = false;
+                options.ClientCertificateValidation = (cert, chain, _) => cert.SubjectName.Name == expectedSubjectName;
+            }),
+            configureApp: app =>
+            {
+                app.MapGet("/", context => context.Response.WriteAsync(context.Connection.ClientCertificate?.SubjectName.Name ?? "no certificate"));
+            });
+
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 3 --clientCertificatePath testCert.pem --clientCertificateKeyPath testCert.key  --no-certificate-validation true")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains(expectedSubjectName, console.Text);
+    }
+
+    [Fact]
+    public async Task Pfx_ClientCertificate_H3_Succeeds()
+    {
+        const string expectedSubjectName = "CN=localhost";
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http3,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(options =>
+            {
+                options.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                options.CheckCertificateRevocation = false;
+                options.ClientCertificateValidation = (cert, chain, _) => cert.SubjectName.Name == expectedSubjectName;
+            }),
+            configureApp: app =>
+            {
+                app.MapGet("/", context => context.Response.WriteAsync(context.Connection.ClientCertificate?.SubjectName.Name ?? "no certificate"));
+            });
+
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new VerboseConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 3 --clientCertificatePath testCert.pfx --clientCertificateKeyPath testPassword --no-certificate-validation true")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains(expectedSubjectName, console.Text);
     }
 
     private class Request

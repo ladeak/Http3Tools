@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Quic;
 using System.Runtime.Versioning;
+using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -32,6 +33,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -48,7 +51,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
-                timeout, method, uri, parsedVersion, headers, body);
+                clientCertificatePath, clientCertificateKeyPath, timeout, method, uri, parsedVersion, headers, body);
         }
         finally
         {
@@ -60,6 +63,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -68,7 +73,9 @@ public static class CHttpExt
         string body
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true));
+        X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
+
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -96,21 +103,23 @@ public static class CHttpExt
     [SupportedOSPlatform("windows")]
     [SupportedOSPlatform("linux")]
     public static async Task<string> PerfMeasureAsync(
-        string executionName,
-        bool enableRedirects,
-        bool enableCertificateValidation,
-        bool useKerberosAuth,
-        double timeout,
-        string method,
-        string uri,
-        string version,
-        IEnumerable<string> headers,
-        string body,
-        int requestCount,
-        int clientsCount,
-        bool sharedSocketsHandler,
-        Action<string> callback
-    )
+       string executionName,
+       bool enableRedirects,
+       bool enableCertificateValidation,
+       bool useKerberosAuth,
+       string? clientCertificatePath,
+       string? clientCertificateKeyPath,
+       double timeout,
+       string method,
+       string uri,
+       string version,
+       IEnumerable<string> headers,
+       string body,
+       int requestCount,
+       int clientsCount,
+       bool sharedSocketsHandler,
+       Action<string> callback
+   )
     {
         Version parsedVersion = ParseHttpVersion(version);
         _cancellationTokenSource.Cancel();
@@ -119,7 +128,7 @@ public static class CHttpExt
         try
         {
             _cancellationTokenSource = new();
-            return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth,
+            return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth, clientCertificatePath, clientCertificateKeyPath,
                 timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, callback);
         }
         finally
@@ -133,6 +142,8 @@ public static class CHttpExt
         bool enableRedirects,
         bool enableCertificateValidation,
         bool useKerberosAuth,
+        string? clientCertificatePath,
+        string? clientCertificateKeyPath,
         double timeout,
         string method,
         string uri,
@@ -145,7 +156,8 @@ public static class CHttpExt
         Action<string> callback
     )
     {
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false));
+        X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -176,7 +188,7 @@ public static class CHttpExt
     {
         if (!FilesExist(file1, file2, out var validationMessage))
             throw new ArgumentException(validationMessage);
-        var console = new StringConsole();
+        var console = new StringConsole(enableColoring: true);
         var session0 = await PerformanceFileHandler.LoadAsync(_fileSystem, file1);
         var session1 = await PerformanceFileHandler.LoadAsync(_fileSystem, file2);
         var comparer = new DiffPrinter(console);
@@ -217,6 +229,27 @@ public static class CHttpExt
     }
 
     public static void Cancel() => _cancellationTokenSource.Cancel();
+
+    private static X509Certificate2? LoadCertificate(string? certPath, string? certKey)
+    {
+        if (string.IsNullOrWhiteSpace(certPath) && string.IsNullOrWhiteSpace(certPath))
+            return null;
+
+        if (Path.GetExtension(certPath) == ".pfx")
+            return X509CertificateLoader.LoadPkcs12FromFile(certPath, certKey);
+
+        var clientCertificate = X509Certificate2.CreateFromPemFile(certPath, certKey);
+        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        {
+#if NET10_0_OR_GREATER
+                    var exported = clientCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+#else
+            var exported = clientCertificate.Export(X509ContentType.Pkcs12);
+#endif
+            clientCertificate = X509CertificateLoader.LoadPkcs12(exported, null);
+        }
+        return clientCertificate;
+    }
 }
 
 

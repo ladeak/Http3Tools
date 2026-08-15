@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 
 namespace CHttp.Tests.Performance;
 
@@ -168,6 +169,26 @@ public class CHttpPerformanceFunctionalTests
             file.Close();
         }
         GC.KeepAlive(fileSystem);
+    }
+
+    [Fact]
+    public async Task Pem_ClientCertificate_SuccessResponse()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            requestDelegate: context => context.Response.WriteAsync(context.Connection.ClientCertificate!.SubjectName.Name), HttpProtocols.Http3,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                httpsOptions.ClientCertificateValidation = (cert, chain, _) => cert.SubjectName.Name == "CN=localhost";
+            }), port: Port);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+
+        var client = await CommandFactory.CreateRootCommand(console: console)
+            .Parse($"perf --method GET --clientCertificatePath testCert.pem --clientCertificateKeyPath testCert.key --no-certificate-validation --uri https://localhost:{Port} -c 1 -n 2 -v 3")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
     }
 
     private class Request

@@ -92,8 +92,8 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "mime-types": "^2.1.35",
     "jsonpath-plus": "^8.1.0",
-    "node-api-dotnet": "^0.9.19"
+    "mime-types": "^2.1.35",
+    "node-api-dotnet": "^0.9.25"
   }
 }

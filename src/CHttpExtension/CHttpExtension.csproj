@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>library</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.23" PrivateAssets="none" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.23" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.25" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.25" />
   </ItemGroup>
 
   <ItemGroup>

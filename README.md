@@ -51,25 +51,27 @@ Description:
   Send HTTP request
 
 Usage:
-  CHttp [command] [options]
+  chttp [command] [options]
 
 Options:
+  -v, --http-version <1.0|1.1|2|3>                               The version of the HTTP request: 1.0, 1.1, 2, 3 [default: 3.0]
+  -m, --method <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>  HTTP Method [default: GET]
+  -h, --header <header>                                          Headers Key-Value pairs separated by ':'. For example --header="key:myvalue"
+  -t, --timeout <timeout>                                        Timeout in seconds. [default: 30]
+  --no-redirects                                                 Disables following redirects on requests
+  --no-cert-validation, --no-certificate-validation              Disables certificate validation
+  -l, --log <Normal|Quiet|Silent|Verbose>                        Level of logging details. [default: Verbose]
+  -o, --output <output>                                          Output to file.
+  --cookie-container <cookie-container>                          A file to share cookies among requests.
+  --clientCertificatePath <clientCertificatePath>                A PEM file containing the public key of the client certificate for mTLS authentication.
+  --clientCertificateKeyPath <clientCertificateKeyPath>          A PEM file containing the private key of the client certificate for mTLS authentication.
+  -b, --body <body>                                              Request body or a file path containing the request
+  -u, --uri <uri> (REQUIRED)                                     The URL of the resource
+  --upload-throttle <upload-throttle>                            Specify HTTP level throttling in kbyte/sec when sending the request
+  -k, --kerberos-auth                                            Use Kerberos Auth
+  --decompressResponse                                           Automatically decompress response.
   -?, -h, --help                                                 Show help and usage information
   --version                                                      Show version information
-  -v, --http-version <1.0|1.1|2|3>                               The version of the HTTP request: 1.0, 1.1, 2, 3 [default:
-                                                                 3.0]
-  -m, --method <CONNECT|DELETE|GET|HEAD|OPTIONS|POST|PUT|TRACE>  HTTP Method [default: GET]
-  -h, --header                                                   Headers Key-Value pairs separated by ':'. For example --header="key:myvalue"  []
-  -t, --timeout                                                  Timeout in seconds. [default: 30]
-  --no-redirects                                                 Disables following redirects on requests [default: False]
-  --no-cert-validation, --no-certificate-validation              Disables certificate validation [default: False]
-  -l, --log <Normal|Quiet|Silent|Verbose>                        Level of logging details. [default: Verbose]
-  -o, --output                                                   Output to file.
-  --cookie-container                                             A file to share cookies among requests.
-  -b, --body                                                     Request body or a file path containing the request
-  -u, --uri (REQUIRED)                                           The URL of the resource
-  --upload-throttle                                              Specify HTTP level throttling in kbyte/sec when sending the request []
-  -k, --kerberos-auth                                            Use Kerberos Auth [default: False]
 
 Commands:
   forms  Forms request
@@ -302,10 +304,10 @@ Run the following commands to publish the native dependencis of the VS Code Exte
 For this use that latest .NET major version:
 
 ```$
-dotnet publish src/CHttpExtension -r win-x64 -f net10.0
-cp ./src/CHttpExtension/bin/Release/net10.0/win-x64/publish/* ./src/VSCodeExt/src/chttp-win32-x64
-dotnet publish src/CHttpExtension -r linux-x64 -f net10.0
-cp ./src/CHttpExtension/bin/Release/net10.0/linux-x64/publish/* ./src/VSCodeExt/src/chttp-linux-x64
+dotnet publish src/CHttpExtension -r win-x64 -f net9.0
+cp ./src/CHttpExtension/bin/Release/net9.0/win-x64/publish/* ./src/VSCodeExt/src/chttp-win32-x64
+dotnet publish src/CHttpExtension -r linux-x64 -f net9.0
+cp ./src/CHttpExtension/bin/Release/net9.0/linux-x64/publish/* ./src/VSCodeExt/src/chttp-linux-x64
 ```
 
 ### Cleanup NPM

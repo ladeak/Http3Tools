@@ -7,15 +7,22 @@ public class StringConsole : IConsole
 {
     private ConsoleColor _color = ConsoleColor.Black;
     private bool _colorize;
+    private bool _enableColoring;
 
-    public StringConsole()
+    public StringConsole() : this(false)
     {
+    }
+
+    public StringConsole(bool enableColoring)
+    {
+        _enableColoring = enableColoring;
     }
 
     public StringConsole(string color)
     {
         if (!Enum.TryParse<ConsoleColor>(color, out _color))
             _color = ConsoleColor.Black;
+        _enableColoring = true;
     }
 
     public bool CursorVisible { get; set; } = false;
@@ -33,6 +40,8 @@ public class StringConsole : IConsole
         {
             _color = value;
             _colorize = !_colorize;
+            if (!_enableColoring)
+                return;
             if (_colorize)
                 Write($"<span style=\"color:{_color};\">");
             else

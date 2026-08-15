@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.CommandLine;
 using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Http;
@@ -63,7 +65,8 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             var timeout = ProcessVariable(step.Timeout, ctx, nameof(step.Timeout));
             var enableRedirects = ProcessVariable(step.EnableRedirects, ctx, nameof(step.EnableRedirects));
             var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, ctx, nameof(step.NoCertificateValidation));
-            var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false));
+            var clientCertificate = ProcessCLientCertificateVariable(step.ClientCertificatePath, step.ClientCertificateKeyPath, ctx);
+            var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false, clientCertificate));
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
             HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
@@ -92,6 +95,24 @@ internal class Executor(ExecutionPlan plan, IConsole console)
         else if (T.TryParse(VariablePreprocessor.Evaluate(value.VariableValue, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup).AsSpan(), null, out T? result))
             return result;
         throw new ArgumentException($"Invalid value set for {name}");
+    }
+
+    private static X509Certificate2? ProcessCLientCertificateVariable(string? certPath, string? certKeyPath, ExecutionContext ctx)
+    {
+        if (string.IsNullOrWhiteSpace(certPath))
+            return null;
+        var actualPath = VariablePreprocessor.Evaluate(certPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        var actualKey = VariablePreprocessor.Evaluate(certKeyPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        if (Path.GetExtension(certPath) == ".pfx")
+            return X509CertificateLoader.LoadPkcs12FromFile(actualPath, actualKey);
+
+        var certificate = X509Certificate2.CreateFromPemFile(actualPath, actualKey);
+        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        {
+            var exportedCert = certificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+            certificate = X509CertificateLoader.LoadPkcs12(exportedCert, null);
+        }
+        return certificate;
     }
 
     private static async Task SendRequestAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body, ExecutionContext ctx)

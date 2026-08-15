@@ -78,6 +78,8 @@ Use attributes to change the HTTP request behavior. At the time of writing the f
 - no-redirect
 - name
 - kerberos-auth
+- client-certificate-path
+- client-certificate-key
 - shared-sockethandler
 
 Using named requests:
@@ -94,6 +96,16 @@ Or ignore certificate validation errors, by using the `@no-certificate-validatio
 ```http
 # @no-certificate-validation true
 GET https://localhost:5001/endpoint HTTP/1.1
+```
+
+mTLS or certificate based authentication
+
+```
+@baseUrl = localhost:5001
+###
+# @client-certificate-path /path/cert.pem
+# @client-certificate-key /path/cert.key
+GET https://{{baseUrl}}/jsonresponse HTTP/2
 ```
 
 ## Performance Measurements
