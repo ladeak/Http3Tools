@@ -2409,20 +2409,46 @@ exports.HttpRequestParser = HttpRequestParser;
 
 /***/ }),
 /* 28 */
-/***/ ((module) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-function webpackEmptyContext(req) {
-	var e = new Error("Cannot find module '" + req + "'");
-	e.code = 'MODULE_NOT_FOUND';
-	throw e;
+var map = {
+	"./chttp-win32-x64/CHttpExtension.node": 29
+};
+
+
+function webpackContext(req) {
+	var id = webpackContextResolve(req);
+	return __webpack_require__(id);
 }
-webpackEmptyContext.keys = () => ([]);
-webpackEmptyContext.resolve = webpackEmptyContext;
-webpackEmptyContext.id = 28;
-module.exports = webpackEmptyContext;
+function webpackContextResolve(req) {
+	if(!__webpack_require__.o(map, req)) {
+		var e = new Error("Cannot find module '" + req + "'");
+		e.code = 'MODULE_NOT_FOUND';
+		throw e;
+	}
+	return map[req];
+}
+webpackContext.keys = function webpackContextKeys() {
+	return Object.keys(map);
+};
+webpackContext.resolve = webpackContextResolve;
+module.exports = webpackContext;
+webpackContext.id = 28;
 
 /***/ }),
-/* 29 */,
+/* 29 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+
+try {
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "7af649159df49c945b284c67c7450a03.node");
+} catch (error) {
+  throw new Error('node-loader:\n' + error);
+}
+
+
+/***/ }),
 /* 30 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -2663,13 +2689,16 @@ exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
+/******/ 			id: moduleId,
+/******/ 			loaded: false,
 /******/ 			exports: {}
 /******/ 		};
 /******/ 	
 /******/ 		// Execute the module function
 /******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+/******/ 	
+/******/ 		// Flag the module as loaded
+/******/ 		module.loaded = true;
 /******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
@@ -2679,6 +2708,20 @@ exports.RequestVariableHoverProvider = RequestVariableHoverProvider;
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
 /******/ 	(() => {
 /******/ 		__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/node module decorator */
+/******/ 	(() => {
+/******/ 		__webpack_require__.nmd = (module) => {
+/******/ 			module.paths = [];
+/******/ 			if (!module.children) module.children = [];
+/******/ 			return module;
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/publicPath */
+/******/ 	(() => {
+/******/ 		__webpack_require__.p = "";
 /******/ 	})();
 /******/ 	
 /************************************************************************/
