@@ -4,8 +4,6 @@ namespace CHttpExecutor.Tests;
 
 public class InputReaderTests
 {
-    private const int Port = 5020;
-
     private byte[] _singleRequest = @"###
 GET https://localhost:5020/ HTTP/2"u8.ToArray();
 
@@ -34,6 +32,8 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
 # @sharedsocket
 # @timeout 5
 # @no-cert-validation true
+# @clientCertificatePath testCert.pem
+# @clientCertificateKeyPath testCert.key
 # @enableRedirect false
 GET https://localhost:5020/ HTTP/2"u8.ToArray();
         var stream = new MemoryStream(request);
@@ -49,6 +49,8 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         Assert.True(step.SharedSocket!.Value);
         Assert.True(step.NoCertificateValidation!.Value);
         Assert.True(step.EnableRedirects!.Value);
+        Assert.Equal("testCert.pem", step.ClientCertificatePath);
+        Assert.Equal("testCert.key", step.ClientCertificateKeyPath);
         Assert.Equal(5, step.Timeout!.Value);
     }
 

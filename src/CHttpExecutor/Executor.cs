@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.CommandLine;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
@@ -98,10 +99,20 @@ internal class Executor(ExecutionPlan plan, IConsole console)
 
     private static X509Certificate2? ProcessCLientCertificateVariable(string? certPath, string? certKeyPath, ExecutionContext ctx)
     {
-        if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certKeyPath))
+        if (string.IsNullOrWhiteSpace(certPath))
             return null;
-        return X509Certificate2.CreateFromPem(VariablePreprocessor.Evaluate(certPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup),
-            VariablePreprocessor.Evaluate(certKeyPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup));
+        var actualPath = VariablePreprocessor.Evaluate(certPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        var actualKey = VariablePreprocessor.Evaluate(certKeyPath, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        if (Path.GetExtension(certPath) == ".pfx")
+            return X509CertificateLoader.LoadPkcs12FromFile(actualPath, actualKey);
+
+        var certificate = X509Certificate2.CreateFromPemFile(actualPath, actualKey);
+        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        {
+            var exportedCert = certificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+            certificate = X509CertificateLoader.LoadPkcs12(exportedCert, null);
+        }
+        return certificate;
     }
 
     private static async Task SendRequestAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body, ExecutionContext ctx)
