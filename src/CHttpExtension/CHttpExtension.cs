@@ -188,7 +188,7 @@ public static class CHttpExt
     {
         if (!FilesExist(file1, file2, out var validationMessage))
             throw new ArgumentException(validationMessage);
-        var console = new StringConsole();
+        var console = new StringConsole(enableColoring: true);
         var session0 = await PerformanceFileHandler.LoadAsync(_fileSystem, file1);
         var session1 = await PerformanceFileHandler.LoadAsync(_fileSystem, file2);
         var comparer = new DiffPrinter(console);
@@ -235,7 +235,7 @@ public static class CHttpExt
         if (string.IsNullOrWhiteSpace(certPath) && string.IsNullOrWhiteSpace(certPath))
             return null;
 
-        if(Path.GetExtension(certPath) == ".pfx")
+        if (Path.GetExtension(certPath) == ".pfx")
             return X509CertificateLoader.LoadPkcs12FromFile(certPath, certKey);
 
         var clientCertificate = X509Certificate2.CreateFromPemFile(certPath, certKey);
