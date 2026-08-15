@@ -15,6 +15,7 @@
     <Description>A simple HTTP/3 client tool.</Description>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <DebugType>full</DebugType>
+    <Http3Support>true</Http3Support>
   </PropertyGroup>
 
   <ItemGroup>
