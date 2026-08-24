@@ -363,7 +363,7 @@ public class CHttpFunctionalTests
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        Assert.Contains("Enable flag --no-certificate-validation true'. SSL error: The remote certificate is invalid because of errors in the certificate chain", console.Text);
+        Assert.Contains("Enable flag '--no-certificate-validation true' or '# @no-certificate-validation true' parameter. SSL error: The remote certificate is invalid because of errors in the certificate chain", console.Text);
     }
 
     [Fact]

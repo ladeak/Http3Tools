@@ -25,6 +25,7 @@ public static class CHttpExt
     public static void SetMsQuicPath(string msquicPath)
     {
         AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", msquicPath);
+        Environment.SetEnvironmentVariable("SSL_CERT_DIR", "/etc/ssl/certs");
     }
 
     [SupportedOSPlatform("windows")]

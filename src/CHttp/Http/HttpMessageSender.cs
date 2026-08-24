@@ -119,7 +119,7 @@ internal sealed class HttpMessageSender
         if (requestException.InnerException is AuthenticationException authException)
         {
             if (authException.Message.StartsWith("The remote certificate is invalid"))
-                return $"Enable flag --no-certificate-validation true'. SSL error: {authException.Message}";
+                return $"Enable flag '--no-certificate-validation true' or '# @no-certificate-validation true' parameter. SSL error: {authException.Message}";
             if (authException.Message.StartsWith("Cannot determine the frame size or a corrupted frame was received"))
                 return $"Invalid http(s) schema: {authException.Message}";
         }
