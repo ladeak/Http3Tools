@@ -316,3 +316,15 @@ cp ./src/CHttpExtension/bin/Release/net10.0/linux-x64/publish/* ./src/VSCodeExt/
 - Remove yeoman `npm install -g yo generator-code`
 - Uninstall `npm install -g @vscode/vsce`
 - Uninstall npm
+
+## Installation on Linux - Troubleshooting
+
+On Linux distributables (aot and non-aot builds) to use HTTP/3, install libmsquic. For example, on Ubuntu:
+
+```
+wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y libmsquic
+```

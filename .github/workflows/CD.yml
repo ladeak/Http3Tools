@@ -48,46 +48,37 @@ jobs:
         dotnet nuget push src/CHttpServer/CHttpServer/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.trustedpublish.outputs.NUGET_API_KEY }}" --skip-duplicate
     - name: Build GitHub packages
       run: |
-        # CHttp
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION}  -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        # CHttp executable (On Linux install msquic), on Windows publish without single-file, and zip the output.
+        sudo apt-get install -y zip
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} --framework ${{ env.GH_PACKAGE_VERSION }}
+        zip -r src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.zip src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-arm64 -p:Version=${VERSION} --framework ${{ env.GH_PACKAGE_VERSION }}
+        zip -r src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.zip src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/
+        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-arm -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/CHttp.pdb src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
         # CHttp Aot Linux
         dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${VERSION} -p:PublishAot=true --runtime linux-x64 --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttp src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
         # CHttpExecutor
-        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttpExecutor.exe src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
-        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} -p:PublishSingleFile=true -p:PublishTrimmed=true --framework ${{ env.GH_PACKAGE_VERSION }}
+        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime win-x64 -p:Version=${VERSION} --framework ${{ env.GH_PACKAGE_VERSION }}
+        zip -r src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.zip src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/
+        dotnet publish src/CHttpExecutor/CHttpExecutor.csproj --configuration ${{ env.CONFIGURATION }} --self-contained --runtime linux-x64 -p:Version=${VERSION} --framework ${{ env.GH_PACKAGE_VERSION }}
         mv src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/CHttpExecutor src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
     - name: Publish to GitHub
       uses: softprops/action-gh-release@v3
       with:
           files: |
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.exe
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.pdb
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.exe
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.pdb
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64.zip
+            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64.zip
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64.pdb
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm64/publish/chttp-linux-arm64.pdb
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-arm/publish/chttp-linux-arm.pdb
             src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttp-linux-x64-aot
-            src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.exe
+            src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttpexec-win-x64.zip
             src/CHttpExecutor/bin/Release/${{ env.GH_PACKAGE_VERSION }}/linux-x64/publish/chttpexec-linux-x64
     - name: Build VSCodeExtension dependencies
       run: |
@@ -129,19 +120,6 @@ jobs:
       run: |
         $ver="${{GITHUB.REF_NAME}}" -replace 'v', ''
         echo "VERSION=${ver}" >> $env:GITHUB_ENV
-    - name: Build GitHub packages
-      run: |
-        # CHttp Aot Windows
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-x64 --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
-        dotnet publish src/CHttp/CHttp.csproj --configuration ${{ env.CONFIGURATION }} -p:Version=${{ env.VERSION }} -p:PublishAot=true --runtime win-arm64 --framework ${{ env.GH_PACKAGE_VERSION }}
-        mv src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/CHttp.exe src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
-    - name: Publish to GitHub
-      uses: softprops/action-gh-release@v3
-      with:
-          files: |
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-x64/publish/chttp-win-x64-aot.exe
-            src/CHttp/bin/Release/${{ env.GH_PACKAGE_VERSION }}/win-arm64/publish/chttp-win-arm64-aot.exe
     - name: Build VSCodeExtension dependencies
       run: |
         dotnet publish src/CHttpExtension -r win-x64 -f net10.0

@@ -227,14 +227,15 @@ HTTP status codes:
 ------------------------------------------------------------------------
 ```
 
-## Troubleshooting
+## Installation on Linux - Troubleshooting
 
 On Linux, to use HTTP/3, install libmsquic. For example, on Ubuntu:
 
 ```
-sudo wget https://packages.microsoft.com/config/ubuntu/<version>/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
 sudo dpkg -i packages-microsoft-prod.deb
 rm packages-microsoft-prod.deb
 sudo apt-get update
 sudo apt-get install -y libmsquic
 ```
+
