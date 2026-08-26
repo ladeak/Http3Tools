@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Net;
+using System.Security.Authentication;
 using CHttp.Abstractions;
 using CHttp.Data;
 using CHttp.Http;
@@ -20,7 +21,7 @@ internal sealed class PerformanceTool()
         [Description("The number of requests")] int requestCount = 100)
     {
         var console = new StringConsole();
-        var httpBehavior = new HttpBehavior(10, false, string.Empty, new SocketBehavior(EnableRedirects: true, EnableCertificateValidation: false, UseKerberosAuth: false, MaxConnectionPerServer: 1, AutomaticDecompression: false, null));
+        var httpBehavior = new HttpBehavior(10, false, string.Empty, new SocketBehavior(EnableRedirects: true, EnableCertificateValidation: false, UseKerberosAuth: false, MaxConnectionPerServer: 1, AutomaticDecompression: false, null, SslProtocols.Tls12 | SslProtocols.Tls13));
         var parsedHeaders = new List<KeyValueDescriptor>();
         var requestDetails = new HttpRequestDetails(
             new HttpMethod("GET"),

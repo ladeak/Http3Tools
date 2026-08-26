@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
+using System.Security.Authentication;
 using CHttp.Data;
 
 namespace CHttpExecutor;
@@ -81,6 +81,8 @@ internal class ExecutionStep
 
     public string? ClientCertificateKeyPath { get; set; }
 
+    public string? TlsVersion { get; set; }
+
     public List<Variable> Variables { get; set; } = [];
 
     internal List<Assertion> Assertions { get; set; } = [];
@@ -91,8 +93,8 @@ internal class ExecutionStep
         Name == null && Uri == null && Method == null && Body.Count == 0
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
-        && SharedSocket == VarValue.False && Timeout == DefaultTimeout 
-        && ClientCertificatePath == null && ClientCertificateKeyPath == null
+        && SharedSocket == VarValue.False && Timeout == DefaultTimeout
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsVersion == null
         && Variables.Count == 0 && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 
@@ -103,7 +105,7 @@ internal class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
-        && ClientCertificatePath == null && ClientCertificateKeyPath == null
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsVersion == null
         && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 }
@@ -137,8 +139,10 @@ internal class FrozenExecutionStep
     public VarValue<bool> NoCertificateValidation { get; set; } = VarValue.False;
 
     public required string? ClientCertificatePath { get; init; }
-    
+
     public required string? ClientCertificateKeyPath { get; init; }
+
+    public required string? TlsVersion { get; init; }
 
     public IReadOnlyCollection<Variable> Variables { get; init; } = [];
 

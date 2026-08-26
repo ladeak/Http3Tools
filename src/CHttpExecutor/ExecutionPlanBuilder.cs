@@ -192,6 +192,14 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             return;
         }
 
+        if (command.Equals("tls", StringComparison.OrdinalIgnoreCase))
+        {
+            var value = parameters.ToString();
+            ValidateVariableExistance(value);
+            _currentStep.TlsVersion = value;
+            return;
+        }
+
         if (command.Equals("assert", StringComparison.OrdinalIgnoreCase)
             || command.Equals("assertion", StringComparison.OrdinalIgnoreCase))
         {
@@ -252,6 +260,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             Assertions = step.Assertions,
             ClientCertificatePath = step.ClientCertificatePath,
             ClientCertificateKeyPath = step.ClientCertificateKeyPath,
+            TlsVersion = step.TlsVersion,
         };
 
     private void ValidateVariableExistance<T>(VarValue<T> source)

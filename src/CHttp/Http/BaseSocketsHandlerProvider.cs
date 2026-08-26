@@ -16,7 +16,7 @@ internal abstract class BaseSocketsHandlerProvider
         {
             // Sockets behavior
             CertificateRevocationCheckMode = X509RevocationMode.Offline,
-            EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+            EnabledSslProtocols = behavior.TlsProtocols
         };
         if (behavior.ClientCertificate != null)
             messageHandler.SslOptions.ClientCertificates = [behavior.ClientCertificate];

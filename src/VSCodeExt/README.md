@@ -80,6 +80,7 @@ Use attributes to change the HTTP request behavior. At the time of writing the f
 - kerberos-auth
 - client-certificate-path
 - client-certificate-key
+- tls
 - shared-sockethandler
 
 Using named requests:

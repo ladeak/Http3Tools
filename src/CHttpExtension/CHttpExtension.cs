@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Quic;
 using System.Runtime.Versioning;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
 using CHttp.Binders;
@@ -35,6 +36,7 @@ public static class CHttpExt
         bool enableCertificateValidation,
         bool useKerberosAuth,
         string? clientCertificatePath,
+        string? tlsVersions,
         string? clientCertificateKeyPath,
         double timeout,
         string method,
@@ -52,7 +54,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
-                clientCertificatePath, clientCertificateKeyPath, timeout, method, uri, parsedVersion, headers, body);
+                clientCertificatePath, clientCertificateKeyPath, tlsVersions, timeout, method, uri, parsedVersion, headers, body);
         }
         finally
         {
@@ -66,6 +68,7 @@ public static class CHttpExt
         bool useKerberosAuth,
         string? clientCertificatePath,
         string? clientCertificateKeyPath,
+        string? tlsVersions,
         double timeout,
         string method,
         string uri,
@@ -75,8 +78,9 @@ public static class CHttpExt
     )
     {
         X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
-
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate));
+        var parsedTlsVersions = TlsVersionParser.Map(tlsVersions);
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty,
+            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate, parsedTlsVersions));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -119,10 +123,12 @@ public static class CHttpExt
        int requestCount,
        int clientsCount,
        bool sharedSocketsHandler,
+       string tlsProtocols,
        Action<string> callback
    )
     {
-        Version parsedVersion = ParseHttpVersion(version);
+        Version parsedHttpVersion = ParseHttpVersion(version);
+        SslProtocols parsedTlsVersions = TlsVersionParser.Map(tlsProtocols);
         _cancellationTokenSource.Cancel();
         if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
             return "Cancelled";
@@ -130,7 +136,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth, clientCertificatePath, clientCertificateKeyPath,
-                timeout, method, uri, parsedVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, callback);
+                timeout, method, uri, parsedHttpVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, parsedTlsVersions, callback);
         }
         finally
         {
@@ -154,11 +160,13 @@ public static class CHttpExt
         int requestCount,
         int clientsCount,
         bool sharedSocketsHandler,
+        SslProtocols sslProtocols,
         Action<string> callback
     )
     {
         X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
-        var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate));
+        var httpBehavior = new HttpBehavior(timeout, false, string.Empty,
+            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate, sslProtocols));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -206,7 +214,7 @@ public static class CHttpExt
 #pragma warning disable CA2252 // This API requires opting into preview features
         if (parsedVersion == HttpVersion.Version30 && !QuicConnection.IsSupported)
             if (Environment.OSVersion.Platform == PlatformID.Unix)
-                throw new InvalidOperationException($"QUIC is not supported or not available. Install libmsquic.so from your package registry.");
+                throw new InvalidOperationException($"QUIC is not supported or not available. Install libmsquic.so from your package registry: https://github.com/ladeak/Http3Tools/issues/68");
             else
                 throw new InvalidOperationException($"QUIC is not supported or not available in folder {AppContext.BaseDirectory}.");
 #pragma warning restore CA2252 // This API requires opting into preview features
@@ -243,7 +251,7 @@ public static class CHttpExt
         if (Environment.OSVersion.Platform == PlatformID.Win32NT)
         {
 #if NET10_0_OR_GREATER
-                    var exported = clientCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
+            var exported = clientCertificate.ExportPkcs12(Pkcs12ExportPbeParameters.Default, null);
 #else
             var exported = clientCertificate.Export(X509ContentType.Pkcs12);
 #endif

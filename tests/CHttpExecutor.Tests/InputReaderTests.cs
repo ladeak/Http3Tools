@@ -35,6 +35,7 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
 # @clientCertificatePath testCert.pem
 # @clientCertificateKeyPath testCert.key
 # @enableRedirect false
+# @tls Tls12;Tls13
 GET https://localhost:5020/ HTTP/2"u8.ToArray();
         var stream = new MemoryStream(request);
 
@@ -51,6 +52,7 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         Assert.True(step.EnableRedirects!.Value);
         Assert.Equal("testCert.pem", step.ClientCertificatePath);
         Assert.Equal("testCert.key", step.ClientCertificateKeyPath);
+        Assert.Equal("Tls12;Tls13", step.TlsVersion);
         Assert.Equal(5, step.Timeout!.Value);
     }
 

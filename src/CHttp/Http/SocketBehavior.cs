@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 namespace CHttp.Http;
 
@@ -8,4 +9,5 @@ internal record SocketBehavior(
     bool UseKerberosAuth,
     int MaxConnectionPerServer,
     bool AutomaticDecompression,
-    X509Certificate2? ClientCertificate);
+    X509Certificate2? ClientCertificate,
+    SslProtocols TlsProtocols);

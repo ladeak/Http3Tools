@@ -97,6 +97,34 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray());
     }
 
     [Fact]
+    public async Task TlsVersion_RequestInvokesEndpoint()
+    {
+        TaskCompletionSource requestReceived = new();
+        using var host = HttpServer.CreateHostBuilder(async context =>
+        {
+            requestReceived.TrySetResult();
+            await context.Response.WriteAsync("data");
+        }, HttpProtocols.Http2,
+        configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+        {
+            httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls13;
+        }), port: Port);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+
+        var stream = new MemoryStream(@"###
+# @no-cert-validation
+# @tls Tls13
+GET https://localhost:5020/ HTTP/2"u8.ToArray());
+
+        var reader = new InputReader(new ExecutionPlanBuilder());
+        var plan = await reader.ReadStreamAsync(stream);
+        var executor = new Executor(plan, new NoOpConsole());
+        await executor.ExecuteAsync();
+
+        await requestReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task MultiRequestInvokesEndpoint()
     {
         int requestCount = 0;

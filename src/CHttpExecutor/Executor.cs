@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.CommandLine;
 using System.Reflection.PortableExecutable;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using CHttp.Abstractions;
+using CHttp.Binders;
 using CHttp.Data;
 using CHttp.Http;
 using CHttp.Performance;
@@ -65,8 +67,10 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             var timeout = ProcessVariable(step.Timeout, ctx, nameof(step.Timeout));
             var enableRedirects = ProcessVariable(step.EnableRedirects, ctx, nameof(step.EnableRedirects));
             var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, ctx, nameof(step.NoCertificateValidation));
-            var clientCertificate = ProcessCLientCertificateVariable(step.ClientCertificatePath, step.ClientCertificateKeyPath, ctx);
-            var httpBehavior = new HttpBehavior(timeout, false, string.Empty, new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false, clientCertificate));
+            var clientCertificate = ProcessClientCertificateVariable(step.ClientCertificatePath, step.ClientCertificateKeyPath, ctx);
+            var tlsVersion = ProcessTlsVersionVariable(step.TlsVersion, ctx);
+            var httpBehavior = new HttpBehavior(timeout, false, string.Empty, 
+                new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false, clientCertificate, tlsVersion));
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
             HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
@@ -97,7 +101,7 @@ internal class Executor(ExecutionPlan plan, IConsole console)
         throw new ArgumentException($"Invalid value set for {name}");
     }
 
-    private static X509Certificate2? ProcessCLientCertificateVariable(string? certPath, string? certKeyPath, ExecutionContext ctx)
+    private static X509Certificate2? ProcessClientCertificateVariable(string? certPath, string? certKeyPath, ExecutionContext ctx)
     {
         if (string.IsNullOrWhiteSpace(certPath))
             return null;
@@ -113,6 +117,14 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             certificate = X509CertificateLoader.LoadPkcs12(exportedCert, null);
         }
         return certificate;
+    }
+
+    private static SslProtocols ProcessTlsVersionVariable(string? tlsVersion, ExecutionContext ctx)
+    {
+        if (string.IsNullOrWhiteSpace(tlsVersion))
+            return TlsVersionParser.Map(tlsVersion);
+        var actualTlsVersion = VariablePreprocessor.Evaluate(tlsVersion, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        return TlsVersionParser.Map(tlsVersion);
     }
 
     private static async Task SendRequestAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body, ExecutionContext ctx)

@@ -2,6 +2,7 @@
 using System.Data;
 using System.Globalization;
 using System.Net;
+using System.Security.Authentication;
 using CHttp.Abstractions;
 using CHttp.Binders;
 using CHttp.Data;
@@ -20,7 +21,6 @@ internal static class CommandFactory
         IFileSystem? fileSystem = null)
     {
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-        // TLS
         // proxy
 
         var versionOptions = new Option<Version>(
@@ -247,6 +247,16 @@ internal static class CommandFactory
             Description = "A PEM file containing the private key of the client certificate for mTLS authentication.",
             Required = false,
         };
+        var tlsOption = new Option<SslProtocols?>(name: "--tls")
+        {
+            Description = "TLS version: Tls12 or Tls13",
+            Required = false,
+            CustomParser = parseResult =>
+            {
+                var rawVersion = parseResult.Tokens.First().Value;
+                return TlsVersionParser.Map(rawVersion);
+            }
+        };
 
         var rootCommand = new RootCommand("Send HTTP request");
 
@@ -256,11 +266,11 @@ internal static class CommandFactory
         //rootCommand.Options.Add(uploadThrottleOption);
         //rootCommand.Options.Add(kerberosAuthOption);
 
-        CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, kerberosAuthOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, rootCommand);
+        CreateFormsCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, formsOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, kerberosAuthOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, tlsOption, rootCommand);
 
-        CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, kerberosAuthOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, rootCommand);
+        CreateDefaultCommand(writer, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, logOption, outputFileOption, cookieContainer, uploadThrottleOption, kerberosAuthOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, tlsOption, rootCommand);
 
-        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, kerberosAuthOption, shareSocketsHandlerOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, rootCommand);
+        CreateMeasureCommand(console, fileSystem, versionOptions, methodOptions, headerOptions, bodyOptions, timeoutOption, redirectOption, validateCertificateOption, uriOption, nOption, cOption, outputFileOption, metricsOption, cookieContainer, kerberosAuthOption, shareSocketsHandlerOption, decompressResponseOption, clientCertPathOption, clientCertKeyPathOption, tlsOption, rootCommand);
 
         CreateDiffCommand(console, fileSystem, diffFileOption, rootCommand);
 
@@ -284,6 +294,7 @@ internal static class CommandFactory
         Option<bool> decompressResponseOption,
         Option<FileInfo?> clientCertificatePathOption,
         Option<FileInfo?> clientCertificateKeyPathOption,
+        Option<SslProtocols?> tlsOption,
         RootCommand rootCommand)
     {
         var formsCommand = new Command("forms", "Forms request");
@@ -300,6 +311,7 @@ internal static class CommandFactory
         formsCommand.Options.Add(cookieContainerOption);
         formsCommand.Options.Add(clientCertificatePathOption);
         formsCommand.Options.Add(clientCertificateKeyPathOption);
+        formsCommand.Options.Add(tlsOption);
 
         // Specific options
         formsCommand.Options.Add(formsOptions);
@@ -309,7 +321,7 @@ internal static class CommandFactory
         {
             var outputBehavior = new OutputBehaviorBinder(logOption, outputFileOption).Bind(parseResult);
             var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption, 
-                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption).Bind(parseResult);
+                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption, tlsOption).Bind(parseResult);
             writer ??= new WriterStrategy(outputBehavior);
             var cookieContainer = new PersistentCookieContainer(fileSystem ??= new FileSystem(), httpBehavior.CookieContainer);
             var client = new HttpMessageSender(writer, cookieContainer, new SingleSocketsHandlerProvider(), httpBehavior);
@@ -341,6 +353,7 @@ internal static class CommandFactory
         Option<bool> decompressResponseOption,
         Option<FileInfo?> clientCertificatePathOption,
         Option<FileInfo?> clientCertificateKeyPathOption,
+        Option<SslProtocols?> tlsOption,
         RootCommand rootCommand)
     {
         // Shared options
@@ -355,6 +368,7 @@ internal static class CommandFactory
         rootCommand.Options.Add(cookieContainerOption);
         rootCommand.Options.Add(clientCertificatePathOption);
         rootCommand.Options.Add(clientCertificateKeyPathOption);
+        rootCommand.Options.Add(tlsOption);
 
         // Specific options
         rootCommand.Options.Add(bodyOptions);
@@ -366,7 +380,7 @@ internal static class CommandFactory
         {
             var outputBehavior = new OutputBehaviorBinder(logOption, outputFileOption).Bind(parseResult);
             var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption,
-                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption).Bind(parseResult);
+                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption, tlsOption).Bind(parseResult);
             var requestDetails = new HttpRequestDetailsBinder(methodOptions, uriOption, versionOptions, headerOptions).Bind(parseResult);
             var body = parseResult.GetValue(bodyOptions);
             var uploadThrottle = parseResult.GetValue(uploadThrottleOption);
@@ -405,6 +419,7 @@ internal static class CommandFactory
         Option<bool> shareSocketsHandlerOption,
         Option<FileInfo?> clientCertificatePathOption,
         Option<FileInfo?> clientCertificateKeyPathOption,
+        Option<SslProtocols?> tlsOption,
         RootCommand rootCommand)
     {
         var perfCommand = new Command("perf", "Performance Measure");
@@ -421,6 +436,7 @@ internal static class CommandFactory
         perfCommand.Options.Add(kerberosAuthOption);
         perfCommand.Options.Add(clientCertificatePathOption);
         perfCommand.Options.Add(clientCertificateKeyPathOption);
+        perfCommand.Options.Add(tlsOption);
 
         // Specific options
         perfCommand.Options.Add(nOption);
@@ -433,7 +449,7 @@ internal static class CommandFactory
         perfCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var httpBehavior = new HttpBehaviorBinder(redirectOption, validateCertificateOption, timeoutOption, cookieContainerOption,
-                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption).Bind(parseResult);
+                kerberosAuthOption, decompressResponseOption, clientCertificatePathOption, clientCertificateKeyPathOption, tlsOption).Bind(parseResult);
             var requestDetails = new HttpRequestDetailsBinder(methodOptions, uriOption, versionOptions, headerOptions).Bind(parseResult);
             var performanceBehavior = new PerformanceBehaviorBinder(nOption, cOption, shareSocketsHandlerOption).Bind(parseResult);
             var body = parseResult.GetValue(bodyOptions);

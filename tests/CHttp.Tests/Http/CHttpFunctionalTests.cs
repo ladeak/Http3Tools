@@ -517,6 +517,81 @@ public class CHttpFunctionalTests
         Assert.Contains(expectedSubjectName, console.Text);
     }
 
+    [Fact]
+    public async Task TlsVersion_NotMatching_Tls12_ErrorReturned()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http2,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions=>
+            {
+                httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+            }),
+            configureApp: app =>
+            {
+                app.MapGet("/", context => context.Response.WriteAsync(context.Connection.ClientCertificate?.SubjectName.Name ?? "no certificate"));
+            });
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 2 --tls Tls13")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("The SSL connection could not be established", console.Text);
+    }
+
+    [Fact]
+    public async Task TlsVersion_NotMatching_Tls13_ErrorReturned2()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http2,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls13;
+            }),
+            configureApp: app =>
+            {
+                app.MapGet("/", context => context.Response.WriteAsync("data"));
+            });
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 2 --tls Tls12")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("The SSL connection could not be established", console.Text);
+    }
+
+    [Fact]
+    public async Task TlsVersion_Matching_DataReturned()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            protocol: HttpProtocols.Http3,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls13;
+            }),
+            configureApp: app =>
+            {
+                app.MapGet("/", context => context.Response.WriteAsync("data"));
+            });
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+        var writer = new SilentConsoleWriter(new TextBufferedProcessor(), console);
+
+        var client = await CommandFactory.CreateRootCommand(writer)
+            .Parse("--method GET --uri https://localhost:5011 -v 3 --tls Tls13 --no-certificate-validation")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        await writer.CompleteAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("Status: OK", console.Text);
+    }
+
     private class Request
     {
         public string? Data { get; set; }

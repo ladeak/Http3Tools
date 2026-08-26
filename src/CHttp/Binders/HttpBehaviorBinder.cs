@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using CHttp.Http;
 
@@ -12,7 +13,8 @@ internal sealed class HttpBehaviorBinder(
     Option<bool> kerberosAuthOption,
     Option<bool> decompressResponse,
     Option<FileInfo?> clientCertificatePath,
-    Option<FileInfo?> clientCertificateKeyPath)
+    Option<FileInfo?> clientCertificateKeyPath,
+    Option<SslProtocols?> tlsVersion)
 {
     private readonly Option<bool> _redirectBinder = redirectBinder;
     private readonly Option<bool> _validateCertificateValidationBinder = validateCertificateValidationBinder;
@@ -22,6 +24,7 @@ internal sealed class HttpBehaviorBinder(
     private readonly Option<bool> _decompressResponse = decompressResponse;
     private readonly Option<FileInfo?> _clientCertificatePath = clientCertificatePath;
     private readonly Option<FileInfo?> _clientCertificateKeyPath = clientCertificateKeyPath;
+    private readonly Option<SslProtocols?> _tlsVersion = tlsVersion;
 
     internal HttpBehavior Bind(ParseResult parseResult)
     {
@@ -32,6 +35,7 @@ internal sealed class HttpBehaviorBinder(
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         var decompressResponse = parseResult.GetValue(_decompressResponse);
         var clientCertificatePath = parseResult.GetValue(_clientCertificatePath)?.FullName ?? string.Empty;
+        var tlsVersion = TlsVersionParser.Map(parseResult.GetValue(_tlsVersion));
         X509Certificate2? clientCertificate = null;
 
         if (!string.IsNullOrWhiteSpace(clientCertificatePath))
@@ -54,6 +58,6 @@ internal sealed class HttpBehaviorBinder(
         }
 
         return new HttpBehavior(timeout, ToUtf8: true, cookieContainer,
-            new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate));
+            new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate, tlsVersion));
     }
 }

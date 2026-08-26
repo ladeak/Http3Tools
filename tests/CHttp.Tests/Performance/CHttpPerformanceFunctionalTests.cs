@@ -191,6 +191,25 @@ public class CHttpPerformanceFunctionalTests
         Assert.Contains("1xx: 0, 2xx: 2, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
     }
 
+    [Fact]
+    public async Task TlsVersion_SuccessResponse()
+    {
+        using var host = HttpServer.CreateHostBuilder(
+            requestDelegate: context => context.Response.WriteAsync("data"), HttpProtocols.Http2,
+            configureDefaultKestrel: kestrelOptions => kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+            }), port: Port);
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        var console = new TestConsolePerWrite();
+
+        var client = await CommandFactory.CreateRootCommand(console: console)
+            .Parse($"perf -m GET -u https://localhost:{Port} -c 1 -n 1 -v 2 --no-certificate-validation --tls Tls12")
+            .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("1xx: 0, 2xx: 1, 3xx: 0, 4xx: 0, 5xx: 0, Other: 0", console.Text);
+    }
+
     private class Request
     {
         public string? Data { get; set; }
