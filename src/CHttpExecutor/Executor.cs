@@ -68,9 +68,9 @@ internal class Executor(ExecutionPlan plan, IConsole console)
             var enableRedirects = ProcessVariable(step.EnableRedirects, ctx, nameof(step.EnableRedirects));
             var enableCertificateValidation = !ProcessVariable(step.NoCertificateValidation, ctx, nameof(step.NoCertificateValidation));
             var clientCertificate = ProcessClientCertificateVariable(step.ClientCertificatePath, step.ClientCertificateKeyPath, ctx);
-            var tlsVersion = ProcessTlsVersionVariable(step.TlsVersion, ctx);
+            var tlsProtocols = ProcessTlsVersionVariable(step.TlsProtocols, ctx);
             var httpBehavior = new HttpBehavior(timeout, false, string.Empty, 
-                new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false, clientCertificate, tlsVersion));
+                new SocketBehavior(enableRedirects, enableCertificateValidation, UseKerberosAuth: false, 1, AutomaticDecompression: false, clientCertificate, tlsProtocols));
             var requestDetails = new HttpRequestDetails(new HttpMethod(step.Method), uri, step.Version, headers);
             HttpContent? body = step.Body.Count > 0 ? new StringLinesContent(step.Body.Select(x => VariablePreprocessor.Evaluate(x, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup)).ToArray()) : null;
             if (!step.IsPerformanceRequest)
@@ -119,12 +119,12 @@ internal class Executor(ExecutionPlan plan, IConsole console)
         return certificate;
     }
 
-    private static SslProtocols ProcessTlsVersionVariable(string? tlsVersion, ExecutionContext ctx)
+    private static SslProtocols ProcessTlsVersionVariable(string? tlsProtocols, ExecutionContext ctx)
     {
-        if (string.IsNullOrWhiteSpace(tlsVersion))
-            return TlsVersionParser.Map(tlsVersion);
-        var actualTlsVersion = VariablePreprocessor.Evaluate(tlsVersion, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
-        return TlsVersionParser.Map(tlsVersion);
+        if (string.IsNullOrWhiteSpace(tlsProtocols))
+            return TlsVersionParser.Map(tlsProtocols);
+        var actualTlsVersion = VariablePreprocessor.Evaluate(tlsProtocols, ctx.VariableValuesLookup, ctx.ExecutionResultsLookup);
+        return TlsVersionParser.Map(tlsProtocols);
     }
 
     private static async Task SendRequestAsync(HttpBehavior httpBehavior, HttpRequestDetails requestDetails, HttpContent? body, ExecutionContext ctx)

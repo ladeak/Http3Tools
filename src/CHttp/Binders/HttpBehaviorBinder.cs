@@ -14,7 +14,7 @@ internal sealed class HttpBehaviorBinder(
     Option<bool> decompressResponse,
     Option<FileInfo?> clientCertificatePath,
     Option<FileInfo?> clientCertificateKeyPath,
-    Option<SslProtocols?> tlsVersion)
+    Option<SslProtocols?> tlsProtocols)
 {
     private readonly Option<bool> _redirectBinder = redirectBinder;
     private readonly Option<bool> _validateCertificateValidationBinder = validateCertificateValidationBinder;
@@ -24,7 +24,7 @@ internal sealed class HttpBehaviorBinder(
     private readonly Option<bool> _decompressResponse = decompressResponse;
     private readonly Option<FileInfo?> _clientCertificatePath = clientCertificatePath;
     private readonly Option<FileInfo?> _clientCertificateKeyPath = clientCertificateKeyPath;
-    private readonly Option<SslProtocols?> _tlsVersion = tlsVersion;
+    private readonly Option<SslProtocols?> _tlsProtocols = tlsProtocols;
 
     internal HttpBehavior Bind(ParseResult parseResult)
     {
@@ -35,7 +35,7 @@ internal sealed class HttpBehaviorBinder(
         var kerberosAuth = parseResult.GetValue(_kerberosAuthOption);
         var decompressResponse = parseResult.GetValue(_decompressResponse);
         var clientCertificatePath = parseResult.GetValue(_clientCertificatePath)?.FullName ?? string.Empty;
-        var tlsVersion = TlsVersionParser.Map(parseResult.GetValue(_tlsVersion));
+        var tlsProtocols = TlsVersionParser.Map(parseResult.GetValue(_tlsProtocols));
         X509Certificate2? clientCertificate = null;
 
         if (!string.IsNullOrWhiteSpace(clientCertificatePath))
@@ -58,6 +58,6 @@ internal sealed class HttpBehaviorBinder(
         }
 
         return new HttpBehavior(timeout, ToUtf8: true, cookieContainer,
-            new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate, tlsVersion));
+            new SocketBehavior(redirects, enableCertificateValidation, kerberosAuth, 1, decompressResponse, clientCertificate, tlsProtocols));
     }
 }

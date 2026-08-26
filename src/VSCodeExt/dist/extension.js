@@ -69,7 +69,7 @@ class RequestController {
                     CHttpModule.CHttpExt.cancel();
                 });
                 const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
-                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificatePath), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificateKey), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), metadatas.has(requestMetadata_1.RequestMetadata.SharedSocketHandler), (data) => progress.report({ message: data }));
+                var response = await CHttpModule.CHttpExt.perfMeasureAsync(name ? name : null, !metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificatePath), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificateKey), metadatas.get(requestMetadata_1.RequestMetadata.TlsVersion), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), performanceHttpRequest.method, performanceHttpRequest.uri, performanceHttpRequest.version, performanceHttpRequest.headers, performanceHttpRequest.content, this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.RequestCount), 100), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.ClientsCount), 10), metadatas.has(requestMetadata_1.RequestMetadata.SharedSocketHandler), (data) => progress.report({ message: data }));
                 if (response == "" || response == "Cancelled") {
                     this._requestStatusEntry.updateStatus("Cancelled");
                     return;
@@ -96,7 +96,7 @@ class RequestController {
             this._log.appendLine("Request Parsed");
             const CHttpModule = __webpack_require__(28)(`./chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             this._log.appendLine(`Dependency loaded: ${CHttpModule}`);
-            var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificatePath), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificateKey), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
+            var response = await CHttpModule.CHttpExt.sendRequestAsync(!metadatas.has(requestMetadata_1.RequestMetadata.NoRedirect), !metadatas.has(requestMetadata_1.RequestMetadata.NoCertificateValidation), metadatas.has(requestMetadata_1.RequestMetadata.KerberosAuth), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificatePath), metadatas.get(requestMetadata_1.RequestMetadata.ClientCertificateKey), metadatas.get(requestMetadata_1.RequestMetadata.TlsVersion), this.tryParseInt(metadatas.get(requestMetadata_1.RequestMetadata.Timeout), 40), httpRequest.method, httpRequest.uri, httpRequest.version, httpRequest.headers, httpRequest.content);
             if (response == "" || response == "Cancelled") {
                 this._requestStatusEntry.updateStatus("Cancelled");
                 this._log.appendLine('Request cancelled');
@@ -155,6 +155,7 @@ var RequestMetadata;
     RequestMetadata["SharedSocketHandler"] = "shared-sockethandler";
     RequestMetadata["ClientCertificatePath"] = "client-certificate-path";
     RequestMetadata["ClientCertificateKey"] = "client-certificate-key";
+    RequestMetadata["TlsVersion"] = "tls";
 })(RequestMetadata || (exports.RequestMetadata = RequestMetadata = {}));
 function fromString(value) {
     value = value.toLowerCase();
@@ -2442,7 +2443,7 @@ webpackContext.id = 28;
 /* module decorator */ module = __webpack_require__.nmd(module);
 
 try {
-  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "7af649159df49c945b284c67c7450a03.node");
+  process.dlopen(module, __dirname + (__webpack_require__(18).sep) + __webpack_require__.p + "f6be85868c264c64ff4057d6cd09dade.node");
 } catch (error) {
   throw new Error('node-loader:\n' + error);
 }

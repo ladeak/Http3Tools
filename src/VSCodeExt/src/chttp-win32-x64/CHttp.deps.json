@@ -9,7 +9,7 @@
     ".NETCoreApp,Version=v10.0/win-x64": {
       "CHttp/1.0.0": {
         "dependencies": {
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "1.17.0",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "1.18.0",
           "System.CommandLine": "3.0.0-preview.7.26381.103"
         },
         "runtime": {
@@ -184,51 +184,51 @@
           }
         }
       },
-      "OpenTelemetry/1.17.0": {
+      "OpenTelemetry/1.18.0": {
         "dependencies": {
           "Microsoft.Extensions.Configuration.EnvironmentVariables": "10.0.0",
           "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
           "Microsoft.Extensions.Logging.Configuration": "10.0.0",
-          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.17.0"
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.18.0"
         },
         "runtime": {
           "lib/net10.0/OpenTelemetry.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.17.0.2115",
+            "fileVersion": "1.18.0.2160",
             "localPath": "OpenTelemetry.dll"
           }
         }
       },
-      "OpenTelemetry.Api/1.17.0": {
+      "OpenTelemetry.Api/1.18.0": {
         "runtime": {
           "lib/net10.0/OpenTelemetry.Api.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.17.0.2115",
+            "fileVersion": "1.18.0.2160",
             "localPath": "OpenTelemetry.Api.dll"
           }
         }
       },
-      "OpenTelemetry.Api.ProviderBuilderExtensions/1.17.0": {
+      "OpenTelemetry.Api.ProviderBuilderExtensions/1.18.0": {
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-          "OpenTelemetry.Api": "1.17.0"
+          "OpenTelemetry.Api": "1.18.0"
         },
         "runtime": {
           "lib/net10.0/OpenTelemetry.Api.ProviderBuilderExtensions.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.17.0.2115",
+            "fileVersion": "1.18.0.2160",
             "localPath": "OpenTelemetry.Api.ProviderBuilderExtensions.dll"
           }
         }
       },
-      "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.17.0": {
+      "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.18.0": {
         "dependencies": {
-          "OpenTelemetry": "1.17.0"
+          "OpenTelemetry": "1.18.0"
         },
         "runtime": {
           "lib/net10.0/OpenTelemetry.Exporter.OpenTelemetryProtocol.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.17.0.2115",
+            "fileVersion": "1.18.0.2160",
             "localPath": "OpenTelemetry.Exporter.OpenTelemetryProtocol.dll"
           }
         }
@@ -395,33 +395,33 @@
       "path": "microsoft.extensions.primitives/10.0.0",
       "hashPath": "microsoft.extensions.primitives.10.0.0.nupkg.sha512"
     },
-    "OpenTelemetry/1.17.0": {
+    "OpenTelemetry/1.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-rMLOTftlMlTm7+MSrvXDHnJRjVkROFNKXHZrYjOsX+LankaFG7QSflx7qRRGjoqZoirohnxmJQ7GEb9occO4Gg==",
-      "path": "opentelemetry/1.17.0",
-      "hashPath": "opentelemetry.1.17.0.nupkg.sha512"
+      "sha512": "sha512-13AKxycK+olOLe061MjliPTNBR/DUkjyRr0b9zwUhKyMjFS8lXS7G31R85rkbM55up2YFmdykWdAw2giBDJpiQ==",
+      "path": "opentelemetry/1.18.0",
+      "hashPath": "opentelemetry.1.18.0.nupkg.sha512"
     },
-    "OpenTelemetry.Api/1.17.0": {
+    "OpenTelemetry.Api/1.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-mSBxzomZgHIJu9CyVNqyDu/n2JHEtqVgfcCD1Br0cV5iLYogjZOMqhlVLt99PEp+0KGBNUR3GXgeOdN2GR3F9g==",
-      "path": "opentelemetry.api/1.17.0",
-      "hashPath": "opentelemetry.api.1.17.0.nupkg.sha512"
+      "sha512": "sha512-Dhzm5oughIY9EWckt2J1yXcEbXpki5WCL2q7prJoYxzH6C7jdkfGtPMTkUVZZ4AhjJKzQnlC+kLSIlmIVwC4Vw==",
+      "path": "opentelemetry.api/1.18.0",
+      "hashPath": "opentelemetry.api.1.18.0.nupkg.sha512"
     },
-    "OpenTelemetry.Api.ProviderBuilderExtensions/1.17.0": {
+    "OpenTelemetry.Api.ProviderBuilderExtensions/1.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Xgc3Qf9B9TFMFpx6exTdGqMWuYIT2miNzkdMPutVvT9YuMFaEovXWke1Gb6z8NxYaQbbGF38vYLuSg1JCeui5Q==",
-      "path": "opentelemetry.api.providerbuilderextensions/1.17.0",
-      "hashPath": "opentelemetry.api.providerbuilderextensions.1.17.0.nupkg.sha512"
+      "sha512": "sha512-io6A6PJFp3vIObRGf6oPjdHsdglkinXt/0SpTDJHrVnsLxUtOzwh/QwTsnhBJ43wJ6QcGMkyNzsSSY8XEB1Q5Q==",
+      "path": "opentelemetry.api.providerbuilderextensions/1.18.0",
+      "hashPath": "opentelemetry.api.providerbuilderextensions.1.18.0.nupkg.sha512"
     },
-    "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.17.0": {
+    "OpenTelemetry.Exporter.OpenTelemetryProtocol/1.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-R1omQOrQpGlS0Cp5UIr/TAiuEA48JrPlgr1NPV5gESiTU7HhWU+ILe2EBSYb1fKdsSavZ7nZkHcUxAzofPqr2A==",
-      "path": "opentelemetry.exporter.opentelemetryprotocol/1.17.0",
-      "hashPath": "opentelemetry.exporter.opentelemetryprotocol.1.17.0.nupkg.sha512"
+      "sha512": "sha512-Et3WAviooKGObZjUZN8d6eTsdJs1YM3ZoN+KlWSAHksTmHG1nyGi9XGo2wb0fkFMWK0g80FOPdR1njg52Dm+aw==",
+      "path": "opentelemetry.exporter.opentelemetryprotocol/1.18.0",
+      "hashPath": "opentelemetry.exporter.opentelemetryprotocol.1.18.0.nupkg.sha512"
     },
     "System.CommandLine/3.0.0-preview.7.26381.103": {
       "type": "package",

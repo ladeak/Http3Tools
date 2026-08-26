@@ -36,8 +36,8 @@ public static class CHttpExt
         bool enableCertificateValidation,
         bool useKerberosAuth,
         string? clientCertificatePath,
-        string? tlsVersions,
         string? clientCertificateKeyPath,
+        string? tlsProtocols,
         double timeout,
         string method,
         string uri,
@@ -47,6 +47,7 @@ public static class CHttpExt
 )
     {
         Version parsedVersion = ParseHttpVersion(version);
+        SslProtocols parsedTlsProtocols = TlsVersionParser.Map(tlsProtocols);
         _cancellationTokenSource.Cancel();
         if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
             return "Cancelled";
@@ -54,7 +55,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await SendRequestImplAsync(enableRedirects, enableCertificateValidation, useKerberosAuth,
-                clientCertificatePath, clientCertificateKeyPath, tlsVersions, timeout, method, uri, parsedVersion, headers, body);
+                clientCertificatePath, clientCertificateKeyPath, parsedTlsProtocols, timeout, method, uri, parsedVersion, headers, body);
         }
         finally
         {
@@ -68,7 +69,7 @@ public static class CHttpExt
         bool useKerberosAuth,
         string? clientCertificatePath,
         string? clientCertificateKeyPath,
-        string? tlsVersions,
+        SslProtocols tlsProtocols,
         double timeout,
         string method,
         string uri,
@@ -78,9 +79,9 @@ public static class CHttpExt
     )
     {
         X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
-        var parsedTlsVersions = TlsVersionParser.Map(tlsVersions);
+        var parsedTlsProtocols = TlsVersionParser.Map(tlsProtocols);
         var httpBehavior = new HttpBehavior(timeout, false, string.Empty,
-            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate, parsedTlsVersions));
+            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: true, clientCertificate, parsedTlsProtocols));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {
@@ -114,6 +115,7 @@ public static class CHttpExt
        bool useKerberosAuth,
        string? clientCertificatePath,
        string? clientCertificateKeyPath,
+       string tlsProtocols,
        double timeout,
        string method,
        string uri,
@@ -123,12 +125,11 @@ public static class CHttpExt
        int requestCount,
        int clientsCount,
        bool sharedSocketsHandler,
-       string tlsProtocols,
        Action<string> callback
    )
     {
         Version parsedHttpVersion = ParseHttpVersion(version);
-        SslProtocols parsedTlsVersions = TlsVersionParser.Map(tlsProtocols);
+        SslProtocols parsedTlsProtocols = TlsVersionParser.Map(tlsProtocols);
         _cancellationTokenSource.Cancel();
         if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
             return "Cancelled";
@@ -136,7 +137,7 @@ public static class CHttpExt
         {
             _cancellationTokenSource = new();
             return await PerfMeasureImplAsync(executionName, enableRedirects, enableCertificateValidation, useKerberosAuth, clientCertificatePath, clientCertificateKeyPath,
-                timeout, method, uri, parsedHttpVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, parsedTlsVersions, callback);
+                parsedTlsProtocols, timeout, method, uri, parsedHttpVersion, headers, body, requestCount, clientsCount, sharedSocketsHandler, callback);
         }
         finally
         {
@@ -151,6 +152,7 @@ public static class CHttpExt
         bool useKerberosAuth,
         string? clientCertificatePath,
         string? clientCertificateKeyPath,
+        SslProtocols tlsProtocols,
         double timeout,
         string method,
         string uri,
@@ -160,13 +162,12 @@ public static class CHttpExt
         int requestCount,
         int clientsCount,
         bool sharedSocketsHandler,
-        SslProtocols sslProtocols,
         Action<string> callback
     )
     {
         X509Certificate2? clientCertificate = LoadCertificate(clientCertificatePath, clientCertificateKeyPath);
         var httpBehavior = new HttpBehavior(timeout, false, string.Empty,
-            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate, sslProtocols));
+            new SocketBehavior(enableRedirects, enableCertificateValidation, useKerberosAuth, 1, AutomaticDecompression: false, clientCertificate, tlsProtocols));
         var parsedHeaders = new List<KeyValueDescriptor>();
         foreach (string header in headers ?? Enumerable.Empty<string>())
         {

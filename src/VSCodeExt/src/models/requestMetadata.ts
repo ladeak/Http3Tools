@@ -11,6 +11,7 @@ export enum RequestMetadata {
     SharedSocketHandler = 'shared-sockethandler',
     ClientCertificatePath = 'client-certificate-path',
     ClientCertificateKey = 'client-certificate-key',
+    TlsVersion = 'tls',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

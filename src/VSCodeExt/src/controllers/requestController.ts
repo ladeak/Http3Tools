@@ -76,6 +76,7 @@ export class RequestController {
                     metadatas.has(RequestMetadata.KerberosAuth),
                     metadatas.get(RequestMetadata.ClientCertificatePath),
                     metadatas.get(RequestMetadata.ClientCertificateKey),
+                    metadatas.get(RequestMetadata.TlsVersion),
                     this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
                     performanceHttpRequest.method,
                     performanceHttpRequest.uri,
@@ -118,13 +119,13 @@ export class RequestController {
             this._log.appendLine("Request Parsed");
             const CHttpModule = require(`../chttp-${os.platform()}-${os.arch()}/CHttpExtension.node`);
             this._log.appendLine(`Dependency loaded: ${CHttpModule}`);
-
             var response = await CHttpModule.CHttpExt.sendRequestAsync(
                 !metadatas.has(RequestMetadata.NoRedirect),
                 !metadatas.has(RequestMetadata.NoCertificateValidation),
                 metadatas.has(RequestMetadata.KerberosAuth),
                 metadatas.get(RequestMetadata.ClientCertificatePath),
                 metadatas.get(RequestMetadata.ClientCertificateKey),
+                metadatas.get(RequestMetadata.TlsVersion),
                 this.tryParseInt(metadatas.get(RequestMetadata.Timeout), 40),
                 httpRequest.method,
                 httpRequest.uri,

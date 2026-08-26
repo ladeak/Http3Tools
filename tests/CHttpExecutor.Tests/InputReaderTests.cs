@@ -52,7 +52,7 @@ GET https://localhost:5020/ HTTP/2"u8.ToArray();
         Assert.True(step.EnableRedirects!.Value);
         Assert.Equal("testCert.pem", step.ClientCertificatePath);
         Assert.Equal("testCert.key", step.ClientCertificateKeyPath);
-        Assert.Equal("Tls12;Tls13", step.TlsVersion);
+        Assert.Equal("Tls12;Tls13", step.TlsProtocols);
         Assert.Equal(5, step.Timeout!.Value);
     }
 

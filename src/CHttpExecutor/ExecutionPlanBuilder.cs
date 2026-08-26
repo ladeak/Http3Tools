@@ -196,7 +196,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
         {
             var value = parameters.ToString();
             ValidateVariableExistance(value);
-            _currentStep.TlsVersion = value;
+            _currentStep.TlsProtocols = value;
             return;
         }
 
@@ -260,7 +260,7 @@ internal partial class ExecutionPlanBuilder : IExecutionPlanBuilder
             Assertions = step.Assertions,
             ClientCertificatePath = step.ClientCertificatePath,
             ClientCertificateKeyPath = step.ClientCertificateKeyPath,
-            TlsVersion = step.TlsVersion,
+            TlsProtocols = step.TlsProtocols,
         };
 
     private void ValidateVariableExistance<T>(VarValue<T> source)

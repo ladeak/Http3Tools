@@ -81,7 +81,7 @@ internal class ExecutionStep
 
     public string? ClientCertificateKeyPath { get; set; }
 
-    public string? TlsVersion { get; set; }
+    public string? TlsProtocols { get; set; }
 
     public List<Variable> Variables { get; set; } = [];
 
@@ -94,7 +94,7 @@ internal class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
-        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsVersion == null
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsProtocols == null
         && Variables.Count == 0 && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 
@@ -105,7 +105,7 @@ internal class ExecutionStep
         && EnableRedirects == VarValue.True && NoCertificateValidation == VarValue.False
         && Headers.Count == 0 && RequestsCount == null && ClientsCount == null
         && SharedSocket == VarValue.False && Timeout == DefaultTimeout
-        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsVersion == null
+        && ClientCertificatePath == null && ClientCertificateKeyPath == null && TlsProtocols == null
         && Assertions.Count == 0
         && Version == HttpVersion.Version20;
 }
@@ -142,7 +142,7 @@ internal class FrozenExecutionStep
 
     public required string? ClientCertificateKeyPath { get; init; }
 
-    public required string? TlsVersion { get; init; }
+    public required string? TlsProtocols { get; init; }
 
     public IReadOnlyCollection<Variable> Variables { get; init; } = [];
 
