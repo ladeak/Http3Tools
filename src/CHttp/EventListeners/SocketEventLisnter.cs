@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.Metrics;
+﻿using System.Diagnostics.Metrics;
 using System.Diagnostics.Tracing;
 
 namespace CHttp.EventListeners;
@@ -26,13 +25,10 @@ internal sealed class HttpMetricsListener : IDisposable
         };
         _httpListener.SetMeasurementEventCallback<long>(OnMeasurementRecorded);
         _httpListener.Start();
+
     }
 
-    private void OnMeasurementRecorded<T>(
-        Instrument instrument,
-        T measurement,
-        ReadOnlySpan<KeyValuePair<string, object?>> tags,
-        object? state)
+    private void OnMeasurementRecorded<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
     {
         if (measurement is long count)
         {
@@ -53,6 +49,8 @@ internal sealed class HttpMetricsListener : IDisposable
     {
         if (_httpListener is null || _instrument is null || _tcs is null)
             return;
+        if (_instrument.IsObservable)
+            _httpListener.RecordObservableInstruments();
         await _tcs.Task;
         _httpListener.DisableMeasurementEvents(_instrument);
     }
