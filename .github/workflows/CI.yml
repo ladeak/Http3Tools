@@ -14,7 +14,7 @@ env:
   OUTPUT_FOLDER: net11.0
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v7
     - name: Setup .NET
@@ -37,7 +37,7 @@ jobs:
         dotnet test ./tests/CHttpServer.Tests --no-build -c ${{ env.CONFIGURATION }}
 
   build-and-test-node:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v7
     - name: Setup .NET
