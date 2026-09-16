@@ -17,6 +17,10 @@
     <DebugType>full</DebugType>
     <Http3Support>true</Http3Support>
   </PropertyGroup>
+  
+  <PropertyGroup Condition="$(TargetFramework) == 'net11.0'">
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />

@@ -15,6 +15,7 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <DebugType>full</DebugType>
     <LangVersion>preview</LangVersion>
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 
   <ItemGroup>

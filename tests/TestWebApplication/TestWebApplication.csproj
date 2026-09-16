@@ -4,6 +4,7 @@
     <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 
 </Project>

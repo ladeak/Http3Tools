@@ -8,6 +8,7 @@
     <EnablePreviewFeatures>True</EnablePreviewFeatures>
     <NoWarn>1701;1702;CA1416</NoWarn>
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 
   <ItemGroup>
