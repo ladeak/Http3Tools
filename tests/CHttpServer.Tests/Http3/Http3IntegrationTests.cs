@@ -18,6 +18,7 @@ public class Http3IntegrationTests : IClassFixture<TestServer>
     {
         var handler = new SocketsHttpHandler();
         handler.SslOptions.RemoteCertificateValidationCallback = (message, certificate, chain, sslPolicyErrors) => certificate?.Issuer == "CN=localhost";
+        handler.SslOptions.TargetHost = "localhost";
         return new HttpClient(handler);
     }
 
