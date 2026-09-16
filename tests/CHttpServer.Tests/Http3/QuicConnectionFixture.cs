@@ -37,7 +37,7 @@ internal static class QuicConnectionFixture
             {
                 ServerCertificate = X509CertificateLoader.LoadPkcs12FromFile("testCert.pfx", "testPassword"),
                 ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())],
-                EnabledSslProtocols = SslProtocols.Tls13
+                EnabledSslProtocols = SslProtocols.Tls13,
             },
             IdleTimeout = Debugger.IsAttached ? TimeSpan.MaxValue : TimeSpan.Zero,
         };
@@ -60,7 +60,7 @@ internal static class QuicConnectionFixture
             DefaultCloseErrorCode = 0x0100,
             DefaultStreamErrorCode = 0x010C,
             MaxInboundUnidirectionalStreams = 1,
-            ClientAuthenticationOptions = new SslClientAuthenticationOptions() { RemoteCertificateValidationCallback = (_, _, _, _) => true, ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())] },
+            ClientAuthenticationOptions = new SslClientAuthenticationOptions() { TargetHost = "localhost", RemoteCertificateValidationCallback = (_, _, _, _) => true, ApplicationProtocols = [new SslApplicationProtocol("h3"u8.ToArray())] },
             IdleTimeout = Debugger.IsAttached ? TimeSpan.MaxValue : TimeSpan.Zero,
         }, token);
     }
