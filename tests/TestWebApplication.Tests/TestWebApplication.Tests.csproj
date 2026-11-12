@@ -9,6 +9,8 @@
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
     <Features>$(Features);runtime-async=on</Features>
+    <MemorySafetyRulesVersion>2</MemorySafetyRulesVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

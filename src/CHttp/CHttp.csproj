@@ -20,6 +20,8 @@
   
   <PropertyGroup Condition="$(TargetFramework) == 'net11.0'">
     <Features>$(Features);runtime-async=on</Features>
+    <MemorySafetyRulesVersion>2</MemorySafetyRulesVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
